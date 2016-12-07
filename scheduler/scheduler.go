@@ -2,55 +2,55 @@ package scheduler
 
 import (
 	mesos "github.com/verizonlabs/mesos-go/mesosproto"
-	"github.com/verizonlabs/mesos-go/scheduler"
+	sched "github.com/verizonlabs/mesos-go/scheduler"
 )
 
-type Scheduler struct {
+type scheduler struct {
 	executor *mesos.ExecutorInfo
 }
 
-func NewScheduler(executor *mesos.ExecutorInfo) *Scheduler {
-	return &Scheduler{
+func NewScheduler(executor *mesos.ExecutorInfo) *scheduler {
+	return &scheduler{
 		executor: executor,
 	}
 }
 
-func (s *Scheduler) Registered(driver scheduler.SchedulerDriver, frameworkId *mesos.FrameworkID, master *mesos.MasterInfo) {
+func (s *scheduler) Registered(driver sched.SchedulerDriver, frameworkId *mesos.FrameworkID, master *mesos.MasterInfo) {
 	//Registered
 }
 
-func (s *Scheduler) Reregistered(driver scheduler.SchedulerDriver, master *mesos.MasterInfo) {
+func (s *scheduler) Reregistered(driver sched.SchedulerDriver, master *mesos.MasterInfo) {
 	//Re-registered
 }
 
-func (s *Scheduler) Disconnected(driver scheduler.SchedulerDriver) {
+func (s *scheduler) Disconnected(driver sched.SchedulerDriver) {
 	//Disconnected
 }
 
-func (s *Scheduler) ResourceOffers(driver scheduler.SchedulerDriver, offers []*mesos.Offer) {
+func (s *scheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*mesos.Offer) {
 	//Resource offers
 }
 
-func (s *Scheduler) StatusUpdate(driver scheduler.SchedulerDriver, status *mesos.TaskStatus) {
+func (s *scheduler) StatusUpdate(driver sched.SchedulerDriver, status *mesos.TaskStatus) {
 	//Task status updates
 }
 
-func (s *Scheduler) OfferRescinded(driver scheduler.SchedulerDriver, offerId *mesos.OfferID) {
+func (s *scheduler) OfferRescinded(driver sched.SchedulerDriver, offerId *mesos.OfferID) {
 	//Rescind offer
 }
 
-func (s *Scheduler) FrameworkMessage(driver scheduler.SchedulerDriver, executorId *mesos.ExecutorID, slaveId *mesos.SlaveID, msg string) {
+func (s *scheduler) FrameworkMessage(driver sched.SchedulerDriver, executorId *mesos.ExecutorID, slaveId *mesos.SlaveID, msg string) {
 	//Messages
 }
 
-func (s *Scheduler) SlaveLost(driver scheduler.SchedulerDriver, slaveId *mesos.SlaveID) {
+func (s *scheduler) SlaveLost(driver sched.SchedulerDriver, slaveId *mesos.SlaveID) {
 	//Lost slave
 }
 
-func (s *Scheduler) ExecutorLost(driver scheduler.SchedulerDriver, executorId *mesos.ExecutorID, slaveId *mesos.SlaveID, code int) {
+func (s *scheduler) ExecutorLost(driver sched.SchedulerDriver, executorId *mesos.ExecutorID, slaveId *mesos.SlaveID, code int) {
 	//Lost executor
 }
 
-func (s *Scheduler) Error(driver scheduler.SchedulerDriver, err string) {
+func (s *scheduler) Error(driver sched.SchedulerDriver, err string) {
 	//Scheduler got an error
 }
