@@ -44,6 +44,7 @@ func NewExecutor(cfg *configuration) *executor {
 		unackedUpdates: make(map[string]exec.Call_Update),
 		failedTasks:    make(map[mesos.TaskID]mesos.TaskStatus),
 		eventHandler: events.NewMux(
+			//TODO break all of these handlers out into their own unit
 			events.Handle(exec.Event_SUBSCRIBED, events.HandlerFunc(func(e *exec.Event) error {
 				//TODO handle subscribed event
 				return nil
