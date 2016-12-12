@@ -18,6 +18,7 @@ func main() {
 	fs.Parse(os.Args[1:])
 
 	shutdown := make(chan struct{})
+	defer close(shutdown)
 
 	sched := scheduler.NewScheduler(config, shutdown)
 	controller := scheduler.NewController(sched, shutdown)
