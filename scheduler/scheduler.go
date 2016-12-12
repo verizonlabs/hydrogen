@@ -3,6 +3,7 @@ package scheduler
 import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/verizonlabs/mesos-go"
+	"github.com/verizonlabs/mesos-go/backoff"
 	"github.com/verizonlabs/mesos-go/encoding"
 	ctrl "github.com/verizonlabs/mesos-go/extras/scheduler/controller"
 	"github.com/verizonlabs/mesos-go/httpcli"
@@ -25,6 +26,7 @@ type scheduler struct {
 		tasksFinished int
 		totalTasks    int
 		done          bool
+		reviveTokens  <-chan struct{}
 	}
 }
 
@@ -62,6 +64,16 @@ func NewScheduler(cfg *Configuration, shutdown chan struct{}) *scheduler {
 			),
 		)),
 		shutdown: shutdown,
+		state: struct {
+			frameworkId   string
+			tasksLaunched int
+			tasksFinished int
+			totalTasks    int
+			done          bool
+			reviveTokens  <-chan struct{}
+		}{
+			reviveTokens: backoff.BurstNotifier(cfg.reviveBurst, cfg.reviveWait, cfg.reviveWait, nil),
+		},
 	}
 }
 
