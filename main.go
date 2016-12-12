@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
-	"os"
 	"github.com/verizonlabs/sprint/scheduler"
+	"os"
 )
 
 func main() {
