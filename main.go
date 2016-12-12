@@ -29,5 +29,7 @@ func main() {
 			sched.GetCaller(),
 			shutdown,
 		))
+	case "executor":
+		//TODO start executor here
 	}
 }
