@@ -31,7 +31,7 @@ This is the first step in the communication process between the executor and age
 This is also to be considered as subscription to the “/executor” events stream.
 To subscribe with the agent, the executor sends a HTTP POST request with encoded SUBSCRIBE message.
 The HTTP response is a stream with RecordIO encoding, with the first event being SUBSCRIBED event.
- */
+*/
 func defaultSubscribeHandler() func() {
 	return func(e *exec.Event) error {
 		log.Print("Executor has subscribed.")
@@ -41,7 +41,7 @@ func defaultSubscribeHandler() func() {
 
 /*
 Sent by the agent whenever it needs to assign a new task to the executor.
- */
+*/
 func defaultLaunchHandler() func() {
 	return func(e *exec.Event) error {
 		log.Print("Executor is Launching.")
