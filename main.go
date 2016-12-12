@@ -22,7 +22,7 @@ func main() {
 		shutdown := make(chan struct{})
 
 		sched := scheduler.NewScheduler(config, shutdown)
-		controller := scheduler.NewController(shutdown)
+		controller := scheduler.NewController(sched, shutdown)
 		handlers := scheduler.NewHandlers(sched)
 
 		sched.Run(controller.GetSchedulerCtrl(), controller.BuildConfig(

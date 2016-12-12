@@ -6,8 +6,8 @@ import (
 	ctrl "github.com/verizonlabs/mesos-go/extras/scheduler/controller"
 	"github.com/verizonlabs/mesos-go/scheduler/calls"
 	"io"
-	"time"
 	"log"
+	"time"
 )
 
 var (
@@ -16,14 +16,16 @@ var (
 )
 
 type controller struct {
+	scheduler     *scheduler
 	schedulerCtrl ctrl.Controller
 	context       *ctrl.ContextAdapter
 	config        ctrl.Config
 	shutdown      <-chan struct{}
 }
 
-func NewController(shutdown <-chan struct{}) *controller {
+func NewController(s *scheduler, shutdown <-chan struct{}) *controller {
 	return &controller{
+		scheduler:     s,
 		schedulerCtrl: ctrl.New(),
 		shutdown:      shutdown,
 	}
@@ -36,12 +38,10 @@ func (c *controller) GetSchedulerCtrl() ctrl.Controller {
 func (c *controller) BuildContext() *ctrl.ContextAdapter {
 	c.context = &ctrl.ContextAdapter{
 		DoneFunc: func() bool {
-			//TODO implement state for this
-			return false
+			return c.scheduler.state.done
 		},
 		FrameworkIDFunc: func() string {
-			//TODO implement state for this
-			return ""
+			return c.scheduler.state.frameworkId
 		},
 		ErrorFunc: func(err error) {
 			if err != nil && err != io.EOF {

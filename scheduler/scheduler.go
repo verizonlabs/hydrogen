@@ -8,9 +8,9 @@ import (
 	"github.com/verizonlabs/mesos-go/httpcli"
 	"github.com/verizonlabs/mesos-go/httpcli/httpsched"
 	"github.com/verizonlabs/mesos-go/scheduler/calls"
+	"log"
 	"net/http"
 	"time"
-	"log"
 )
 
 type scheduler struct {
@@ -24,6 +24,7 @@ type scheduler struct {
 		tasksLaunched int
 		tasksFinished int
 		totalTasks    int
+		done          bool
 	}
 }
 
