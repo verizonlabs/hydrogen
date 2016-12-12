@@ -19,7 +19,7 @@ type controller struct {
 	scheduler     *scheduler
 	schedulerCtrl ctrl.Controller
 	context       *ctrl.ContextAdapter
-	config        ctrl.Config
+	config        *ctrl.Config
 	shutdown      <-chan struct{}
 }
 
@@ -61,8 +61,8 @@ func (c *controller) BuildFrameworkInfo(cfg *Configuration) *mesos.FrameworkInfo
 	}
 }
 
-func (c *controller) BuildConfig(ctx *ctrl.ContextAdapter, cfg *mesos.FrameworkInfo, http *calls.Caller, shutdown <-chan struct{}, h *handlers) ctrl.Config {
-	c.config = ctrl.Config{
+func (c *controller) BuildConfig(ctx *ctrl.ContextAdapter, cfg *mesos.FrameworkInfo, http *calls.Caller, shutdown <-chan struct{}, h *handlers) *ctrl.Config {
+	c.config = &ctrl.Config{
 		Context:            ctx,
 		Framework:          cfg,
 		Caller:             *http,

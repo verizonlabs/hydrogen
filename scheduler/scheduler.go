@@ -80,6 +80,6 @@ func (s *scheduler) GetCaller() *calls.Caller {
 	return &s.http
 }
 
-func (s *scheduler) Run(c ctrl.Controller, config ctrl.Config) error {
-	return c.Run(config)
+func (s *scheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
+	return c.Run(*config)
 }
