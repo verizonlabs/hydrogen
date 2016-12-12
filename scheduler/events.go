@@ -22,6 +22,7 @@ func NewEvents(s *scheduler, a ev.Handler) *events {
 }
 
 func (e *events) subscribed(event *sched.Event) error {
+	log.Println("Received subscribe event")
 	if e.sched.state.frameworkId == "" {
 		e.sched.state.frameworkId = event.GetSubscribed().GetFrameworkID().GetValue()
 		if e.sched.state.frameworkId == "" {
@@ -39,6 +40,7 @@ func (e *events) offers(event *sched.Event) error {
 }
 
 func (e *events) update(event *sched.Event) error {
+	log.Println("Received update event")
 	if err := e.ack.HandleEvent(event); err != nil {
 		log.Println("Failed to acknowledge status update for task: " + err.Error())
 	}
@@ -47,6 +49,7 @@ func (e *events) update(event *sched.Event) error {
 }
 
 func (e *events) failure(event *sched.Event) error {
+	log.Println("Received failure event")
 	f := event.GetFailure()
 	if f.ExecutorID != nil {
 		msg := "Executor '" + f.ExecutorID.Value + "' terminated"
