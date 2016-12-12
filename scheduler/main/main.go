@@ -21,6 +21,8 @@ func main() {
 	controller := scheduler.NewController(sched, shutdown)
 	handlers := scheduler.NewHandlers(sched)
 
+	log.Println("Starting framework scheduler")
+
 	err := sched.Run(controller.GetSchedulerCtrl(), controller.BuildConfig(
 		controller.BuildContext(),
 		controller.BuildFrameworkInfo(config),

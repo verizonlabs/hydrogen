@@ -7,19 +7,19 @@ import (
 )
 
 type Configuration struct {
-	masterEndpoint string
-	name           string
-	checkpointing  bool
-	principal      string
-	uris           []mesos.CommandInfo_URI
-	command        string
-	timeout        time.Duration
-	reviveBurst    int
-	reviveWait     time.Duration
+	endpoint      string
+	name          string
+	checkpointing bool
+	principal     string
+	uris          []mesos.CommandInfo_URI
+	command       string
+	timeout       time.Duration
+	reviveBurst   int
+	reviveWait    time.Duration
 }
 
 func (c *Configuration) Initialize(fs *flag.FlagSet) {
-	fs.StringVar(&c.masterEndpoint, "masterEndpoint", "http://127.0.0.1:5050/api/v1/scheduler", "Mesos master endpoint")
+	fs.StringVar(&c.endpoint, "endpoint", "http://127.0.0.1:5050/api/v1/scheduler", "Mesos scheduler API endpoint")
 	fs.StringVar(&c.name, "name", "Sprint", "Framework name")
 	fs.BoolVar(&c.checkpointing, "checkpointing", true, "Enable or disable checkpointing")
 	fs.StringVar(&c.principal, "principal", "Sprint", "Framework principal")

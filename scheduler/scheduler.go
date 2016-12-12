@@ -50,7 +50,7 @@ func NewScheduler(cfg *Configuration, shutdown chan struct{}) *scheduler {
 			},
 		},
 		http: httpsched.NewCaller(httpcli.New(
-			httpcli.Endpoint(cfg.masterEndpoint),
+			httpcli.Endpoint(cfg.endpoint),
 			httpcli.Codec(&encoding.ProtobufCodec),
 			httpcli.Do(
 				httpcli.With(
