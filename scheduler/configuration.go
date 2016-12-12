@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-type configuration struct {
+type Configuration struct {
 	masterEndpoint string
 	name           string
 	checkpointing  bool
@@ -16,7 +16,7 @@ type configuration struct {
 	timeout        time.Duration
 }
 
-func (c *configuration) initialize(fs *flag.FlagSet) {
+func (c *Configuration) Initialize(fs *flag.FlagSet) {
 	fs.StringVar(&c.masterEndpoint, "masterEndpoint", "http://127.0.0.1:5050", "Mesos master endpoint")
 	fs.StringVar(&c.name, "name", "Sprint", "Framework name")
 	fs.BoolVar(&c.checkpointing, "checkpointing", true, "Enable or disable checkpointing")

@@ -4,6 +4,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/verizonlabs/mesos-go"
 	"github.com/verizonlabs/mesos-go/encoding"
+	ctrl "github.com/verizonlabs/mesos-go/extras/scheduler/controller"
 	"github.com/verizonlabs/mesos-go/httpcli"
 	"github.com/verizonlabs/mesos-go/httpcli/httpsched"
 	"github.com/verizonlabs/mesos-go/scheduler/calls"
@@ -12,14 +13,14 @@ import (
 )
 
 type scheduler struct {
-	config    *configuration
+	config    *Configuration
 	framework *mesos.FrameworkInfo
 	executor  *mesos.ExecutorInfo
 	http      calls.Caller
 	shutdown  chan struct{}
 }
 
-func NewScheduler(cfg *configuration) *scheduler {
+func NewScheduler(cfg *Configuration, shutdown chan struct{}) *scheduler {
 	return &scheduler{
 		config: cfg,
 		framework: &mesos.FrameworkInfo{
@@ -52,5 +53,17 @@ func NewScheduler(cfg *configuration) *scheduler {
 				),
 			),
 		)),
+		shutdown: shutdown,
+	}
+}
+
+func (s *scheduler) GetCaller() *calls.Caller {
+	return &s.http
+}
+
+func (s *scheduler) Run(c ctrl.Controller, config ctrl.Config) {
+	err := c.Run(config)
+	if err != nil {
+		//TODO determine how we want to log across the project
 	}
 }
