@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"github.com/verizonlabs/sprint/scheduler"
+	"log"
 	"os"
 )
 
@@ -20,11 +21,15 @@ func main() {
 	controller := scheduler.NewController(sched, shutdown)
 	handlers := scheduler.NewHandlers(sched)
 
-	sched.Run(controller.GetSchedulerCtrl(), controller.BuildConfig(
+	err := sched.Run(controller.GetSchedulerCtrl(), controller.BuildConfig(
 		controller.BuildContext(),
 		controller.BuildFrameworkInfo(config),
 		sched.GetCaller(),
 		shutdown,
 		handlers,
 	))
+
+	if err != nil {
+		log.Fatal(err)
+	}
 }
