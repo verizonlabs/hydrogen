@@ -19,7 +19,7 @@ type Configuration struct {
 }
 
 func (c *Configuration) Initialize(fs *flag.FlagSet) {
-	fs.StringVar(&c.masterEndpoint, "masterEndpoint", "http://127.0.0.1:5050", "Mesos master endpoint")
+	fs.StringVar(&c.masterEndpoint, "masterEndpoint", "http://127.0.0.1:5050/api/v1/scheduler", "Mesos master endpoint")
 	fs.StringVar(&c.name, "name", "Sprint", "Framework name")
 	fs.BoolVar(&c.checkpointing, "checkpointing", true, "Enable or disable checkpointing")
 	fs.StringVar(&c.principal, "principal", "Sprint", "Framework principal")
