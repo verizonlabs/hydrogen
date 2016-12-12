@@ -15,6 +15,7 @@ var (
 	RegistrationMaxBackoff = 15 * time.Second
 )
 
+// Manages the context and configuration for our scheduler.
 type controller struct {
 	scheduler     *scheduler
 	schedulerCtrl ctrl.Controller
@@ -23,6 +24,7 @@ type controller struct {
 	shutdown      <-chan struct{}
 }
 
+// Returns a new controller with some shared state applied from the scheduler.
 func NewController(s *scheduler, shutdown <-chan struct{}) *controller {
 	return &controller{
 		scheduler:     s,
@@ -31,10 +33,12 @@ func NewController(s *scheduler, shutdown <-chan struct{}) *controller {
 	}
 }
 
+// Returns the internal scheduler controller.
 func (c *controller) GetSchedulerCtrl() ctrl.Controller {
 	return c.schedulerCtrl
 }
 
+// Builds out context for us to use when managing state in the scheduler.
 func (c *controller) BuildContext() *ctrl.ContextAdapter {
 	c.context = &ctrl.ContextAdapter{
 		DoneFunc: func() bool {
@@ -54,6 +58,7 @@ func (c *controller) BuildContext() *ctrl.ContextAdapter {
 	return c.context
 }
 
+// Builds out information about our framework that will be sent to Mesos.
 func (c *controller) BuildFrameworkInfo(cfg *Configuration) *mesos.FrameworkInfo {
 	return &mesos.FrameworkInfo{
 		Name:       cfg.name,
@@ -61,6 +66,7 @@ func (c *controller) BuildFrameworkInfo(cfg *Configuration) *mesos.FrameworkInfo
 	}
 }
 
+// Builds out the controller configuration which uses our context and framework information.
 func (c *controller) BuildConfig(ctx *ctrl.ContextAdapter, cfg *mesos.FrameworkInfo, http *calls.Caller, shutdown <-chan struct{}, h *handlers) *ctrl.Config {
 	c.config = &ctrl.Config{
 		Context:            ctx,

@@ -7,6 +7,8 @@ import (
 	"os"
 )
 
+// Entry point for the scheduler.
+// Parses configuration from user-supplied flags and prepares the scheduler for execution.
 func main() {
 	fs := flag.NewFlagSet("scheduler", flag.ExitOnError)
 

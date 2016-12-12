@@ -6,6 +6,7 @@ import (
 	"time"
 )
 
+// Configuration for the scheduler, populated by user-supplied flags.
 type Configuration struct {
 	endpoint      string
 	name          string
@@ -18,6 +19,7 @@ type Configuration struct {
 	reviveWait    time.Duration
 }
 
+// Applies values to the various configurations from user-supplied flags.
 func (c *Configuration) Initialize(fs *flag.FlagSet) {
 	fs.StringVar(&c.endpoint, "endpoint", "http://127.0.0.1:5050/api/v1/scheduler", "Mesos scheduler API endpoint")
 	fs.StringVar(&c.name, "name", "Sprint", "Framework name")

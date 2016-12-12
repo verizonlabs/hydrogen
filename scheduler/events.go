@@ -9,11 +9,13 @@ import (
 	"strconv"
 )
 
+// Holds context about our scheduler and acknowledge handler.
 type events struct {
 	sched *scheduler
 	ack   ev.Handler
 }
 
+// Applies the contextual information from the scheduler.
 func NewEvents(s *scheduler, a ev.Handler) *events {
 	return &events{
 		sched: s,
@@ -21,6 +23,7 @@ func NewEvents(s *scheduler, a ev.Handler) *events {
 	}
 }
 
+// Handler for subscribed events
 func (e *events) subscribed(event *sched.Event) error {
 	log.Println("Received subscribe event")
 	if e.sched.state.frameworkId == "" {
@@ -34,11 +37,13 @@ func (e *events) subscribed(event *sched.Event) error {
 	return nil
 }
 
+// Handler for offers events
 func (e *events) offers(event *sched.Event) error {
 	//TODO implement handling resource offers
 	return nil
 }
 
+// Handler for update events
 func (e *events) update(event *sched.Event) error {
 	log.Println("Received update event")
 	if err := e.ack.HandleEvent(event); err != nil {
@@ -48,6 +53,7 @@ func (e *events) update(event *sched.Event) error {
 	return nil
 }
 
+// Handler for failure events
 func (e *events) failure(event *sched.Event) error {
 	log.Println("Received failure event")
 	f := event.GetFailure()

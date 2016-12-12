@@ -13,6 +13,7 @@ import (
 	"time"
 )
 
+// Holds all necessary information for our scheduler to function.
 type scheduler struct {
 	config    *Configuration
 	framework *mesos.FrameworkInfo
@@ -29,6 +30,7 @@ type scheduler struct {
 	}
 }
 
+// Returns a new scheduler using user-supplied configuration.
 func NewScheduler(cfg *Configuration, shutdown chan struct{}) *scheduler {
 	return &scheduler{
 		config: cfg,
@@ -76,10 +78,12 @@ func NewScheduler(cfg *Configuration, shutdown chan struct{}) *scheduler {
 	}
 }
 
+// Returns the caller that we use for communication.
 func (s *scheduler) GetCaller() *calls.Caller {
 	return &s.http
 }
 
+// Runs our scheduler with some applied configuration.
 func (s *scheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
 	return c.Run(*config)
 }
