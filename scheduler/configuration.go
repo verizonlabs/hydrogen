@@ -15,7 +15,7 @@ type Configuration struct {
 	uris          []mesos.CommandInfo_URI
 	command       string
 	timeout       time.Duration
-	reviveBurst   int
+	reviveBurst   uint
 	reviveWait    time.Duration
 }
 
@@ -27,6 +27,6 @@ func (c *Configuration) Initialize(fs *flag.FlagSet) {
 	fs.StringVar(&c.principal, "principal", "Sprint", "Framework principal")
 	fs.StringVar(&c.command, "command", "", "Executor command")
 	fs.DurationVar(&c.timeout, "timeout", 20*time.Second, "Mesos connection timeout")
-	fs.IntVar(&c.reviveBurst, "revive.burst", 3, "Number of revive messages that may be sent in a burst within revive-wait period")
+	fs.UintVar(&c.reviveBurst, "revive.burst", 3, "Number of revive messages that may be sent in a burst within revive-wait period")
 	fs.DurationVar(&c.reviveWait, "revive.wait", 1*time.Second, "Wait this long to fully recharge revive-burst quota")
 }

@@ -22,9 +22,9 @@ type scheduler struct {
 	shutdown  chan struct{}
 	state     struct {
 		frameworkId   string
-		tasksLaunched int
-		tasksFinished int
-		totalTasks    int
+		tasksLaunched uint
+		tasksFinished uint
+		totalTasks    uint
 		done          bool
 		reviveTokens  <-chan struct{}
 	}
@@ -67,9 +67,9 @@ func NewScheduler(cfg *Configuration, shutdown chan struct{}) *scheduler {
 		shutdown: shutdown,
 		state: struct {
 			frameworkId   string
-			tasksLaunched int
-			tasksFinished int
-			totalTasks    int
+			tasksLaunched uint
+			tasksFinished uint
+			totalTasks    uint
 			done          bool
 			reviveTokens  <-chan struct{}
 		}{
