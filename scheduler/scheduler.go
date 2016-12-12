@@ -10,6 +10,7 @@ import (
 	"github.com/verizonlabs/mesos-go/scheduler/calls"
 	"net/http"
 	"time"
+	"log"
 )
 
 type scheduler struct {
@@ -18,6 +19,12 @@ type scheduler struct {
 	executor  *mesos.ExecutorInfo
 	http      calls.Caller
 	shutdown  chan struct{}
+	state     struct {
+		frameworkId   string
+		tasksLaunched int
+		tasksFinished int
+		totalTasks    int
+	}
 }
 
 func NewScheduler(cfg *Configuration, shutdown chan struct{}) *scheduler {
@@ -64,6 +71,6 @@ func (s *scheduler) GetCaller() *calls.Caller {
 func (s *scheduler) Run(c ctrl.Controller, config ctrl.Config) {
 	err := c.Run(config)
 	if err != nil {
-		//TODO determine how we want to log across the project
+		log.Println(err.Error())
 	}
 }

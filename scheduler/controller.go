@@ -7,6 +7,7 @@ import (
 	"github.com/verizonlabs/mesos-go/scheduler/calls"
 	"io"
 	"time"
+	"log"
 )
 
 var (
@@ -44,9 +45,9 @@ func (c *controller) BuildContext() *ctrl.ContextAdapter {
 		},
 		ErrorFunc: func(err error) {
 			if err != nil && err != io.EOF {
-				//TODO determine how we want to log across the project
+				log.Println(err)
 			} else {
-				//TODO determine how we want to log across the project
+				log.Println("Disconnected")
 			}
 		},
 	}
@@ -60,13 +61,13 @@ func (c *controller) BuildFrameworkInfo(cfg *Configuration) *mesos.FrameworkInfo
 	}
 }
 
-func (c *controller) BuildConfig(ctx *ctrl.ContextAdapter, cfg *mesos.FrameworkInfo, http *calls.Caller, shutdown <-chan struct{}) ctrl.Config {
+func (c *controller) BuildConfig(ctx *ctrl.ContextAdapter, cfg *mesos.FrameworkInfo, http *calls.Caller, shutdown <-chan struct{}, h *handlers) ctrl.Config {
 	c.config = ctrl.Config{
 		Context:            ctx,
 		Framework:          cfg,
 		Caller:             *http,
 		RegistrationTokens: backoff.Notifier(RegistrationMinBackoff, RegistrationMaxBackoff, shutdown),
-		//Handler:            handler,
+		Handler:            h.mux,
 	}
 	return c.config
 }

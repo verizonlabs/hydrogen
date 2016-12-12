@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
-	"os"
 	"github.com/verizonlabs/sprint/scheduler"
+	"os"
 )
 
 func main() {
@@ -23,11 +23,14 @@ func main() {
 
 		sched := scheduler.NewScheduler(config, shutdown)
 		controller := scheduler.NewController(shutdown)
+		handlers := scheduler.NewHandlers(sched)
+
 		sched.Run(controller.GetSchedulerCtrl(), controller.BuildConfig(
 			controller.BuildContext(),
 			controller.BuildFrameworkInfo(config),
 			sched.GetCaller(),
 			shutdown,
+			handlers,
 		))
 	case "executor":
 		//TODO start executor here
