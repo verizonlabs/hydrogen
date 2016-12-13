@@ -10,7 +10,9 @@ import (
 )
 
 // Mocked scheduler.
-type mockScheduler struct{}
+type mockScheduler struct{
+	cfg configuration
+}
 
 func (m *mockScheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
 	return nil

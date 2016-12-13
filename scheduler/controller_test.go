@@ -12,7 +12,9 @@ var c controller
 func init() {
 	cfg = new(mockConfiguration)
 	cfg.Initialize(nil)
-	s = NewScheduler(cfg, make(chan struct{}))
+	s = &mockScheduler{
+		cfg: cfg,
+	}
 	c = NewController(s, make(<-chan struct{}))
 }
 
