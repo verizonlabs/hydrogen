@@ -1,22 +1,23 @@
 package scheduler
 
 import (
-	"testing"
 	"flag"
+	"testing"
 	"time"
 )
 
 var (
-	endpoint = "http://127.0.0.1:5050/api/v1/scheduler"
-	name = "Sprint"
+	endpoint      = "http://127.0.0.1:5050/api/v1/scheduler"
+	name          = "Sprint"
 	checkpointing = true
-	principal = "Sprint"
-	command = ""
-	timeout = 20*time.Second
-	reviveBurst = 3
-	reviveWait = 1*time.Second
+	principal     = "Sprint"
+	command       = ""
+	timeout       = 20 * time.Second
+	reviveBurst   = 3
+	reviveWait    = 1 * time.Second
 )
 
+// Tests setting up default configuration values
 func TestConfiguration_Initialize(t *testing.T) {
 	t.Parallel()
 
@@ -48,5 +49,15 @@ func TestConfiguration_Initialize(t *testing.T) {
 	}
 	if config.reviveWait != reviveWait {
 		t.Fatal("Revive wait duration is not consistent")
+	}
+}
+
+// Benchmarks setting up default configuration values
+func BenchmarkConfiguration_Initialize(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		fs := flag.NewFlagSet("test", flag.PanicOnError)
+
+		config := new(Configuration)
+		config.Initialize(fs)
 	}
 }
