@@ -1,32 +1,10 @@
 package scheduler
 
 import (
-	"flag"
 	ctrl "github.com/verizonlabs/mesos-go/extras/scheduler/controller"
 	"reflect"
 	"testing"
 )
-
-// Mocked configuration
-type mockConfiguration struct {
-	name          string
-	checkpointing *bool
-}
-
-func (m *mockConfiguration) Initialize(fs *flag.FlagSet) {
-	checkpointing := true
-
-	m.name = "Test"
-	m.checkpointing = &checkpointing
-}
-
-func (m *mockConfiguration) GetName() string {
-	return m.name
-}
-
-func (m *mockConfiguration) GetCheckpointing() *bool {
-	return m.checkpointing
-}
 
 var (
 	c   baseController

@@ -6,6 +6,27 @@ import (
 	"time"
 )
 
+// Mocked configuration
+type mockConfiguration struct {
+	name          string
+	checkpointing *bool
+}
+
+func (m *mockConfiguration) Initialize(fs *flag.FlagSet) {
+	checkpointing := true
+
+	m.name = "Test"
+	m.checkpointing = &checkpointing
+}
+
+func (m *mockConfiguration) GetName() string {
+	return m.name
+}
+
+func (m *mockConfiguration) GetCheckpointing() *bool {
+	return m.checkpointing
+}
+
 var (
 	endpoint      = "http://127.0.0.1:5050/api/v1/scheduler"
 	name          = "Sprint"
