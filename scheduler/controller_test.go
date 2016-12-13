@@ -25,13 +25,16 @@ func (m *mockScheduler) GetCaller() *calls.Caller {
 	return &s
 }
 
+var c baseController
+
+func init() {
+	c = NewController(new(mockScheduler), make(<-chan struct{}))
+}
+
 // Ensures that we get the correct type from creating a new controller.
 func TestNewController(t *testing.T) {
 	t.Parallel()
 
-	var c baseController
-
-	c = NewController(new(mockScheduler), make(<-chan struct{}))
 	switch c.(type) {
 	case *controller:
 		return
@@ -44,9 +47,6 @@ func TestNewController(t *testing.T) {
 func TestController_GetSchedulerCtrl(t *testing.T) {
 	t.Parallel()
 
-	var c baseController
-
-	c = NewController(new(mockScheduler), make(<-chan struct{}))
 	switch c.GetSchedulerCtrl().(type) {
 	case ctrl.Controller:
 		return
@@ -59,9 +59,6 @@ func TestController_GetSchedulerCtrl(t *testing.T) {
 func TestController_BuildContext(t *testing.T) {
 	t.Parallel()
 
-	var c baseController
-
-	c = NewController(new(mockScheduler), make(<-chan struct{}))
 	ctx := c.BuildContext()
 
 	if reflect.TypeOf(ctx) != reflect.TypeOf(new(ctrl.ContextAdapter)) {
@@ -83,5 +80,4 @@ func TestController_BuildContext(t *testing.T) {
 	if reflect.TypeOf(ctx.DoneFunc()).Kind() != reflect.Bool {
 		t.Fatal("FrameworkID function does not return the correct type")
 	}
-
 }
