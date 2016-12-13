@@ -53,6 +53,7 @@ var (
 	s   mockScheduler
 )
 
+//Prepare common data for our tests
 func init() {
 	s = *new(mockScheduler)
 	c = NewController(&s, make(<-chan struct{}))
