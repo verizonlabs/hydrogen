@@ -11,12 +11,12 @@ import (
 
 // Holds context about our scheduler and acknowledge handler.
 type events struct {
-	sched *scheduler
+	sched baseScheduler
 	ack   ev.Handler
 }
 
 // Applies the contextual information from the scheduler.
-func NewEvents(s *scheduler, a ev.Handler) *events {
+func NewEvents(s baseScheduler, a ev.Handler) *events {
 	return &events{
 		sched: s,
 		ack:   a,
@@ -26,12 +26,12 @@ func NewEvents(s *scheduler, a ev.Handler) *events {
 // Handler for subscribed events
 func (e *events) subscribed(event *sched.Event) error {
 	log.Println("Received subscribe event")
-	if e.sched.state.frameworkId == "" {
-		e.sched.state.frameworkId = event.GetSubscribed().GetFrameworkID().GetValue()
-		if e.sched.state.frameworkId == "" {
+	if e.sched.GetState().frameworkId == "" {
+		e.sched.GetState().frameworkId = event.GetSubscribed().GetFrameworkID().GetValue()
+		if e.sched.GetState().frameworkId == "" {
 			return errors.New("mesos gave us an empty frameworkID")
 		} else {
-			e.sched.http = calls.FrameworkCaller(e.sched.state.frameworkId).Apply(e.sched.http)
+			*e.sched.GetCaller() = calls.FrameworkCaller(e.sched.GetState().frameworkId).Apply(*e.sched.GetCaller())
 		}
 	}
 	return nil
