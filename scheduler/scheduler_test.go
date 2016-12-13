@@ -58,3 +58,13 @@ func TestScheduler_GetState(t *testing.T) {
 		t.Fatal("Starting state of scheduler tasks is not correct")
 	}
 }
+
+// Tests to see if the scheduler has the right caller.
+func TestScheduler_GetCaller(t *testing.T) {
+	t.Parallel()
+
+	caller := s.GetCaller()
+	if reflect.TypeOf(*caller) != reflect.TypeOf(httpsched.NewCaller(httpcli.New())) {
+		t.Fatal("Scheduler does not have the right kind of caller")
+	}
+}
