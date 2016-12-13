@@ -10,14 +10,23 @@ import (
 	"time"
 )
 
+// Sane defaults for backoff timings
 var (
 	RegistrationMinBackoff = 1 * time.Second
 	RegistrationMaxBackoff = 15 * time.Second
 )
 
+// Base implementation of a controller
+type baseController interface {
+	GetSchedulerCtrl() ctrl.Controller
+	BuildContext() *ctrl.ContextAdapter
+	BuildFrameworkInfo(cfg *Configuration) *mesos.FrameworkInfo
+	BuildConfig(ctx *ctrl.ContextAdapter, cfg *mesos.FrameworkInfo, http *calls.Caller, shutdown <-chan struct{}, h *handlers) *ctrl.Config
+}
+
 // Manages the context and configuration for our scheduler.
 type controller struct {
-	scheduler     *scheduler
+	scheduler     baseScheduler
 	schedulerCtrl ctrl.Controller
 	context       *ctrl.ContextAdapter
 	config        *ctrl.Config
@@ -25,7 +34,7 @@ type controller struct {
 }
 
 // Returns a new controller with some shared state applied from the scheduler.
-func NewController(s *scheduler, shutdown <-chan struct{}) *controller {
+func NewController(s baseScheduler, shutdown <-chan struct{}) *controller {
 	return &controller{
 		scheduler:     s,
 		schedulerCtrl: ctrl.New(),
@@ -42,10 +51,10 @@ func (c *controller) GetSchedulerCtrl() ctrl.Controller {
 func (c *controller) BuildContext() *ctrl.ContextAdapter {
 	c.context = &ctrl.ContextAdapter{
 		DoneFunc: func() bool {
-			return c.scheduler.state.done
+			return c.scheduler.GetState().done
 		},
 		FrameworkIDFunc: func() string {
-			return c.scheduler.state.frameworkId
+			return c.scheduler.GetState().frameworkId
 		},
 		ErrorFunc: func(err error) {
 			if err != nil && err != io.EOF {

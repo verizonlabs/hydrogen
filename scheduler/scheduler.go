@@ -13,6 +13,22 @@ import (
 	"time"
 )
 
+// Base implementation of a scheduler
+type baseScheduler interface {
+	Run(c ctrl.Controller, config *ctrl.Config) error
+	GetState() *state
+	GetCaller() *calls.Caller
+}
+
+type state struct {
+	frameworkId   string
+	tasksLaunched uint
+	tasksFinished uint
+	totalTasks    uint
+	done          bool
+	reviveTokens  <-chan struct{}
+}
+
 // Holds all necessary information for our scheduler to function.
 type scheduler struct {
 	config    *Configuration
@@ -20,14 +36,7 @@ type scheduler struct {
 	executor  *mesos.ExecutorInfo
 	http      calls.Caller
 	shutdown  chan struct{}
-	state     struct {
-		frameworkId   string
-		tasksLaunched uint
-		tasksFinished uint
-		totalTasks    uint
-		done          bool
-		reviveTokens  <-chan struct{}
-	}
+	state     state
 }
 
 // Returns a new scheduler using user-supplied configuration.
@@ -65,17 +74,15 @@ func NewScheduler(cfg *Configuration, shutdown chan struct{}) *scheduler {
 			),
 		)),
 		shutdown: shutdown,
-		state: struct {
-			frameworkId   string
-			tasksLaunched uint
-			tasksFinished uint
-			totalTasks    uint
-			done          bool
-			reviveTokens  <-chan struct{}
-		}{
+		state: state{
 			reviveTokens: backoff.BurstNotifier(cfg.reviveBurst, cfg.reviveWait, cfg.reviveWait, nil),
 		},
 	}
+}
+
+// Returns the internal state of the scheduler
+func (s *scheduler) GetState() *state {
+	return &s.state
 }
 
 // Returns the caller that we use for communication.
