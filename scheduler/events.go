@@ -11,12 +11,12 @@ import (
 
 // Holds context about our scheduler and acknowledge handler.
 type events struct {
-	sched baseScheduler
+	sched scheduler
 	ack   ev.Handler
 }
 
 // Applies the contextual information from the scheduler.
-func NewEvents(s baseScheduler, a ev.Handler) *events {
+func NewEvents(s scheduler, a ev.Handler) *events {
 	return &events{
 		sched: s,
 		ack:   a,

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-var c baseController
+var c controller
 
 //Prepare common data for our tests
 func init() {
@@ -21,7 +21,7 @@ func TestNewController(t *testing.T) {
 	t.Parallel()
 
 	switch c.(type) {
-	case *controller:
+	case *sprintController:
 		return
 	default:
 		t.Fatal("Controller is not of the right type")

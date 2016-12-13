@@ -9,7 +9,7 @@ import (
 
 // Mocked configuration
 type mockConfiguration struct {
-	cfg Configuration
+	cfg SprintConfiguration
 }
 
 func (m *mockConfiguration) Initialize(fs *flag.FlagSet) {
@@ -59,7 +59,7 @@ func (m *mockConfiguration) GetReviveWait() time.Duration {
 	return m.cfg.reviveWait
 }
 
-var cfg baseConfiguration
+var cfg configuration
 
 func init() {
 	cfg = new(mockConfiguration)
@@ -71,7 +71,7 @@ func TestConfiguration_Initialize(t *testing.T) {
 
 	fs := flag.NewFlagSet("test", flag.PanicOnError)
 
-	config := new(Configuration)
+	config := new(SprintConfiguration)
 	config.Initialize(fs)
 
 	if config.endpoint != cfg.GetEndpoint() {
@@ -105,7 +105,7 @@ func BenchmarkConfiguration_Initialize(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		fs := flag.NewFlagSet("test", flag.PanicOnError)
 
-		config := new(Configuration)
+		config := new(SprintConfiguration)
 		config.Initialize(fs)
 	}
 }

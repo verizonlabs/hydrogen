@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-type baseConfiguration interface {
+type configuration interface {
 	Initialize(fs *flag.FlagSet)
 	GetName() string
 	GetCheckpointing() *bool
@@ -20,7 +20,7 @@ type baseConfiguration interface {
 }
 
 // Configuration for the scheduler, populated by user-supplied flags.
-type Configuration struct {
+type SprintConfiguration struct {
 	endpoint      string
 	name          string
 	checkpointing bool
@@ -33,7 +33,7 @@ type Configuration struct {
 }
 
 // Applies values to the various configurations from user-supplied flags.
-func (c *Configuration) Initialize(fs *flag.FlagSet) {
+func (c *SprintConfiguration) Initialize(fs *flag.FlagSet) {
 	fs.StringVar(&c.endpoint, "endpoint", "http://127.0.0.1:5050/api/v1/scheduler", "Mesos scheduler API endpoint")
 	fs.StringVar(&c.name, "name", "Sprint", "Framework name")
 	fs.BoolVar(&c.checkpointing, "checkpointing", true, "Enable or disable checkpointing")
@@ -44,38 +44,38 @@ func (c *Configuration) Initialize(fs *flag.FlagSet) {
 	fs.DurationVar(&c.reviveWait, "revive.wait", 1*time.Second, "Wait this long to fully recharge revive-burst quota")
 }
 
-func (c *Configuration) GetName() string {
+func (c *SprintConfiguration) GetName() string {
 	return c.name
 }
 
-func (c *Configuration) GetCheckpointing() *bool {
+func (c *SprintConfiguration) GetCheckpointing() *bool {
 	return &c.checkpointing
 }
 
-func (c *Configuration) GetPrincipal() string {
+func (c *SprintConfiguration) GetPrincipal() string {
 	return c.principal
 }
 
-func (c *Configuration) GetCommand() string {
+func (c *SprintConfiguration) GetCommand() string {
 	return c.command
 }
 
-func (c *Configuration) GetUris() []mesos.CommandInfo_URI {
+func (c *SprintConfiguration) GetUris() []mesos.CommandInfo_URI {
 	return c.uris
 }
 
-func (c *Configuration) GetTimeout() time.Duration {
+func (c *SprintConfiguration) GetTimeout() time.Duration {
 	return c.timeout
 }
 
-func (c *Configuration) GetEndpoint() string {
+func (c *SprintConfiguration) GetEndpoint() string {
 	return c.endpoint
 }
 
-func (c *Configuration) GetReviveBurst() int {
+func (c *SprintConfiguration) GetReviveBurst() int {
 	return c.reviveBurst
 }
 
-func (c *Configuration) GetReviveWait() time.Duration {
+func (c *SprintConfiguration) GetReviveWait() time.Duration {
 	return c.reviveWait
 }

@@ -14,7 +14,7 @@ import (
 )
 
 // Base implementation of a scheduler.
-type baseScheduler interface {
+type scheduler interface {
 	Run(c ctrl.Controller, config *ctrl.Config) error
 	GetState() *state
 	GetCaller() *calls.Caller
@@ -31,8 +31,8 @@ type state struct {
 }
 
 // Holds all necessary information for our scheduler to function.
-type scheduler struct {
-	config    baseConfiguration
+type sprintScheduler struct {
+	config    configuration
 	framework *mesos.FrameworkInfo
 	executor  *mesos.ExecutorInfo
 	http      calls.Caller
@@ -41,8 +41,8 @@ type scheduler struct {
 }
 
 // Returns a new scheduler using user-supplied configuration.
-func NewScheduler(cfg baseConfiguration, shutdown chan struct{}) *scheduler {
-	return &scheduler{
+func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
+	return &sprintScheduler{
 		config: cfg,
 		framework: &mesos.FrameworkInfo{
 			Name:       cfg.GetName(),
@@ -82,16 +82,16 @@ func NewScheduler(cfg baseConfiguration, shutdown chan struct{}) *scheduler {
 }
 
 // Returns the internal state of the scheduler
-func (s *scheduler) GetState() *state {
+func (s *sprintScheduler) GetState() *state {
 	return &s.state
 }
 
 // Returns the caller that we use for communication.
-func (s *scheduler) GetCaller() *calls.Caller {
+func (s *sprintScheduler) GetCaller() *calls.Caller {
 	return &s.http
 }
 
 // Runs our scheduler with some applied configuration.
-func (s *scheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
+func (s *sprintScheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
 	return c.Run(*config)
 }

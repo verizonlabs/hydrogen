@@ -17,16 +17,16 @@ var (
 )
 
 // Base implementation of a controller
-type baseController interface {
+type controller interface {
 	GetSchedulerCtrl() ctrl.Controller
 	BuildContext() *ctrl.ContextAdapter
-	BuildFrameworkInfo(cfg baseConfiguration) *mesos.FrameworkInfo
+	BuildFrameworkInfo(cfg configuration) *mesos.FrameworkInfo
 	BuildConfig(ctx *ctrl.ContextAdapter, cfg *mesos.FrameworkInfo, http *calls.Caller, shutdown <-chan struct{}, h *handlers) *ctrl.Config
 }
 
 // Manages the context and configuration for our scheduler.
-type controller struct {
-	scheduler     baseScheduler
+type sprintController struct {
+	scheduler     scheduler
 	schedulerCtrl ctrl.Controller
 	context       *ctrl.ContextAdapter
 	config        *ctrl.Config
@@ -34,8 +34,8 @@ type controller struct {
 }
 
 // Returns a new controller with some shared state applied from the scheduler.
-func NewController(s baseScheduler, shutdown <-chan struct{}) *controller {
-	return &controller{
+func NewController(s scheduler, shutdown <-chan struct{}) *sprintController {
+	return &sprintController{
 		scheduler:     s,
 		schedulerCtrl: ctrl.New(),
 		shutdown:      shutdown,
@@ -43,12 +43,12 @@ func NewController(s baseScheduler, shutdown <-chan struct{}) *controller {
 }
 
 // Returns the internal scheduler controller.
-func (c *controller) GetSchedulerCtrl() ctrl.Controller {
+func (c *sprintController) GetSchedulerCtrl() ctrl.Controller {
 	return c.schedulerCtrl
 }
 
 // Builds out context for us to use when managing state in the scheduler.
-func (c *controller) BuildContext() *ctrl.ContextAdapter {
+func (c *sprintController) BuildContext() *ctrl.ContextAdapter {
 	c.context = &ctrl.ContextAdapter{
 		DoneFunc: func() bool {
 			return c.scheduler.GetState().done
@@ -68,7 +68,7 @@ func (c *controller) BuildContext() *ctrl.ContextAdapter {
 }
 
 // Builds out information about our framework that will be sent to Mesos.
-func (c *controller) BuildFrameworkInfo(cfg baseConfiguration) *mesos.FrameworkInfo {
+func (c *sprintController) BuildFrameworkInfo(cfg configuration) *mesos.FrameworkInfo {
 	return &mesos.FrameworkInfo{
 		Name:       cfg.GetName(),
 		Checkpoint: cfg.GetCheckpointing(),
@@ -76,7 +76,7 @@ func (c *controller) BuildFrameworkInfo(cfg baseConfiguration) *mesos.FrameworkI
 }
 
 // Builds out the controller configuration which uses our context and framework information.
-func (c *controller) BuildConfig(ctx *ctrl.ContextAdapter, cfg *mesos.FrameworkInfo, http *calls.Caller, shutdown <-chan struct{}, h *handlers) *ctrl.Config {
+func (c *sprintController) BuildConfig(ctx *ctrl.ContextAdapter, cfg *mesos.FrameworkInfo, http *calls.Caller, shutdown <-chan struct{}, h *handlers) *ctrl.Config {
 	c.config = &ctrl.Config{
 		Context:            ctx,
 		Framework:          cfg,

@@ -25,7 +25,7 @@ func (m *mockScheduler) GetCaller() *calls.Caller {
 	return &s
 }
 
-var s baseScheduler
+var s scheduler
 
 func init() {
 	cfg = new(mockConfiguration)
@@ -38,7 +38,7 @@ func TestNewScheduler(t *testing.T) {
 	t.Parallel()
 
 	switch s.(type) {
-	case *scheduler:
+	case *sprintScheduler:
 		return
 	default:
 		t.Fatal("Controller is not of the right type")
