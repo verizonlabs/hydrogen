@@ -5,6 +5,7 @@ import (
 	"github.com/verizonlabs/mesos-go/httpcli"
 	"github.com/verizonlabs/mesos-go/httpcli/httpsched"
 	"github.com/verizonlabs/mesos-go/scheduler/calls"
+	"reflect"
 	"testing"
 )
 
@@ -52,4 +53,35 @@ func TestController_GetSchedulerCtrl(t *testing.T) {
 	default:
 		t.Fatal("Scheduler controller is not of the right type")
 	}
+}
+
+// Ensures we have the right types after building the context.
+func TestController_BuildContext(t *testing.T) {
+	t.Parallel()
+
+	var c baseController
+
+	c = NewController(new(mockScheduler), make(<-chan struct{}))
+	ctx := c.BuildContext()
+
+	if reflect.TypeOf(ctx) != reflect.TypeOf(new(ctrl.ContextAdapter)) {
+		t.Fatal("Controller context is not of the right type")
+	}
+	if reflect.TypeOf(ctx.DoneFunc).Kind() != reflect.Func {
+		t.Fatal("Context does not have a valid done function")
+	}
+	if reflect.TypeOf(ctx.FrameworkIDFunc).Kind() != reflect.Func {
+		t.Fatal("Context does not have a valid FrameworkID function")
+	}
+	if reflect.TypeOf(ctx.ErrorFunc).Kind() != reflect.Func {
+		t.Fatal("Context does not have a valid error function")
+	}
+
+	if reflect.TypeOf(ctx.FrameworkIDFunc()).Kind() != reflect.String {
+		t.Fatal("FrameworkID function does not return the correct type")
+	}
+	if reflect.TypeOf(ctx.DoneFunc()).Kind() != reflect.Bool {
+		t.Fatal("FrameworkID function does not return the correct type")
+	}
+
 }
