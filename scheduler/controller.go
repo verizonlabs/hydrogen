@@ -20,7 +20,7 @@ var (
 type baseController interface {
 	GetSchedulerCtrl() ctrl.Controller
 	BuildContext() *ctrl.ContextAdapter
-	BuildFrameworkInfo(cfg *Configuration) *mesos.FrameworkInfo
+	BuildFrameworkInfo(cfg baseConfiguration) *mesos.FrameworkInfo
 	BuildConfig(ctx *ctrl.ContextAdapter, cfg *mesos.FrameworkInfo, http *calls.Caller, shutdown <-chan struct{}, h *handlers) *ctrl.Config
 }
 
@@ -68,10 +68,10 @@ func (c *controller) BuildContext() *ctrl.ContextAdapter {
 }
 
 // Builds out information about our framework that will be sent to Mesos.
-func (c *controller) BuildFrameworkInfo(cfg *Configuration) *mesos.FrameworkInfo {
+func (c *controller) BuildFrameworkInfo(cfg baseConfiguration) *mesos.FrameworkInfo {
 	return &mesos.FrameworkInfo{
-		Name:       cfg.name,
-		Checkpoint: &cfg.checkpointing,
+		Name:       cfg.GetName(),
+		Checkpoint: cfg.GetCheckpointing(),
 	}
 }
 

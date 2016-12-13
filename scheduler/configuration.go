@@ -6,6 +6,12 @@ import (
 	"time"
 )
 
+type baseConfiguration interface {
+	Initialize(fs *flag.FlagSet)
+	GetName() string
+	GetCheckpointing() *bool
+}
+
 // Configuration for the scheduler, populated by user-supplied flags.
 type Configuration struct {
 	endpoint      string
@@ -29,4 +35,12 @@ func (c *Configuration) Initialize(fs *flag.FlagSet) {
 	fs.DurationVar(&c.timeout, "timeout", 20*time.Second, "Mesos connection timeout")
 	fs.IntVar(&c.reviveBurst, "revive.burst", 3, "Number of revive messages that may be sent in a burst within revive-wait period")
 	fs.DurationVar(&c.reviveWait, "revive.wait", 1*time.Second, "Wait this long to fully recharge revive-burst quota")
+}
+
+func (c *Configuration) GetName() string {
+	return c.name
+}
+
+func (c *Configuration) GetCheckpointing() *bool {
+	return &c.checkpointing
 }
