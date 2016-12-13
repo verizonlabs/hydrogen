@@ -3,6 +3,7 @@ package scheduler
 import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/verizonlabs/mesos-go"
+	"github.com/verizonlabs/mesos-go/backoff"
 	"github.com/verizonlabs/mesos-go/encoding"
 	ctrl "github.com/verizonlabs/mesos-go/extras/scheduler/controller"
 	"github.com/verizonlabs/mesos-go/httpcli"
@@ -12,14 +13,24 @@ import (
 	"time"
 )
 
+// Holds all necessary information for our scheduler to function.
 type scheduler struct {
 	config    *Configuration
 	framework *mesos.FrameworkInfo
 	executor  *mesos.ExecutorInfo
 	http      calls.Caller
 	shutdown  chan struct{}
+	state     struct {
+		frameworkId   string
+		tasksLaunched uint
+		tasksFinished uint
+		totalTasks    uint
+		done          bool
+		reviveTokens  <-chan struct{}
+	}
 }
 
+// Returns a new scheduler using user-supplied configuration.
 func NewScheduler(cfg *Configuration, shutdown chan struct{}) *scheduler {
 	return &scheduler{
 		config: cfg,
@@ -41,7 +52,7 @@ func NewScheduler(cfg *Configuration, shutdown chan struct{}) *scheduler {
 			},
 		},
 		http: httpsched.NewCaller(httpcli.New(
-			httpcli.Endpoint(cfg.masterEndpoint),
+			httpcli.Endpoint(cfg.endpoint),
 			httpcli.Codec(&encoding.ProtobufCodec),
 			httpcli.Do(
 				httpcli.With(
@@ -54,16 +65,25 @@ func NewScheduler(cfg *Configuration, shutdown chan struct{}) *scheduler {
 			),
 		)),
 		shutdown: shutdown,
+		state: struct {
+			frameworkId   string
+			tasksLaunched uint
+			tasksFinished uint
+			totalTasks    uint
+			done          bool
+			reviveTokens  <-chan struct{}
+		}{
+			reviveTokens: backoff.BurstNotifier(cfg.reviveBurst, cfg.reviveWait, cfg.reviveWait, nil),
+		},
 	}
 }
 
+// Returns the caller that we use for communication.
 func (s *scheduler) GetCaller() *calls.Caller {
 	return &s.http
 }
 
-func (s *scheduler) Run(c ctrl.Controller, config ctrl.Config) {
-	err := c.Run(config)
-	if err != nil {
-		//TODO determine how we want to log across the project
-	}
+// Runs our scheduler with some applied configuration.
+func (s *scheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
+	return c.Run(*config)
 }

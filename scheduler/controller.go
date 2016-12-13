@@ -6,6 +6,7 @@ import (
 	ctrl "github.com/verizonlabs/mesos-go/extras/scheduler/controller"
 	"github.com/verizonlabs/mesos-go/scheduler/calls"
 	"io"
+	"log"
 	"time"
 )
 
@@ -14,45 +15,50 @@ var (
 	RegistrationMaxBackoff = 15 * time.Second
 )
 
+// Manages the context and configuration for our scheduler.
 type controller struct {
+	scheduler     *scheduler
 	schedulerCtrl ctrl.Controller
 	context       *ctrl.ContextAdapter
-	config        ctrl.Config
+	config        *ctrl.Config
 	shutdown      <-chan struct{}
 }
 
-func NewController(shutdown <-chan struct{}) *controller {
+// Returns a new controller with some shared state applied from the scheduler.
+func NewController(s *scheduler, shutdown <-chan struct{}) *controller {
 	return &controller{
+		scheduler:     s,
 		schedulerCtrl: ctrl.New(),
 		shutdown:      shutdown,
 	}
 }
 
+// Returns the internal scheduler controller.
 func (c *controller) GetSchedulerCtrl() ctrl.Controller {
 	return c.schedulerCtrl
 }
 
+// Builds out context for us to use when managing state in the scheduler.
 func (c *controller) BuildContext() *ctrl.ContextAdapter {
 	c.context = &ctrl.ContextAdapter{
 		DoneFunc: func() bool {
-			//TODO implement state for this
-			return false
+			return c.scheduler.state.done
 		},
 		FrameworkIDFunc: func() string {
-			//TODO implement state for this
-			return ""
+			return c.scheduler.state.frameworkId
 		},
 		ErrorFunc: func(err error) {
 			if err != nil && err != io.EOF {
-				//TODO determine how we want to log across the project
+				log.Println(err)
 			} else {
-				//TODO determine how we want to log across the project
+				log.Println("Disconnected")
 			}
 		},
 	}
 	return c.context
 }
 
+// Builds out information about our framework that will be sent to Mesos.
 func (c *controller) BuildFrameworkInfo(cfg *Configuration) *mesos.FrameworkInfo {
 	return &mesos.FrameworkInfo{
 		Name:       cfg.name,
@@ -60,13 +66,14 @@ func (c *controller) BuildFrameworkInfo(cfg *Configuration) *mesos.FrameworkInfo
 	}
 }
 
-func (c *controller) BuildConfig(ctx *ctrl.ContextAdapter, cfg *mesos.FrameworkInfo, http *calls.Caller, shutdown <-chan struct{}) ctrl.Config {
-	c.config = ctrl.Config{
+// Builds out the controller configuration which uses our context and framework information.
+func (c *controller) BuildConfig(ctx *ctrl.ContextAdapter, cfg *mesos.FrameworkInfo, http *calls.Caller, shutdown <-chan struct{}, h *handlers) *ctrl.Config {
+	c.config = &ctrl.Config{
 		Context:            ctx,
 		Framework:          cfg,
 		Caller:             *http,
 		RegistrationTokens: backoff.Notifier(RegistrationMinBackoff, RegistrationMaxBackoff, shutdown),
-		//Handler:            handler,
+		Handler:            h.mux,
 	}
 	return c.config
 }
