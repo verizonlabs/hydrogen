@@ -50,10 +50,12 @@ func (m *mockConfiguration) GetCheckpointing() *bool {
 var (
 	c   baseController
 	cfg baseConfiguration
+	s mockScheduler
 )
 
 func init() {
-	c = NewController(new(mockScheduler), make(<-chan struct{}))
+	s = *new(mockScheduler)
+	c = NewController(&s, make(<-chan struct{}))
 	cfg = new(mockConfiguration)
 	cfg.Initialize(nil)
 }
@@ -119,5 +121,21 @@ func TestController_BuildFrameworkInfo(t *testing.T) {
 	}
 	if info.GetCheckpoint() != true {
 		t.Fatal("FrameworkInfo does not have checkpointing set correctly")
+	}
+}
+
+// Ensures that we build the controller's configuration correctly.
+func TestController_BuildConfig(t *testing.T) {
+	t.Parallel()
+
+	ctx := c.BuildContext()
+	info := c.BuildFrameworkInfo(cfg)
+	http := new(mockScheduler).GetCaller()
+	shutdown := make(<-chan struct{})
+	handlers := NewHandlers(&s)
+
+	config := c.BuildConfig(ctx, info, http, shutdown, handlers)
+	if reflect.TypeOf(config) != reflect.TypeOf(new(ctrl.Config)) {
+		t.Fatal("Controller configuration is not of the right type")
 	}
 }
