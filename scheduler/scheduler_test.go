@@ -4,8 +4,8 @@ import (
 	ctrl "github.com/verizonlabs/mesos-go/extras/scheduler/controller"
 	"github.com/verizonlabs/mesos-go/httpcli"
 	"github.com/verizonlabs/mesos-go/httpcli/httpsched"
-	"testing"
 	"github.com/verizonlabs/mesos-go/scheduler/calls"
+	"testing"
 )
 
 // Mocked scheduler.
@@ -24,3 +24,21 @@ func (m *mockScheduler) GetCaller() *calls.Caller {
 	return &s
 }
 
+var s baseScheduler
+
+func init() {
+	cfg = new(mockConfiguration)
+	cfg.Initialize(nil)
+	s = NewScheduler(cfg, make(chan struct{}))
+}
+
+func TestNewScheduler(t *testing.T) {
+	t.Parallel()
+
+	switch s.(type) {
+	case *scheduler:
+		return
+	default:
+		t.Fatal("Controller is not of the right type")
+	}
+}

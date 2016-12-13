@@ -32,7 +32,7 @@ type state struct {
 
 // Holds all necessary information for our scheduler to function.
 type scheduler struct {
-	config    *Configuration
+	config    baseConfiguration
 	framework *mesos.FrameworkInfo
 	executor  *mesos.ExecutorInfo
 	http      calls.Caller
@@ -41,12 +41,12 @@ type scheduler struct {
 }
 
 // Returns a new scheduler using user-supplied configuration.
-func NewScheduler(cfg *Configuration, shutdown chan struct{}) *scheduler {
+func NewScheduler(cfg baseConfiguration, shutdown chan struct{}) *scheduler {
 	return &scheduler{
 		config: cfg,
 		framework: &mesos.FrameworkInfo{
-			Name:       cfg.name,
-			Checkpoint: &cfg.checkpointing,
+			Name:       cfg.GetName(),
+			Checkpoint: cfg.GetCheckpointing(),
 		},
 		executor: &mesos.ExecutorInfo{
 			ExecutorID: mesos.ExecutorID{
@@ -54,19 +54,19 @@ func NewScheduler(cfg *Configuration, shutdown chan struct{}) *scheduler {
 			},
 			Name: proto.String("Sprinter"),
 			Command: mesos.CommandInfo{
-				Value: proto.String(cfg.command),
-				URIs:  cfg.uris,
+				Value: proto.String(cfg.GetCommand()),
+				URIs:  cfg.GetUris(),
 			},
 			Container: &mesos.ContainerInfo{
 				Type: mesos.ContainerInfo_MESOS.Enum(),
 			},
 		},
 		http: httpsched.NewCaller(httpcli.New(
-			httpcli.Endpoint(cfg.endpoint),
+			httpcli.Endpoint(cfg.GetEndpoint()),
 			httpcli.Codec(&encoding.ProtobufCodec),
 			httpcli.Do(
 				httpcli.With(
-					httpcli.Timeout(cfg.timeout),
+					httpcli.Timeout(cfg.GetTimeout()),
 					httpcli.Transport(func(t *http.Transport) {
 						t.ResponseHeaderTimeout = 15 * time.Second
 						t.MaxIdleConnsPerHost = 2
@@ -76,7 +76,7 @@ func NewScheduler(cfg *Configuration, shutdown chan struct{}) *scheduler {
 		)),
 		shutdown: shutdown,
 		state: state{
-			reviveTokens: backoff.BurstNotifier(cfg.reviveBurst, cfg.reviveWait, cfg.reviveWait, nil),
+			reviveTokens: backoff.BurstNotifier(cfg.GetReviveBurst(), cfg.GetReviveWait(), cfg.GetReviveWait(), nil),
 		},
 	}
 }
