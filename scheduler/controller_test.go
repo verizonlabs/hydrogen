@@ -50,7 +50,7 @@ func (m *mockConfiguration) GetCheckpointing() *bool {
 var (
 	c   baseController
 	cfg baseConfiguration
-	s mockScheduler
+	s   mockScheduler
 )
 
 func init() {
@@ -137,5 +137,14 @@ func TestController_BuildConfig(t *testing.T) {
 	config := c.BuildConfig(ctx, info, http, shutdown, handlers)
 	if reflect.TypeOf(config) != reflect.TypeOf(new(ctrl.Config)) {
 		t.Fatal("Controller configuration is not of the right type")
+	}
+	if config.Context != ctx {
+		t.Fatal("Configuration contexts don't match")
+	}
+	if config.Framework != info {
+		t.Fatal("Configuration FrameworkInfo does not match")
+	}
+	if config.Caller != *http {
+		t.Fatal("Configuration caller does not match")
 	}
 }
