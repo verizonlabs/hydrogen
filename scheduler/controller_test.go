@@ -6,18 +6,14 @@ import (
 	"testing"
 )
 
-var (
-	c   baseController
-	cfg baseConfiguration
-	s   mockScheduler
-)
+var c baseController
 
 //Prepare common data for our tests
 func init() {
-	s = *new(mockScheduler)
-	c = NewController(&s, make(<-chan struct{}))
 	cfg = new(mockConfiguration)
 	cfg.Initialize(nil)
+	s = NewScheduler(cfg, make(chan struct{}))
+	c = NewController(s, make(<-chan struct{}))
 }
 
 // Ensures that we get the correct type from creating a new controller.
@@ -76,7 +72,7 @@ func TestController_BuildFrameworkInfo(t *testing.T) {
 	t.Parallel()
 
 	info := c.BuildFrameworkInfo(cfg)
-	if info.GetName() != "Test" {
+	if info.GetName() != cfg.GetName() {
 		t.Fatal("FrameworkInfo has the wrong name")
 	}
 	if info.GetCheckpoint() != true {
@@ -92,7 +88,7 @@ func TestController_BuildConfig(t *testing.T) {
 	info := c.BuildFrameworkInfo(cfg)
 	http := new(mockScheduler).GetCaller()
 	shutdown := make(<-chan struct{})
-	handlers := NewHandlers(&s)
+	handlers := NewHandlers(s)
 
 	config := c.BuildConfig(ctx, info, http, shutdown, handlers)
 	if reflect.TypeOf(config) != reflect.TypeOf(new(ctrl.Config)) {
