@@ -27,10 +27,10 @@ func (m *mockScheduler) GetCaller() *calls.Caller {
 func TestNewController(t *testing.T) {
 	t.Parallel()
 
-	var ctrl baseController
+	var c baseController
 
-	ctrl = NewController(new(mockScheduler), make(<-chan struct{}))
-	switch ctrl.(type) {
+	c = NewController(new(mockScheduler), make(<-chan struct{}))
+	switch c.(type) {
 	case *controller:
 		return
 	default:
