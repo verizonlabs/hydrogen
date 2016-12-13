@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// Mocked scheduler
+// Mocked scheduler.
 type mockScheduler struct{}
 
 func (m *mockScheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
@@ -24,6 +24,7 @@ func (m *mockScheduler) GetCaller() *calls.Caller {
 	return &s
 }
 
+// Ensures that we get the correct type from creating a new controller.
 func TestNewController(t *testing.T) {
 	t.Parallel()
 
@@ -35,5 +36,20 @@ func TestNewController(t *testing.T) {
 		return
 	default:
 		t.Fatal("Controller is not of the right type")
+	}
+}
+
+// Ensures that we get the correct type from getting the internal scheduler controller.
+func TestController_GetSchedulerCtrl(t *testing.T) {
+	t.Parallel()
+
+	var c baseController
+
+	c = NewController(new(mockScheduler), make(<-chan struct{}))
+	switch c.GetSchedulerCtrl().(type) {
+	case ctrl.Controller:
+		return
+	default:
+		t.Fatal("Scheduler controller is not of the right type")
 	}
 }

@@ -13,13 +13,14 @@ import (
 	"time"
 )
 
-// Base implementation of a scheduler
+// Base implementation of a scheduler.
 type baseScheduler interface {
 	Run(c ctrl.Controller, config *ctrl.Config) error
 	GetState() *state
 	GetCaller() *calls.Caller
 }
 
+// Scheduler state.
 type state struct {
 	frameworkId   string
 	tasksLaunched uint
