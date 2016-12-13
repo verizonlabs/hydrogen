@@ -10,6 +10,13 @@ type baseConfiguration interface {
 	Initialize(fs *flag.FlagSet)
 	GetName() string
 	GetCheckpointing() *bool
+	GetPrincipal() string
+	GetCommand() string
+	GetUris() []mesos.CommandInfo_URI
+	GetEndpoint() string
+	GetTimeout() time.Duration
+	GetReviveBurst() int
+	GetReviveWait() time.Duration
 }
 
 // Configuration for the scheduler, populated by user-supplied flags.
@@ -43,4 +50,32 @@ func (c *Configuration) GetName() string {
 
 func (c *Configuration) GetCheckpointing() *bool {
 	return &c.checkpointing
+}
+
+func (c *Configuration) GetPrincipal() string {
+	return c.principal
+}
+
+func (c *Configuration) GetCommand() string {
+	return c.command
+}
+
+func (c *Configuration) GetUris() []mesos.CommandInfo_URI {
+	return c.uris
+}
+
+func (c *Configuration) GetTimeout() time.Duration {
+	return c.timeout
+}
+
+func (c *Configuration) GetEndpoint() string {
+	return c.endpoint
+}
+
+func (c *Configuration) GetReviveBurst() int {
+	return c.reviveBurst
+}
+
+func (c *Configuration) GetReviveWait() time.Duration {
+	return c.reviveWait
 }
