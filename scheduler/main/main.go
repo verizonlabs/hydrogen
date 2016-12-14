@@ -12,8 +12,7 @@ import (
 func main() {
 	fs := flag.NewFlagSet("scheduler", flag.ExitOnError)
 
-	config := new(scheduler.SprintConfiguration)
-	config.Initialize(fs)
+	config := new(scheduler.SprintConfiguration).Initialize(fs)
 
 	fs.Parse(os.Args[1:])
 

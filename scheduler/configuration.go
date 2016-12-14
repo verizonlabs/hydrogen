@@ -7,7 +7,7 @@ import (
 )
 
 type configuration interface {
-	Initialize(fs *flag.FlagSet)
+	Initialize(fs *flag.FlagSet) *SprintConfiguration
 	Name() string
 	Checkpointing() *bool
 	Principal() string
@@ -33,7 +33,7 @@ type SprintConfiguration struct {
 }
 
 // Applies values to the various configurations from user-supplied flags.
-func (c *SprintConfiguration) Initialize(fs *flag.FlagSet) {
+func (c *SprintConfiguration) Initialize(fs *flag.FlagSet) *SprintConfiguration {
 	fs.StringVar(&c.endpoint, "endpoint", "http://127.0.0.1:5050/api/v1/scheduler", "Mesos scheduler API endpoint")
 	fs.StringVar(&c.name, "name", "Sprint", "Framework name")
 	fs.BoolVar(&c.checkpointing, "checkpointing", true, "Enable or disable checkpointing")
@@ -42,6 +42,8 @@ func (c *SprintConfiguration) Initialize(fs *flag.FlagSet) {
 	fs.DurationVar(&c.timeout, "timeout", 20*time.Second, "Mesos connection timeout")
 	fs.IntVar(&c.reviveBurst, "revive.burst", 3, "Number of revive messages that may be sent in a burst within revive-wait period")
 	fs.DurationVar(&c.reviveWait, "revive.wait", 1*time.Second, "Wait this long to fully recharge revive-burst quota")
+
+	return c
 }
 
 func (c *SprintConfiguration) Name() string {

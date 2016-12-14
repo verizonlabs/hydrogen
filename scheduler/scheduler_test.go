@@ -35,8 +35,7 @@ func (m *mockScheduler) FrameworkInfo() *mesos.FrameworkInfo {
 var s scheduler
 
 func init() {
-	cfg = new(mockConfiguration)
-	cfg.Initialize(nil)
+	cfg = new(mockConfiguration).Initialize(nil)
 	s = NewScheduler(cfg, make(chan struct{}))
 }
 

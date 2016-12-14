@@ -31,8 +31,7 @@ var c controller
 
 //Prepare common data for our tests.
 func init() {
-	cfg = new(mockConfiguration)
-	cfg.Initialize(nil)
+	cfg = new(mockConfiguration).Initialize(nil)
 	s = &mockScheduler{
 		cfg: cfg,
 	}

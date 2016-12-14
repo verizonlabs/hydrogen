@@ -12,7 +12,7 @@ type mockConfiguration struct {
 	cfg SprintConfiguration
 }
 
-func (m *mockConfiguration) Initialize(fs *flag.FlagSet) {
+func (m *mockConfiguration) Initialize(fs *flag.FlagSet) *SprintConfiguration {
 	m.cfg.name = "Sprint"
 	m.cfg.checkpointing = true
 	m.cfg.command = ""
@@ -21,6 +21,8 @@ func (m *mockConfiguration) Initialize(fs *flag.FlagSet) {
 	m.cfg.reviveBurst = 3
 	m.cfg.reviveWait = 1 * time.Second
 	m.cfg.timeout = 20 * time.Second
+
+	return &m.cfg
 }
 
 func (m *mockConfiguration) Name() string {
@@ -71,8 +73,7 @@ func TestConfiguration_Initialize(t *testing.T) {
 
 	fs := flag.NewFlagSet("test", flag.PanicOnError)
 
-	config := new(SprintConfiguration)
-	config.Initialize(fs)
+	config := new(SprintConfiguration).Initialize(fs)
 
 	if config.endpoint != cfg.Endpoint() {
 		t.Fatal("Invalid endpoint")
