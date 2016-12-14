@@ -37,8 +37,8 @@ func (m *mockConfiguration) Principal() string {
 	return m.cfg.principal
 }
 
-func (m *mockConfiguration) Command() string {
-	return m.cfg.command
+func (m *mockConfiguration) Command() *string {
+	return &m.cfg.command
 }
 
 func (m *mockConfiguration) Uris() []mesos.CommandInfo_URI {
