@@ -2,7 +2,7 @@ package scheduler
 
 import (
 	"flag"
-	"github.com/verizonlabs/mesos-go"
+	"mesos-sdk"
 	"time"
 )
 
