@@ -23,7 +23,7 @@ func (m *mockController) BuildFrameworkInfo(cfg configuration) *mesos.FrameworkI
 	return &mesos.FrameworkInfo{}
 }
 
-func (m *mockController) BuildConfig(ctx *ctrl.ContextAdapter, cfg *mesos.FrameworkInfo, http *calls.Caller, shutdown <-chan struct{}, h *handlers) *ctrl.Config {
+func (m *mockController) BuildConfig(ctx *ctrl.ContextAdapter, http *calls.Caller, shutdown <-chan struct{}, h *handlers) *ctrl.Config {
 	return &ctrl.Config{}
 }
 
@@ -108,19 +108,18 @@ func TestController_BuildConfig(t *testing.T) {
 	t.Parallel()
 
 	ctx := c.BuildContext()
-	info := c.BuildFrameworkInfo(cfg)
 	http := new(mockScheduler).GetCaller()
 	shutdown := make(<-chan struct{})
 	handlers := NewHandlers(s)
 
-	config := c.BuildConfig(ctx, info, http, shutdown, handlers)
+	config := c.BuildConfig(ctx, http, shutdown, handlers)
 	if reflect.TypeOf(config) != reflect.TypeOf(new(ctrl.Config)) {
 		t.Fatal("Controller configuration is not of the right type")
 	}
 	if config.Context != ctx {
 		t.Fatal("Configuration contexts don't match")
 	}
-	if config.Framework != info {
+	if reflect.TypeOf(config.Framework) != reflect.TypeOf(s.GetFrameworkInfo()) {
 		t.Fatal("Configuration FrameworkInfo does not match")
 	}
 	if config.Caller != *http {

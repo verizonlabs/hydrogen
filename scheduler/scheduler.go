@@ -18,6 +18,7 @@ type scheduler interface {
 	Run(c ctrl.Controller, config *ctrl.Config) error
 	GetState() *state
 	GetCaller() *calls.Caller
+	GetFrameworkInfo() *mesos.FrameworkInfo
 }
 
 // Scheduler state.
@@ -89,6 +90,11 @@ func (s *sprintScheduler) GetState() *state {
 // Returns the caller that we use for communication.
 func (s *sprintScheduler) GetCaller() *calls.Caller {
 	return &s.http
+}
+
+// Returns the FrameworkInfo that is sent to Mesos.
+func (s *sprintScheduler) GetFrameworkInfo() *mesos.FrameworkInfo {
+	return s.framework
 }
 
 // Runs our scheduler with some applied configuration.

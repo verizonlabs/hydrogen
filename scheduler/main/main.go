@@ -28,7 +28,6 @@ func main() {
 
 	err := sched.Run(controller.GetSchedulerCtrl(), controller.BuildConfig(
 		controller.BuildContext(),
-		controller.BuildFrameworkInfo(config),
 		sched.GetCaller(),
 		shutdown,
 		handlers,

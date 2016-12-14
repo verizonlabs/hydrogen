@@ -7,6 +7,7 @@ import (
 	"github.com/verizonlabs/mesos-go/scheduler/calls"
 	"reflect"
 	"testing"
+	"github.com/verizonlabs/mesos-go"
 )
 
 // Mocked scheduler.
@@ -25,6 +26,10 @@ func (m *mockScheduler) GetState() *state {
 func (m *mockScheduler) GetCaller() *calls.Caller {
 	s := httpsched.NewCaller(httpcli.New())
 	return &s
+}
+
+func (m *mockScheduler) GetFrameworkInfo() *mesos.FrameworkInfo {
+	return &mesos.FrameworkInfo{}
 }
 
 var s scheduler

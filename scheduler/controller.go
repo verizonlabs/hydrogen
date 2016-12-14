@@ -21,7 +21,7 @@ type controller interface {
 	GetSchedulerCtrl() ctrl.Controller
 	BuildContext() *ctrl.ContextAdapter
 	BuildFrameworkInfo(cfg configuration) *mesos.FrameworkInfo
-	BuildConfig(ctx *ctrl.ContextAdapter, cfg *mesos.FrameworkInfo, http *calls.Caller, shutdown <-chan struct{}, h *handlers) *ctrl.Config
+	BuildConfig(ctx *ctrl.ContextAdapter, http *calls.Caller, shutdown <-chan struct{}, h *handlers) *ctrl.Config
 }
 
 // Manages the context and configuration for our scheduler.
@@ -76,10 +76,10 @@ func (c *sprintController) BuildFrameworkInfo(cfg configuration) *mesos.Framewor
 }
 
 // Builds out the controller configuration which uses our context and framework information.
-func (c *sprintController) BuildConfig(ctx *ctrl.ContextAdapter, cfg *mesos.FrameworkInfo, http *calls.Caller, shutdown <-chan struct{}, h *handlers) *ctrl.Config {
+func (c *sprintController) BuildConfig(ctx *ctrl.ContextAdapter, http *calls.Caller, shutdown <-chan struct{}, h *handlers) *ctrl.Config {
 	c.config = &ctrl.Config{
 		Context:            ctx,
-		Framework:          cfg,
+		Framework:          c.scheduler.GetFrameworkInfo(),
 		Caller:             *http,
 		RegistrationTokens: backoff.Notifier(RegistrationMinBackoff, RegistrationMaxBackoff, shutdown),
 		Handler:            h.mux,
