@@ -1,14 +1,35 @@
 package scheduler
 
 import (
+	"github.com/verizonlabs/mesos-go"
 	ctrl "github.com/verizonlabs/mesos-go/extras/scheduler/controller"
+	"github.com/verizonlabs/mesos-go/scheduler/calls"
 	"reflect"
 	"testing"
 )
 
+// Mocked controller.
+type mockController struct{}
+
+func (m *mockController) GetSchedulerCtrl() ctrl.Controller {
+	return ctrl.New()
+}
+
+func (m *mockController) BuildContext() *ctrl.ContextAdapter {
+	return new(ctrl.ContextAdapter)
+}
+
+func (m *mockController) BuildFrameworkInfo(cfg configuration) *mesos.FrameworkInfo {
+	return &mesos.FrameworkInfo{}
+}
+
+func (m *mockController) BuildConfig(ctx *ctrl.ContextAdapter, cfg *mesos.FrameworkInfo, http *calls.Caller, shutdown <-chan struct{}, h *handlers) *ctrl.Config {
+	return &ctrl.Config{}
+}
+
 var c controller
 
-//Prepare common data for our tests
+//Prepare common data for our tests.
 func init() {
 	cfg = new(mockConfiguration)
 	cfg.Initialize(nil)
