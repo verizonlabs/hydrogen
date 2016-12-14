@@ -1,56 +1,103 @@
 package scheduler
 
 import (
-	mesos "github.com/verizonlabs/mesos-go/mesosproto"
-	sched "github.com/verizonlabs/mesos-go/scheduler"
+	"github.com/gogo/protobuf/proto"
+	"github.com/verizonlabs/mesos-go"
+	"github.com/verizonlabs/mesos-go/backoff"
+	"github.com/verizonlabs/mesos-go/encoding"
+	ctrl "github.com/verizonlabs/mesos-go/extras/scheduler/controller"
+	"github.com/verizonlabs/mesos-go/httpcli"
+	"github.com/verizonlabs/mesos-go/httpcli/httpsched"
+	"github.com/verizonlabs/mesos-go/scheduler/calls"
+	"net/http"
+	"time"
 )
 
-type scheduler struct {
-	executor *mesos.ExecutorInfo
+// Base implementation of a scheduler.
+type scheduler interface {
+	Run(c ctrl.Controller, config *ctrl.Config) error
+	State() *state
+	Caller() *calls.Caller
+	FrameworkInfo() *mesos.FrameworkInfo
 }
 
-func NewScheduler(executor *mesos.ExecutorInfo) *scheduler {
-	return &scheduler{
-		executor: executor,
+// Scheduler state.
+type state struct {
+	frameworkId   string
+	tasksLaunched uint
+	tasksFinished uint
+	totalTasks    uint
+	done          bool
+	reviveTokens  <-chan struct{}
+}
+
+// Holds all necessary information for our scheduler to function.
+type sprintScheduler struct {
+	config    configuration
+	framework *mesos.FrameworkInfo
+	executor  *mesos.ExecutorInfo
+	http      calls.Caller
+	shutdown  chan struct{}
+	state     state
+}
+
+// Returns a new scheduler using user-supplied configuration.
+func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
+	return &sprintScheduler{
+		config: cfg,
+		framework: &mesos.FrameworkInfo{
+			Name:       cfg.Name(),
+			Checkpoint: cfg.Checkpointing(),
+		},
+		executor: &mesos.ExecutorInfo{
+			ExecutorID: mesos.ExecutorID{
+				Value: "default",
+			},
+			Name: proto.String("Sprinter"),
+			Command: mesos.CommandInfo{
+				Value: proto.String(cfg.Command()),
+				URIs:  cfg.Uris(),
+			},
+			Container: &mesos.ContainerInfo{
+				Type: mesos.ContainerInfo_MESOS.Enum(),
+			},
+		},
+		http: httpsched.NewCaller(httpcli.New(
+			httpcli.Endpoint(cfg.Endpoint()),
+			httpcli.Codec(&encoding.ProtobufCodec),
+			httpcli.Do(
+				httpcli.With(
+					httpcli.Timeout(cfg.Timeout()),
+					httpcli.Transport(func(t *http.Transport) {
+						t.ResponseHeaderTimeout = 15 * time.Second
+						t.MaxIdleConnsPerHost = 2
+					}),
+				),
+			),
+		)),
+		shutdown: shutdown,
+		state: state{
+			reviveTokens: backoff.BurstNotifier(cfg.ReviveBurst(), cfg.ReviveWait(), cfg.ReviveWait(), nil),
+		},
 	}
 }
 
-func (s *scheduler) Registered(driver sched.SchedulerDriver, frameworkId *mesos.FrameworkID, master *mesos.MasterInfo) {
-	//Registered
+// Returns the internal state of the scheduler
+func (s *sprintScheduler) State() *state {
+	return &s.state
 }
 
-func (s *scheduler) Reregistered(driver sched.SchedulerDriver, master *mesos.MasterInfo) {
-	//Re-registered
+// Returns the caller that we use for communication.
+func (s *sprintScheduler) Caller() *calls.Caller {
+	return &s.http
 }
 
-func (s *scheduler) Disconnected(driver sched.SchedulerDriver) {
-	//Disconnected
+// Returns the FrameworkInfo that is sent to Mesos.
+func (s *sprintScheduler) FrameworkInfo() *mesos.FrameworkInfo {
+	return s.framework
 }
 
-func (s *scheduler) ResourceOffers(driver sched.SchedulerDriver, offers []*mesos.Offer) {
-	//Resource offers
-}
-
-func (s *scheduler) StatusUpdate(driver sched.SchedulerDriver, status *mesos.TaskStatus) {
-	//Task status updates
-}
-
-func (s *scheduler) OfferRescinded(driver sched.SchedulerDriver, offerId *mesos.OfferID) {
-	//Rescind offer
-}
-
-func (s *scheduler) FrameworkMessage(driver sched.SchedulerDriver, executorId *mesos.ExecutorID, slaveId *mesos.SlaveID, msg string) {
-	//Messages
-}
-
-func (s *scheduler) SlaveLost(driver sched.SchedulerDriver, slaveId *mesos.SlaveID) {
-	//Lost slave
-}
-
-func (s *scheduler) ExecutorLost(driver sched.SchedulerDriver, executorId *mesos.ExecutorID, slaveId *mesos.SlaveID, code int) {
-	//Lost executor
-}
-
-func (s *scheduler) Error(driver sched.SchedulerDriver, err string) {
-	//Scheduler got an error
+// Runs our scheduler with some applied configuration.
+func (s *sprintScheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
+	return c.Run(*config)
 }
