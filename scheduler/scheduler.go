@@ -16,9 +16,9 @@ import (
 // Base implementation of a scheduler.
 type scheduler interface {
 	Run(c ctrl.Controller, config *ctrl.Config) error
-	GetState() *state
-	GetCaller() *calls.Caller
-	GetFrameworkInfo() *mesos.FrameworkInfo
+	State() *state
+	Caller() *calls.Caller
+	FrameworkInfo() *mesos.FrameworkInfo
 }
 
 // Scheduler state.
@@ -46,8 +46,8 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 	return &sprintScheduler{
 		config: cfg,
 		framework: &mesos.FrameworkInfo{
-			Name:       cfg.GetName(),
-			Checkpoint: cfg.GetCheckpointing(),
+			Name:       cfg.Name(),
+			Checkpoint: cfg.Checkpointing(),
 		},
 		executor: &mesos.ExecutorInfo{
 			ExecutorID: mesos.ExecutorID{
@@ -55,19 +55,19 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 			},
 			Name: proto.String("Sprinter"),
 			Command: mesos.CommandInfo{
-				Value: proto.String(cfg.GetCommand()),
-				URIs:  cfg.GetUris(),
+				Value: proto.String(cfg.Command()),
+				URIs:  cfg.Uris(),
 			},
 			Container: &mesos.ContainerInfo{
 				Type: mesos.ContainerInfo_MESOS.Enum(),
 			},
 		},
 		http: httpsched.NewCaller(httpcli.New(
-			httpcli.Endpoint(cfg.GetEndpoint()),
+			httpcli.Endpoint(cfg.Endpoint()),
 			httpcli.Codec(&encoding.ProtobufCodec),
 			httpcli.Do(
 				httpcli.With(
-					httpcli.Timeout(cfg.GetTimeout()),
+					httpcli.Timeout(cfg.Timeout()),
 					httpcli.Transport(func(t *http.Transport) {
 						t.ResponseHeaderTimeout = 15 * time.Second
 						t.MaxIdleConnsPerHost = 2
@@ -77,23 +77,23 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 		)),
 		shutdown: shutdown,
 		state: state{
-			reviveTokens: backoff.BurstNotifier(cfg.GetReviveBurst(), cfg.GetReviveWait(), cfg.GetReviveWait(), nil),
+			reviveTokens: backoff.BurstNotifier(cfg.ReviveBurst(), cfg.ReviveWait(), cfg.ReviveWait(), nil),
 		},
 	}
 }
 
 // Returns the internal state of the scheduler
-func (s *sprintScheduler) GetState() *state {
+func (s *sprintScheduler) State() *state {
 	return &s.state
 }
 
 // Returns the caller that we use for communication.
-func (s *sprintScheduler) GetCaller() *calls.Caller {
+func (s *sprintScheduler) Caller() *calls.Caller {
 	return &s.http
 }
 
 // Returns the FrameworkInfo that is sent to Mesos.
-func (s *sprintScheduler) GetFrameworkInfo() *mesos.FrameworkInfo {
+func (s *sprintScheduler) FrameworkInfo() *mesos.FrameworkInfo {
 	return s.framework
 }
 

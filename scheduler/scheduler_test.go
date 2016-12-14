@@ -19,16 +19,16 @@ func (m *mockScheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
 	return nil
 }
 
-func (m *mockScheduler) GetState() *state {
+func (m *mockScheduler) State() *state {
 	return new(state)
 }
 
-func (m *mockScheduler) GetCaller() *calls.Caller {
+func (m *mockScheduler) Caller() *calls.Caller {
 	s := httpsched.NewCaller(httpcli.New())
 	return &s
 }
 
-func (m *mockScheduler) GetFrameworkInfo() *mesos.FrameworkInfo {
+func (m *mockScheduler) FrameworkInfo() *mesos.FrameworkInfo {
 	return &mesos.FrameworkInfo{}
 }
 
@@ -56,7 +56,7 @@ func TestNewScheduler(t *testing.T) {
 func TestScheduler_GetState(t *testing.T) {
 	t.Parallel()
 
-	st := s.GetState()
+	st := s.State()
 	if reflect.TypeOf(st) != reflect.TypeOf(new(state)) {
 		t.Fatal("Scheduler state is of the wrong type")
 	}
@@ -70,7 +70,7 @@ func TestScheduler_GetState(t *testing.T) {
 func TestScheduler_GetCaller(t *testing.T) {
 	t.Parallel()
 
-	caller := s.GetCaller()
+	caller := s.Caller()
 	if reflect.TypeOf(*caller) != reflect.TypeOf(httpsched.NewCaller(httpcli.New())) {
 		t.Fatal("Scheduler does not have the right kind of caller")
 	}

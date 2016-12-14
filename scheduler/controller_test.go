@@ -11,7 +11,7 @@ import (
 // Mocked controller.
 type mockController struct{}
 
-func (m *mockController) GetSchedulerCtrl() ctrl.Controller {
+func (m *mockController) SchedulerCtrl() ctrl.Controller {
 	return ctrl.New()
 }
 
@@ -55,7 +55,7 @@ func TestNewController(t *testing.T) {
 func TestController_GetSchedulerCtrl(t *testing.T) {
 	t.Parallel()
 
-	switch c.GetSchedulerCtrl().(type) {
+	switch c.SchedulerCtrl().(type) {
 	case ctrl.Controller:
 		return
 	default:
@@ -95,7 +95,7 @@ func TestController_BuildFrameworkInfo(t *testing.T) {
 	t.Parallel()
 
 	info := c.BuildFrameworkInfo(cfg)
-	if info.GetName() != cfg.GetName() {
+	if info.GetName() != cfg.Name() {
 		t.Fatal("FrameworkInfo has the wrong name")
 	}
 	if info.GetCheckpoint() != true {
@@ -108,7 +108,7 @@ func TestController_BuildConfig(t *testing.T) {
 	t.Parallel()
 
 	ctx := c.BuildContext()
-	http := new(mockScheduler).GetCaller()
+	http := new(mockScheduler).Caller()
 	shutdown := make(<-chan struct{})
 	handlers := NewHandlers(s)
 
@@ -119,7 +119,7 @@ func TestController_BuildConfig(t *testing.T) {
 	if config.Context != ctx {
 		t.Fatal("Configuration contexts don't match")
 	}
-	if reflect.TypeOf(config.Framework) != reflect.TypeOf(s.GetFrameworkInfo()) {
+	if reflect.TypeOf(config.Framework) != reflect.TypeOf(s.FrameworkInfo()) {
 		t.Fatal("Configuration FrameworkInfo does not match")
 	}
 	if config.Caller != *http {

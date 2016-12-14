@@ -23,39 +23,39 @@ func (m *mockConfiguration) Initialize(fs *flag.FlagSet) {
 	m.cfg.timeout = 20 * time.Second
 }
 
-func (m *mockConfiguration) GetName() string {
+func (m *mockConfiguration) Name() string {
 	return m.cfg.name
 }
 
-func (m *mockConfiguration) GetCheckpointing() *bool {
+func (m *mockConfiguration) Checkpointing() *bool {
 	return &m.cfg.checkpointing
 }
 
-func (m *mockConfiguration) GetPrincipal() string {
+func (m *mockConfiguration) Principal() string {
 	return m.cfg.principal
 }
 
-func (m *mockConfiguration) GetCommand() string {
+func (m *mockConfiguration) Command() string {
 	return m.cfg.command
 }
 
-func (m *mockConfiguration) GetUris() []mesos.CommandInfo_URI {
+func (m *mockConfiguration) Uris() []mesos.CommandInfo_URI {
 	return m.cfg.uris
 }
 
-func (m *mockConfiguration) GetTimeout() time.Duration {
+func (m *mockConfiguration) Timeout() time.Duration {
 	return m.cfg.timeout
 }
 
-func (m *mockConfiguration) GetEndpoint() string {
+func (m *mockConfiguration) Endpoint() string {
 	return m.cfg.endpoint
 }
 
-func (m *mockConfiguration) GetReviveBurst() int {
+func (m *mockConfiguration) ReviveBurst() int {
 	return m.cfg.reviveBurst
 }
 
-func (m *mockConfiguration) GetReviveWait() time.Duration {
+func (m *mockConfiguration) ReviveWait() time.Duration {
 	return m.cfg.reviveWait
 }
 
@@ -74,28 +74,28 @@ func TestConfiguration_Initialize(t *testing.T) {
 	config := new(SprintConfiguration)
 	config.Initialize(fs)
 
-	if config.endpoint != cfg.GetEndpoint() {
+	if config.endpoint != cfg.Endpoint() {
 		t.Fatal("Invalid endpoint")
 	}
-	if config.checkpointing != *cfg.GetCheckpointing() {
+	if config.checkpointing != *cfg.Checkpointing() {
 		t.Fatal("Checkpointing is disabled")
 	}
-	if config.command != cfg.GetCommand() {
+	if config.command != cfg.Command() {
 		t.Fatal("Invalid command")
 	}
-	if config.name != cfg.GetName() {
+	if config.name != cfg.Name() {
 		t.Fatal("Invalid framework name")
 	}
-	if config.principal != cfg.GetPrincipal() {
+	if config.principal != cfg.Principal() {
 		t.Fatal("Invalid framework principal")
 	}
-	if config.timeout != cfg.GetTimeout() {
+	if config.timeout != cfg.Timeout() {
 		t.Fatal("Timeout value is not consistent")
 	}
-	if config.reviveBurst != cfg.GetReviveBurst() {
+	if config.reviveBurst != cfg.ReviveBurst() {
 		t.Fatal("Revive burst value is not consistent")
 	}
-	if config.reviveWait != cfg.GetReviveWait() {
+	if config.reviveWait != cfg.ReviveWait() {
 		t.Fatal("Revive wait duration is not consistent")
 	}
 }

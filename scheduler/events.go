@@ -26,12 +26,12 @@ func NewEvents(s scheduler, a ev.Handler) *events {
 // Handler for subscribed events
 func (e *events) subscribed(event *sched.Event) error {
 	log.Println("Received subscribe event")
-	if e.sched.GetState().frameworkId == "" {
-		e.sched.GetState().frameworkId = event.GetSubscribed().GetFrameworkID().GetValue()
-		if e.sched.GetState().frameworkId == "" {
+	if e.sched.State().frameworkId == "" {
+		e.sched.State().frameworkId = event.GetSubscribed().GetFrameworkID().GetValue()
+		if e.sched.State().frameworkId == "" {
 			return errors.New("mesos gave us an empty frameworkID")
 		} else {
-			*e.sched.GetCaller() = calls.FrameworkCaller(e.sched.GetState().frameworkId).Apply(*e.sched.GetCaller())
+			*e.sched.Caller() = calls.FrameworkCaller(e.sched.State().frameworkId).Apply(*e.sched.Caller())
 		}
 	}
 	return nil

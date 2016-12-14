@@ -8,15 +8,15 @@ import (
 
 type configuration interface {
 	Initialize(fs *flag.FlagSet)
-	GetName() string
-	GetCheckpointing() *bool
-	GetPrincipal() string
-	GetCommand() string
-	GetUris() []mesos.CommandInfo_URI
-	GetEndpoint() string
-	GetTimeout() time.Duration
-	GetReviveBurst() int
-	GetReviveWait() time.Duration
+	Name() string
+	Checkpointing() *bool
+	Principal() string
+	Command() string
+	Uris() []mesos.CommandInfo_URI
+	Endpoint() string
+	Timeout() time.Duration
+	ReviveBurst() int
+	ReviveWait() time.Duration
 }
 
 // Configuration for the scheduler, populated by user-supplied flags.
@@ -44,38 +44,38 @@ func (c *SprintConfiguration) Initialize(fs *flag.FlagSet) {
 	fs.DurationVar(&c.reviveWait, "revive.wait", 1*time.Second, "Wait this long to fully recharge revive-burst quota")
 }
 
-func (c *SprintConfiguration) GetName() string {
+func (c *SprintConfiguration) Name() string {
 	return c.name
 }
 
-func (c *SprintConfiguration) GetCheckpointing() *bool {
+func (c *SprintConfiguration) Checkpointing() *bool {
 	return &c.checkpointing
 }
 
-func (c *SprintConfiguration) GetPrincipal() string {
+func (c *SprintConfiguration) Principal() string {
 	return c.principal
 }
 
-func (c *SprintConfiguration) GetCommand() string {
+func (c *SprintConfiguration) Command() string {
 	return c.command
 }
 
-func (c *SprintConfiguration) GetUris() []mesos.CommandInfo_URI {
+func (c *SprintConfiguration) Uris() []mesos.CommandInfo_URI {
 	return c.uris
 }
 
-func (c *SprintConfiguration) GetTimeout() time.Duration {
+func (c *SprintConfiguration) Timeout() time.Duration {
 	return c.timeout
 }
 
-func (c *SprintConfiguration) GetEndpoint() string {
+func (c *SprintConfiguration) Endpoint() string {
 	return c.endpoint
 }
 
-func (c *SprintConfiguration) GetReviveBurst() int {
+func (c *SprintConfiguration) ReviveBurst() int {
 	return c.reviveBurst
 }
 
-func (c *SprintConfiguration) GetReviveWait() time.Duration {
+func (c *SprintConfiguration) ReviveWait() time.Duration {
 	return c.reviveWait
 }

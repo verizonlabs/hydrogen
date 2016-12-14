@@ -16,7 +16,7 @@ type handlers struct {
 // Sets up function handlers to process incoming events from Mesos.
 func NewHandlers(s scheduler) *handlers {
 	ack := ev.AcknowledgeUpdates(func() calls.Caller {
-		return *s.GetCaller()
+		return *s.Caller()
 	})
 
 	events := NewEvents(s, ack)

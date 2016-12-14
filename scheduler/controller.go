@@ -18,7 +18,7 @@ var (
 
 // Base implementation of a controller
 type controller interface {
-	GetSchedulerCtrl() ctrl.Controller
+	SchedulerCtrl() ctrl.Controller
 	BuildContext() *ctrl.ContextAdapter
 	BuildFrameworkInfo(cfg configuration) *mesos.FrameworkInfo
 	BuildConfig(ctx *ctrl.ContextAdapter, http *calls.Caller, shutdown <-chan struct{}, h *handlers) *ctrl.Config
@@ -43,7 +43,7 @@ func NewController(s scheduler, shutdown <-chan struct{}) *sprintController {
 }
 
 // Returns the internal scheduler controller.
-func (c *sprintController) GetSchedulerCtrl() ctrl.Controller {
+func (c *sprintController) SchedulerCtrl() ctrl.Controller {
 	return c.schedulerCtrl
 }
 
@@ -51,10 +51,10 @@ func (c *sprintController) GetSchedulerCtrl() ctrl.Controller {
 func (c *sprintController) BuildContext() *ctrl.ContextAdapter {
 	c.context = &ctrl.ContextAdapter{
 		DoneFunc: func() bool {
-			return c.scheduler.GetState().done
+			return c.scheduler.State().done
 		},
 		FrameworkIDFunc: func() string {
-			return c.scheduler.GetState().frameworkId
+			return c.scheduler.State().frameworkId
 		},
 		ErrorFunc: func(err error) {
 			if err != nil && err != io.EOF {
@@ -70,8 +70,8 @@ func (c *sprintController) BuildContext() *ctrl.ContextAdapter {
 // Builds out information about our framework that will be sent to Mesos.
 func (c *sprintController) BuildFrameworkInfo(cfg configuration) *mesos.FrameworkInfo {
 	return &mesos.FrameworkInfo{
-		Name:       cfg.GetName(),
-		Checkpoint: cfg.GetCheckpointing(),
+		Name:       cfg.Name(),
+		Checkpoint: cfg.Checkpointing(),
 	}
 }
 
@@ -79,7 +79,7 @@ func (c *sprintController) BuildFrameworkInfo(cfg configuration) *mesos.Framewor
 func (c *sprintController) BuildConfig(ctx *ctrl.ContextAdapter, http *calls.Caller, shutdown <-chan struct{}, h *handlers) *ctrl.Config {
 	c.config = &ctrl.Config{
 		Context:            ctx,
-		Framework:          c.scheduler.GetFrameworkInfo(),
+		Framework:          c.scheduler.FrameworkInfo(),
 		Caller:             *http,
 		RegistrationTokens: backoff.Notifier(RegistrationMinBackoff, RegistrationMaxBackoff, shutdown),
 		Handler:            h.mux,
