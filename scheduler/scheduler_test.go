@@ -1,11 +1,11 @@
 package scheduler
 
 import (
-	"github.com/verizonlabs/mesos-go"
-	ctrl "github.com/verizonlabs/mesos-go/extras/scheduler/controller"
-	"github.com/verizonlabs/mesos-go/httpcli"
-	"github.com/verizonlabs/mesos-go/httpcli/httpsched"
-	"github.com/verizonlabs/mesos-go/scheduler/calls"
+	"mesos-sdk"
+	ctrl "mesos-sdk/extras/scheduler/controller"
+	"mesos-sdk/httpcli"
+	"mesos-sdk/httpcli/httpsched"
+	"mesos-sdk/scheduler/calls"
 	"reflect"
 	"testing"
 )

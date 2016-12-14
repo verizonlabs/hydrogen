@@ -2,9 +2,9 @@ package scheduler
 
 import (
 	"errors"
-	sched "github.com/verizonlabs/mesos-go/scheduler"
-	"github.com/verizonlabs/mesos-go/scheduler/calls"
-	ev "github.com/verizonlabs/mesos-go/scheduler/events"
+	sched "mesos-sdk/scheduler"
+	"mesos-sdk/scheduler/calls"
+	ev "mesos-sdk/scheduler/events"
 	"log"
 	"strconv"
 )

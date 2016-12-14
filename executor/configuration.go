@@ -1,7 +1,7 @@
 package executor
 
 import (
-	"github.com/verizonlabs/mesos-go/executor/config"
+	"mesos-sdk/executor/config"
 	"time"
 )
 

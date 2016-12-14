@@ -2,13 +2,13 @@ package scheduler
 
 import (
 	"github.com/gogo/protobuf/proto"
-	"github.com/verizonlabs/mesos-go"
-	"github.com/verizonlabs/mesos-go/backoff"
-	"github.com/verizonlabs/mesos-go/encoding"
-	ctrl "github.com/verizonlabs/mesos-go/extras/scheduler/controller"
-	"github.com/verizonlabs/mesos-go/httpcli"
-	"github.com/verizonlabs/mesos-go/httpcli/httpsched"
-	"github.com/verizonlabs/mesos-go/scheduler/calls"
+	"mesos-sdk"
+	"mesos-sdk/backoff"
+	"mesos-sdk/encoding"
+	ctrl "mesos-sdk/extras/scheduler/controller"
+	"mesos-sdk/httpcli"
+	"mesos-sdk/httpcli/httpsched"
+	"mesos-sdk/scheduler/calls"
 	"net/http"
 	"time"
 )
