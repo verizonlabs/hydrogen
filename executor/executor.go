@@ -1,12 +1,12 @@
 package executor
 
 import (
-	"github.com/verizonlabs/mesos-go"
-	"github.com/verizonlabs/mesos-go/encoding"
-	exec "github.com/verizonlabs/mesos-go/executor"
-	"github.com/verizonlabs/mesos-go/executor/calls"
-	"github.com/verizonlabs/mesos-go/executor/events"
-	"github.com/verizonlabs/mesos-go/httpcli"
+	"mesos-sdk"
+	"mesos-sdk/encoding"
+	exec "mesos-sdk/executor"
+	"mesos-sdk/executor/calls"
+	"mesos-sdk/executor/events"
+	"mesos-sdk/httpcli"
 	"time"
 )
 

@@ -1,10 +1,10 @@
 package scheduler
 
 import (
-	ctrl "github.com/verizonlabs/mesos-go/extras/scheduler/controller"
-	sched "github.com/verizonlabs/mesos-go/scheduler"
-	"github.com/verizonlabs/mesos-go/scheduler/calls"
-	ev "github.com/verizonlabs/mesos-go/scheduler/events"
+	ctrl "mesos-sdk/extras/scheduler/controller"
+	sched "mesos-sdk/scheduler"
+	"mesos-sdk/scheduler/calls"
+	ev "mesos-sdk/scheduler/events"
 )
 
 // Holds context about our event multiplexer and acknowledge handler.

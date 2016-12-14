@@ -1,10 +1,10 @@
 package scheduler
 
 import (
-	"github.com/verizonlabs/mesos-go"
-	"github.com/verizonlabs/mesos-go/backoff"
-	ctrl "github.com/verizonlabs/mesos-go/extras/scheduler/controller"
-	"github.com/verizonlabs/mesos-go/scheduler/calls"
+	"mesos-sdk"
+	"mesos-sdk/backoff"
+	ctrl "mesos-sdk/extras/scheduler/controller"
+	"mesos-sdk/scheduler/calls"
 	"io"
 	"log"
 	"time"
