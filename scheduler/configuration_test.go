@@ -81,7 +81,7 @@ func TestConfiguration_Initialize(t *testing.T) {
 	if config.checkpointing != *cfg.Checkpointing() {
 		t.Fatal("Checkpointing is disabled")
 	}
-	if config.command != cfg.Command() {
+	if config.command != *cfg.Command() {
 		t.Fatal("Invalid command")
 	}
 	if config.name != cfg.Name() {
