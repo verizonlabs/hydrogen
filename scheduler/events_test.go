@@ -1,7 +1,6 @@
 package scheduler
 
 import (
-	"fmt"
 	"mesos-sdk"
 	sched "mesos-sdk/scheduler"
 	"testing"
@@ -26,7 +25,10 @@ func (m *mockEvents) Failure(event *sched.Event) error {
 	return nil
 }
 
-var e events
+var (
+	e     events
+	event *sched.Event
+)
 
 //Prepare common data for our tests.
 func init() {
@@ -38,6 +40,13 @@ func init() {
 		},
 	}
 	e = NewEvents(s, NewHandlers(s).ack)
+	event = &sched.Event{
+		Subscribed: &sched.Event_Subscribed{
+			FrameworkID: &mesos.FrameworkID{
+				Value: s.State().frameworkId,
+			},
+		},
+	}
 }
 
 // Makes sure we get the correct type back for the events.
@@ -52,20 +61,19 @@ func TestNewEvents(t *testing.T) {
 	}
 }
 
+// Checks the subscribe event handler.
 func TestSprintEvents_Subscribed(t *testing.T) {
 	t.Parallel()
 
-	event := &sched.Event{
-		Subscribed: &sched.Event_Subscribed{
-			FrameworkID: &mesos.FrameworkID{
-				Value: "test",
-			},
-		},
-	}
-
-	fmt.Println(event.GetSubscribed().GetFrameworkID().GetValue())
-
 	if err := e.Subscribed(event); err != nil {
 		t.Fatal("Subscribed event failure: " + err.Error())
+	}
+}
+
+func TestSprintEvents_Offers(t *testing.T) {
+	t.Parallel()
+
+	if err := e.Offers(event); err != nil {
+		t.Fatal("Offers event failure: " + err.Error())
 	}
 }
