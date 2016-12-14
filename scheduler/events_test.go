@@ -61,7 +61,7 @@ func TestNewEvents(t *testing.T) {
 	}
 }
 
-// Checks the subscribe event handler.
+// Checks the subscribed event handler.
 func TestSprintEvents_Subscribed(t *testing.T) {
 	t.Parallel()
 
@@ -70,10 +70,20 @@ func TestSprintEvents_Subscribed(t *testing.T) {
 	}
 }
 
+// Checks the offers event handler.
 func TestSprintEvents_Offers(t *testing.T) {
 	t.Parallel()
 
 	if err := e.Offers(event); err != nil {
 		t.Fatal("Offers event failure: " + err.Error())
+	}
+}
+
+// Checks the update event handler.
+func TestSprintEvents_Update(t *testing.T) {
+	t.Parallel()
+
+	if err := e.Update(event); err != nil {
+		t.Fatal("Update event failure: " + err.Error())
 	}
 }

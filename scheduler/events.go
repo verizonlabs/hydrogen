@@ -32,6 +32,7 @@ func NewEvents(s scheduler, a ev.Handler) *sprintEvents {
 
 // Handler for subscribed events.
 func (e *sprintEvents) Subscribed(event *sched.Event) error {
+	//TODO this prints out during the tests, inject this instead
 	log.Println("Received subscribe event")
 	if e.sched.State().frameworkId == "" {
 		e.sched.State().frameworkId = event.GetSubscribed().GetFrameworkID().GetValue()
@@ -62,6 +63,7 @@ func (e *sprintEvents) Update(event *sched.Event) error {
 
 // Handler for failure events
 func (e *sprintEvents) Failure(event *sched.Event) error {
+	//TODO this prints out during the tests, inject this instead
 	log.Println("Received failure event")
 	f := event.GetFailure()
 	if f.ExecutorID != nil {
