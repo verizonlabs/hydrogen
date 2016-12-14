@@ -9,6 +9,7 @@ import (
 	"strconv"
 )
 
+// Base implementation for Mesos event handlers.
 type events interface {
 	Subscribed(event *sched.Event) error
 	Offers(event *sched.Event) error
