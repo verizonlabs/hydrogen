@@ -12,7 +12,8 @@ import (
 
 // Mocked scheduler.
 type mockScheduler struct {
-	cfg configuration
+	cfg   configuration
+	state state
 }
 
 func (m *mockScheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
@@ -20,7 +21,7 @@ func (m *mockScheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
 }
 
 func (m *mockScheduler) State() *state {
-	return new(state)
+	return &m.state
 }
 
 func (m *mockScheduler) Caller() *calls.Caller {

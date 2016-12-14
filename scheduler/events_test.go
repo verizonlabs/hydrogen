@@ -1,6 +1,8 @@
 package scheduler
 
 import (
+	"fmt"
+	"mesos-sdk"
 	sched "mesos-sdk/scheduler"
 	"testing"
 )
@@ -31,6 +33,9 @@ func init() {
 	cfg = new(mockConfiguration).Initialize(nil)
 	s = &mockScheduler{
 		cfg: cfg,
+		state: state{
+			frameworkId: "test",
+		},
 	}
 	e = NewEvents(s, NewHandlers(s).ack)
 }
@@ -44,5 +49,23 @@ func TestNewEvents(t *testing.T) {
 		return
 	default:
 		t.Fatal("Controller is not of the right type")
+	}
+}
+
+func TestSprintEvents_Subscribed(t *testing.T) {
+	t.Parallel()
+
+	event := &sched.Event{
+		Subscribed: &sched.Event_Subscribed{
+			FrameworkID: &mesos.FrameworkID{
+				Value: "test",
+			},
+		},
+	}
+
+	fmt.Println(event.GetSubscribed().GetFrameworkID().GetValue())
+
+	if err := e.Subscribed(event); err != nil {
+		t.Fatal("Subscribed event failure: " + err.Error())
 	}
 }

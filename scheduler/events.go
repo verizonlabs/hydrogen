@@ -2,10 +2,10 @@ package scheduler
 
 import (
 	"errors"
+	"log"
 	sched "mesos-sdk/scheduler"
 	"mesos-sdk/scheduler/calls"
 	ev "mesos-sdk/scheduler/events"
-	"log"
 	"strconv"
 )
 
@@ -30,7 +30,7 @@ func NewEvents(s scheduler, a ev.Handler) *sprintEvents {
 	}
 }
 
-// Handler for subscribed events
+// Handler for subscribed events.
 func (e *sprintEvents) Subscribed(event *sched.Event) error {
 	log.Println("Received subscribe event")
 	if e.sched.State().frameworkId == "" {
