@@ -18,6 +18,7 @@ type scheduler interface {
 	State() *state
 	Caller() *calls.Caller
 	FrameworkInfo() *mesos.FrameworkInfo
+	ExecutorInfo() *mesos.ExecutorInfo
 }
 
 // Scheduler state.
@@ -97,6 +98,11 @@ func (s *sprintScheduler) Caller() *calls.Caller {
 // Returns the FrameworkInfo that is sent to Mesos.
 func (s *sprintScheduler) FrameworkInfo() *mesos.FrameworkInfo {
 	return s.framework
+}
+
+// Returns the ExecutorInfo that's associated with the scheduler.
+func (s *sprintScheduler) ExecutorInfo() *mesos.ExecutorInfo {
+	return s.executor
 }
 
 // Runs our scheduler with some applied configuration.

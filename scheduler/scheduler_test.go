@@ -12,7 +12,9 @@ import (
 
 // Mocked scheduler.
 type mockScheduler struct {
-	cfg configuration
+	cfg      configuration
+	executor *mesos.ExecutorInfo
+	state    state
 }
 
 func (m *mockScheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
@@ -20,12 +22,16 @@ func (m *mockScheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
 }
 
 func (m *mockScheduler) State() *state {
-	return new(state)
+	return &m.state
 }
 
 func (m *mockScheduler) Caller() *calls.Caller {
 	s := httpsched.NewCaller(httpcli.New())
 	return &s
+}
+
+func (m *mockScheduler) ExecutorInfo() *mesos.ExecutorInfo {
+	return &mesos.ExecutorInfo{}
 }
 
 func (m *mockScheduler) FrameworkInfo() *mesos.FrameworkInfo {
@@ -34,6 +40,7 @@ func (m *mockScheduler) FrameworkInfo() *mesos.FrameworkInfo {
 
 var s scheduler
 
+//Prepare common data for our tests.
 func init() {
 	cfg = new(mockConfiguration).Initialize(nil)
 	s = NewScheduler(cfg, make(chan struct{}))

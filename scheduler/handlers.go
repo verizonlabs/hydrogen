@@ -25,10 +25,10 @@ func NewHandlers(s scheduler) *handlers {
 		mux: ev.NewMux(
 			ev.DefaultHandler(ev.HandlerFunc(ctrl.DefaultHandler)),
 			ev.MapFuncs(map[sched.Event_Type]ev.HandlerFunc{
-				sched.Event_SUBSCRIBED: events.subscribed,
-				sched.Event_OFFERS:     events.offers,
-				sched.Event_UPDATE:     events.update,
-				sched.Event_FAILURE:    events.failure,
+				sched.Event_SUBSCRIBED: events.Subscribed,
+				sched.Event_OFFERS:     events.Offers,
+				sched.Event_UPDATE:     events.Update,
+				sched.Event_FAILURE:    events.Failure,
 			}),
 		),
 		ack: ack,
