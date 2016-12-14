@@ -1,7 +1,6 @@
 package scheduler
 
 import (
-	"github.com/gogo/protobuf/proto"
 	"mesos-sdk"
 	"mesos-sdk/backoff"
 	"mesos-sdk/encoding"
@@ -43,6 +42,9 @@ type sprintScheduler struct {
 
 // Returns a new scheduler using user-supplied configuration.
 func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
+	var executorName = new(string)
+	*executorName = "Sprinter"
+
 	return &sprintScheduler{
 		config: cfg,
 		framework: &mesos.FrameworkInfo{
@@ -53,9 +55,9 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 			ExecutorID: mesos.ExecutorID{
 				Value: "default",
 			},
-			Name: proto.String("Sprinter"),
+			Name: executorName,
 			Command: mesos.CommandInfo{
-				Value: proto.String(cfg.Command()),
+				Value: cfg.Command(),
 				URIs:  cfg.Uris(),
 			},
 			Container: &mesos.ContainerInfo{
