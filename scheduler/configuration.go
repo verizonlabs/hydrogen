@@ -11,7 +11,7 @@ type configuration interface {
 	Name() string
 	Checkpointing() *bool
 	Principal() string
-	Command() string
+	Command() *string
 	Uris() []mesos.CommandInfo_URI
 	Endpoint() string
 	Timeout() time.Duration
@@ -58,8 +58,8 @@ func (c *SprintConfiguration) Principal() string {
 	return c.principal
 }
 
-func (c *SprintConfiguration) Command() string {
-	return c.command
+func (c *SprintConfiguration) Command() *string {
+	return &c.command
 }
 
 func (c *SprintConfiguration) Uris() []mesos.CommandInfo_URI {
