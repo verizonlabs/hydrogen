@@ -9,22 +9,29 @@ import (
 	"strconv"
 )
 
+type events interface {
+	Subscribed(event *sched.Event) error
+	Offers(event *sched.Event) error
+	Update(event *sched.Event) error
+	Failure(event *sched.Event) error
+}
+
 // Holds context about our scheduler and acknowledge handler.
-type events struct {
+type sprintEvents struct {
 	sched scheduler
 	ack   ev.Handler
 }
 
 // Applies the contextual information from the scheduler.
-func NewEvents(s scheduler, a ev.Handler) *events {
-	return &events{
+func NewEvents(s scheduler, a ev.Handler) *sprintEvents {
+	return &sprintEvents{
 		sched: s,
 		ack:   a,
 	}
 }
 
 // Handler for subscribed events
-func (e *events) subscribed(event *sched.Event) error {
+func (e *sprintEvents) Subscribed(event *sched.Event) error {
 	log.Println("Received subscribe event")
 	if e.sched.State().frameworkId == "" {
 		e.sched.State().frameworkId = event.GetSubscribed().GetFrameworkID().GetValue()
@@ -38,13 +45,13 @@ func (e *events) subscribed(event *sched.Event) error {
 }
 
 // Handler for offers events
-func (e *events) offers(event *sched.Event) error {
+func (e *sprintEvents) Offers(event *sched.Event) error {
 	//TODO implement handling resource offers
 	return nil
 }
 
 // Handler for update events
-func (e *events) update(event *sched.Event) error {
+func (e *sprintEvents) Update(event *sched.Event) error {
 	log.Println("Received update event")
 	if err := e.ack.HandleEvent(event); err != nil {
 		log.Println("Failed to acknowledge status update for task: " + err.Error())
@@ -54,7 +61,7 @@ func (e *events) update(event *sched.Event) error {
 }
 
 // Handler for failure events
-func (e *events) failure(event *sched.Event) error {
+func (e *sprintEvents) Failure(event *sched.Event) error {
 	log.Println("Received failure event")
 	f := event.GetFailure()
 	if f.ExecutorID != nil {
