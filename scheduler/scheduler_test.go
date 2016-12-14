@@ -12,8 +12,9 @@ import (
 
 // Mocked scheduler.
 type mockScheduler struct {
-	cfg   configuration
-	state state
+	cfg      configuration
+	executor *mesos.ExecutorInfo
+	state    state
 }
 
 func (m *mockScheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
@@ -29,12 +30,17 @@ func (m *mockScheduler) Caller() *calls.Caller {
 	return &s
 }
 
+func (m *mockScheduler) ExecutorInfo() *mesos.ExecutorInfo {
+	return &mesos.ExecutorInfo{}
+}
+
 func (m *mockScheduler) FrameworkInfo() *mesos.FrameworkInfo {
 	return &mesos.FrameworkInfo{}
 }
 
 var s scheduler
 
+//Prepare common data for our tests.
 func init() {
 	cfg = new(mockConfiguration).Initialize(nil)
 	s = NewScheduler(cfg, make(chan struct{}))

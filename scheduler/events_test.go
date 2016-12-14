@@ -35,6 +35,11 @@ func init() {
 	cfg = new(mockConfiguration).Initialize(nil)
 	s = &mockScheduler{
 		cfg: cfg,
+		executor: &mesos.ExecutorInfo{
+			ExecutorID: mesos.ExecutorID{
+				Value: "test",
+			},
+		},
 		state: state{
 			frameworkId: "test",
 		},
@@ -45,6 +50,9 @@ func init() {
 			FrameworkID: &mesos.FrameworkID{
 				Value: s.State().frameworkId,
 			},
+		},
+		Failure: &sched.Event_Failure{
+			ExecutorID: &s.ExecutorInfo().ExecutorID,
 		},
 	}
 }
@@ -85,5 +93,14 @@ func TestSprintEvents_Update(t *testing.T) {
 
 	if err := e.Update(event); err != nil {
 		t.Fatal("Update event failure: " + err.Error())
+	}
+}
+
+// Checks the failure event handler
+func TestSprintEvents_Failure(t *testing.T) {
+	t.Parallel()
+
+	if err := e.Failure(event); err != nil {
+		t.Fatal("Failure event failed: " + err.Error())
 	}
 }

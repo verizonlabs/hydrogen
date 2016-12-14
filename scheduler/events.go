@@ -74,8 +74,10 @@ func (e *sprintEvents) Failure(event *sched.Event) error {
 		if f.Status != nil {
 			msg += " with status=" + strconv.Itoa(int(*f.Status))
 		}
+		//TODO this prints out during the tests, inject this instead
 		log.Println(msg)
 	} else if f.AgentID != nil {
+		//TODO this prints out during the tests, inject this instead
 		log.Println("Agent '" + f.AgentID.Value + "' terminated")
 	}
 	return nil
