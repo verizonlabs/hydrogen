@@ -30,7 +30,7 @@ var (
 	event *sched.Event
 )
 
-//Prepare common data for our tests.
+// Prepare common data for our tests.
 func init() {
 	cfg = new(mockConfiguration).Initialize(nil)
 	s = &mockScheduler{
