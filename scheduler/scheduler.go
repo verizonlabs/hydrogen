@@ -27,6 +27,7 @@ type state struct {
 	tasksLaunched uint
 	tasksFinished uint
 	totalTasks    uint
+	taskResources mesos.Resources
 	done          bool
 	reviveTokens  <-chan struct{}
 }

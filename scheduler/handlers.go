@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"mesos-sdk"
 	ctrl "mesos-sdk/extras/scheduler/controller"
 	sched "mesos-sdk/scheduler"
 	"mesos-sdk/scheduler/calls"
@@ -21,7 +22,7 @@ func NewHandlers(s scheduler) *handlers {
 
 	events := NewEvents(s, ack)
 
-	return &handlers{
+	handlers := &handlers{
 		mux: ev.NewMux(
 			ev.DefaultHandler(ev.HandlerFunc(ctrl.DefaultHandler)),
 			ev.MapFuncs(map[sched.Event_Type]ev.HandlerFunc{
@@ -33,4 +34,12 @@ func NewHandlers(s scheduler) *handlers {
 		),
 		ack: ack,
 	}
+
+	events.setHandlers(handlers)
+	return handlers
+}
+
+// Handler for our received resource offers.
+func (h *handlers) resourceOffers(offers []mesos.Offer) {
+
 }
