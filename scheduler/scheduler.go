@@ -25,10 +25,11 @@ type scheduler interface {
 // Scheduler state.
 type state struct {
 	frameworkId   string
-	tasksLaunched uint
-	tasksFinished uint
-	totalTasks    uint
+	tasksLaunched int
+	tasksFinished int
+	totalTasks    int
 	taskResources mesos.Resources
+	role          string
 	done          bool
 	reviveTokens  <-chan struct{}
 }

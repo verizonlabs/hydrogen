@@ -21,6 +21,7 @@ func (m *mockConfiguration) Initialize(fs *flag.FlagSet) *SprintConfiguration {
 	m.cfg.reviveBurst = 3
 	m.cfg.reviveWait = 1 * time.Second
 	m.cfg.timeout = 20 * time.Second
+	m.cfg.maxRefuse = 5 * time.Second
 
 	return &m.cfg
 }

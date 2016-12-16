@@ -54,6 +54,19 @@ func init() {
 		Failure: &sched.Event_Failure{
 			ExecutorID: &s.ExecutorInfo().ExecutorID,
 		},
+		Offers: &sched.Event_Offers{
+			Offers: []mesos.Offer{
+				{
+					FrameworkID: mesos.FrameworkID{
+						Value: "test",
+					},
+					AgentID: mesos.AgentID{
+						Value: "test",
+					},
+				},
+			},
+		},
+
 	}
 }
 

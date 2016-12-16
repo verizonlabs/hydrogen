@@ -7,6 +7,7 @@ import (
 	sched "mesos-sdk/scheduler"
 	"mesos-sdk/scheduler/calls"
 	ev "mesos-sdk/scheduler/events"
+	"strconv"
 	"time"
 )
 
@@ -44,7 +45,55 @@ func NewHandlers(s scheduler) *handlers {
 }
 
 // Handler for our received resource offers.
-func (h *handlers) resourceOffers(offers []mesos.Offer) {
+func (h *handlers) resourceOffers(offers []mesos.Offer) error {
 	jitter := rand.New(rand.NewSource(time.Now().Unix()))
 	callOption := calls.RefuseSecondsWithJitter(jitter, h.sched.Config().MaxRefuse())
+	state := h.sched.State()
+
+	for i := range offers {
+		var (
+			remaining = mesos.Resources(offers[i].Resources)
+			tasks     = []mesos.TaskInfo{}
+		)
+
+		var executorResources mesos.Resources
+		if len(offers[i].ExecutorIDs) == 0 {
+			executorResources = mesos.Resources(h.sched.ExecutorInfo().Resources)
+		}
+
+		flattened := remaining.Flatten()
+		taskResources := state.taskResources.Plus(executorResources...)
+
+		for state.tasksLaunched < state.totalTasks && flattened.ContainsAll(taskResources) {
+			state.tasksLaunched++
+			taskId := state.tasksLaunched
+
+			task := mesos.TaskInfo{
+				TaskID: mesos.TaskID{
+					Value: strconv.Itoa(taskId),
+				},
+				AgentID:   offers[i].AgentID,
+				Executor:  h.sched.ExecutorInfo(),
+				Resources: remaining.Find(state.taskResources.Flatten(mesos.Role(state.role).Assign())),
+			}
+			task.Name = "task_" + task.TaskID.Value
+
+			remaining.Subtract(task.Resources...)
+			tasks = append(tasks, task)
+
+			flattened = remaining.Flatten()
+		}
+
+		accept := calls.Accept(
+			calls.OfferOperations{
+				calls.OpLaunch(tasks...),
+			}.WithOffers(offers[i].ID),
+		).With(callOption)
+
+		err := calls.CallNoData(*h.sched.Caller(), accept)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
