@@ -3,6 +3,8 @@ package scheduler
 import (
 	"mesos-sdk"
 	sched "mesos-sdk/scheduler"
+	"mesos-sdk/scheduler/calls"
+	ev "mesos-sdk/scheduler/events"
 	"testing"
 )
 
@@ -44,7 +46,13 @@ func init() {
 			frameworkId: "test",
 		},
 	}
-	e = NewEvents(s, NewHandlers(s).ack)
+	h = &mockHandlers{
+		sched: s,
+		ack: ev.AcknowledgeUpdates(func() calls.Caller {
+			return *s.Caller()
+		}),
+	}
+	e = NewEvents(s, h.Ack(), h)
 	event = &sched.Event{
 		Subscribed: &sched.Event_Subscribed{
 			FrameworkID: &mesos.FrameworkID{
@@ -66,7 +74,6 @@ func init() {
 				},
 			},
 		},
-
 	}
 }
 

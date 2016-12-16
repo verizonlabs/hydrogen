@@ -11,41 +11,54 @@ import (
 	"time"
 )
 
+type handlers interface {
+	Mux() *ev.Mux
+	Ack() ev.Handler
+	ResourceOffers(offers []mesos.Offer) error
+}
+
 // Holds context about our event multiplexer and acknowledge handler.
-type handlers struct {
+type sprintHandlers struct {
 	sched scheduler
 	mux   *ev.Mux
 	ack   ev.Handler
 }
 
 // Sets up function handlers to process incoming events from Mesos.
-func NewHandlers(s scheduler) *handlers {
+func NewHandlers(s scheduler) *sprintHandlers {
 	ack := ev.AcknowledgeUpdates(func() calls.Caller {
 		return *s.Caller()
 	})
 
-	events := NewEvents(s, ack)
+	handlers := &sprintHandlers{}
+	events := NewEvents(s, ack, handlers)
+	handlers.sched = s
+	handlers.mux = ev.NewMux(
+		ev.DefaultHandler(ev.HandlerFunc(ctrl.DefaultHandler)),
+		ev.MapFuncs(map[sched.Event_Type]ev.HandlerFunc{
+			sched.Event_SUBSCRIBED: events.Subscribed,
+			sched.Event_OFFERS:     events.Offers,
+			sched.Event_UPDATE:     events.Update,
+			sched.Event_FAILURE:    events.Failure,
+		}),
+	)
+	handlers.ack = ack
 
-	handlers := &handlers{
-		sched: s,
-		mux: ev.NewMux(
-			ev.DefaultHandler(ev.HandlerFunc(ctrl.DefaultHandler)),
-			ev.MapFuncs(map[sched.Event_Type]ev.HandlerFunc{
-				sched.Event_SUBSCRIBED: events.Subscribed,
-				sched.Event_OFFERS:     events.Offers,
-				sched.Event_UPDATE:     events.Update,
-				sched.Event_FAILURE:    events.Failure,
-			}),
-		),
-		ack: ack,
-	}
-
-	events.setHandlers(handlers)
 	return handlers
 }
 
+// Returns the handler's multiplexer.
+func (h *sprintHandlers) Mux() *ev.Mux {
+	return h.mux
+}
+
+// Returns the handler's acknowledgement handler.
+func (h *sprintHandlers) Ack() ev.Handler {
+	return h.ack
+}
+
 // Handler for our received resource offers.
-func (h *handlers) resourceOffers(offers []mesos.Offer) error {
+func (h *sprintHandlers) ResourceOffers(offers []mesos.Offer) error {
 	jitter := rand.New(rand.NewSource(time.Now().Unix()))
 	callOption := calls.RefuseSecondsWithJitter(jitter, h.sched.Config().MaxRefuse())
 	state := h.sched.State()

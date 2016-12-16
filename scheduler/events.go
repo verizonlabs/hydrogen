@@ -21,21 +21,16 @@ type events interface {
 type sprintEvents struct {
 	sched    scheduler
 	ack      ev.Handler
-	handlers *handlers
+	handlers handlers
 }
 
 // Applies the contextual information from the scheduler.
-func NewEvents(s scheduler, a ev.Handler) *sprintEvents {
+func NewEvents(s scheduler, a ev.Handler, h handlers) *sprintEvents {
 	return &sprintEvents{
-		sched: s,
-		ack:   a,
+		sched:    s,
+		ack:      a,
+		handlers: h,
 	}
-}
-
-// Sets handlers to be called by various events.
-func (e *sprintEvents) setHandlers(h *handlers) events {
-	e.handlers = h
-	return e
 }
 
 // Handler for subscribed events.
@@ -56,7 +51,7 @@ func (e *sprintEvents) Subscribed(event *sched.Event) error {
 // Handler for offers events.
 func (e *sprintEvents) Offers(event *sched.Event) error {
 	offers := event.GetOffers().GetOffers()
-	e.handlers.resourceOffers(offers)
+	e.handlers.ResourceOffers(offers)
 	return nil
 }
 
