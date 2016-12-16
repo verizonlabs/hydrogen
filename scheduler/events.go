@@ -46,13 +46,13 @@ func (e *sprintEvents) Subscribed(event *sched.Event) error {
 	return nil
 }
 
-// Handler for offers events
+// Handler for offers events.
 func (e *sprintEvents) Offers(event *sched.Event) error {
 	//TODO implement handling resource offers
 	return nil
 }
 
-// Handler for update events
+// Handler for update events.
 func (e *sprintEvents) Update(event *sched.Event) error {
 	log.Println("Received update event")
 	if err := e.ack.HandleEvent(event); err != nil {
@@ -62,7 +62,7 @@ func (e *sprintEvents) Update(event *sched.Event) error {
 	return nil
 }
 
-// Handler for failure events
+// Handler for failure events.
 func (e *sprintEvents) Failure(event *sched.Event) error {
 	//TODO this prints out during the tests, inject this instead
 	log.Println("Received failure event")
