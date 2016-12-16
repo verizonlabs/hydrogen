@@ -51,8 +51,12 @@ func (e *sprintEvents) Subscribed(event *sched.Event) error {
 // Handler for offers events.
 func (e *sprintEvents) Offers(event *sched.Event) error {
 	offers := event.GetOffers().GetOffers()
-	e.handlers.ResourceOffers(offers)
-	return nil
+	err := e.handlers.ResourceOffers(offers)
+	if err != nil {
+		log.Println("Error handling resource offers: " + err.Error())
+	}
+
+	return err
 }
 
 // Handler for update events.
