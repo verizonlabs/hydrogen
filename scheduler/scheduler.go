@@ -14,6 +14,7 @@ import (
 
 // Base implementation of a scheduler.
 type scheduler interface {
+	Config() configuration
 	Run(c ctrl.Controller, config *ctrl.Config) error
 	State() *state
 	Caller() *calls.Caller
@@ -84,6 +85,11 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 			reviveTokens: backoff.BurstNotifier(cfg.ReviveBurst(), cfg.ReviveWait(), cfg.ReviveWait(), nil),
 		},
 	}
+}
+
+// Returns the scheduler's configuration.
+func (s *sprintScheduler) Config() configuration {
+	return s.config
 }
 
 // Returns the internal state of the scheduler

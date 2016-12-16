@@ -17,6 +17,10 @@ type mockScheduler struct {
 	state    state
 }
 
+func (m *mockScheduler) Config() configuration {
+	return m.cfg
+}
+
 func (m *mockScheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
 	return nil
 }

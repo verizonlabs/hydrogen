@@ -61,6 +61,10 @@ func (m *mockConfiguration) ReviveWait() time.Duration {
 	return m.cfg.reviveWait
 }
 
+func (m *mockConfiguration) MaxRefuse() time.Duration {
+	return m.cfg.maxRefuse
+}
+
 var cfg configuration
 
 func init() {
