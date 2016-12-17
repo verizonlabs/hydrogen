@@ -1,12 +1,12 @@
 package scheduler
 
 import (
+	"io"
+	"log"
 	"mesos-sdk"
 	"mesos-sdk/backoff"
 	ctrl "mesos-sdk/extras/scheduler/controller"
 	"mesos-sdk/scheduler/calls"
-	"io"
-	"log"
 	"time"
 )
 

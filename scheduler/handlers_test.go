@@ -2,8 +2,8 @@ package scheduler
 
 import (
 	"mesos-sdk"
-	ev "mesos-sdk/scheduler/events"
 	sched "mesos-sdk/scheduler"
+	ev "mesos-sdk/scheduler/events"
 	"reflect"
 	"testing"
 )
@@ -11,8 +11,8 @@ import (
 // Mocked handlers.
 type mockHandlers struct {
 	sched scheduler
-	mux *ev.Mux
-	ack ev.Handler
+	mux   *ev.Mux
+	ack   ev.Handler
 }
 
 func (m *mockHandlers) Mux() *ev.Mux {
