@@ -89,6 +89,13 @@ func TestNewEvents(t *testing.T) {
 	}
 }
 
+// Measures performance for getting our events.
+func BenchmarkNewEvents(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		NewEvents(s, h.Ack(), h)
+	}
+}
+
 // Checks the subscribed event handler.
 func TestSprintEvents_Subscribed(t *testing.T) {
 	t.Parallel()
