@@ -1,6 +1,8 @@
 package scheduler
 
 import (
+	"io/ioutil"
+	"log"
 	"mesos-sdk"
 	ctrl "mesos-sdk/extras/scheduler/controller"
 	"mesos-sdk/scheduler/calls"
@@ -23,7 +25,7 @@ func (m *mockController) BuildFrameworkInfo(cfg configuration) *mesos.FrameworkI
 	return &mesos.FrameworkInfo{}
 }
 
-func (m *mockController) BuildConfig(ctx *ctrl.ContextAdapter, http *calls.Caller, shutdown <-chan struct{}, h *handlers) *ctrl.Config {
+func (m *mockController) BuildConfig(ctx *ctrl.ContextAdapter, http *calls.Caller, shutdown <-chan struct{}, h *sprintHandlers) *ctrl.Config {
 	return &ctrl.Config{}
 }
 
@@ -31,6 +33,8 @@ var c controller
 
 //Prepare common data for our tests.
 func init() {
+	log.SetOutput(ioutil.Discard)
+	log.SetFlags(0)
 	cfg = new(mockConfiguration).Initialize(nil)
 	s = &mockScheduler{
 		cfg: cfg,

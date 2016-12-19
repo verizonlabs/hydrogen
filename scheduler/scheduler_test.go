@@ -8,6 +8,8 @@ import (
 	"mesos-sdk/scheduler/calls"
 	"reflect"
 	"testing"
+	"log"
+	"io/ioutil"
 )
 
 // Mocked scheduler.
@@ -15,6 +17,10 @@ type mockScheduler struct {
 	cfg      configuration
 	executor *mesos.ExecutorInfo
 	state    state
+}
+
+func (m *mockScheduler) Config() configuration {
+	return m.cfg
 }
 
 func (m *mockScheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
@@ -42,6 +48,8 @@ var s scheduler
 
 //Prepare common data for our tests.
 func init() {
+	log.SetOutput(ioutil.Discard)
+	log.SetFlags(0)
 	cfg = new(mockConfiguration).Initialize(nil)
 	s = NewScheduler(cfg, make(chan struct{}))
 }

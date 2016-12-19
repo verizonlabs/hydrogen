@@ -2,6 +2,8 @@ package scheduler
 
 import (
 	"flag"
+	"io/ioutil"
+	"log"
 	"mesos-sdk"
 	"testing"
 	"time"
@@ -21,6 +23,7 @@ func (m *mockConfiguration) Initialize(fs *flag.FlagSet) *SprintConfiguration {
 	m.cfg.reviveBurst = 3
 	m.cfg.reviveWait = 1 * time.Second
 	m.cfg.timeout = 20 * time.Second
+	m.cfg.maxRefuse = 5 * time.Second
 
 	return &m.cfg
 }
@@ -61,9 +64,15 @@ func (m *mockConfiguration) ReviveWait() time.Duration {
 	return m.cfg.reviveWait
 }
 
+func (m *mockConfiguration) MaxRefuse() time.Duration {
+	return m.cfg.maxRefuse
+}
+
 var cfg configuration
 
 func init() {
+	log.SetOutput(ioutil.Discard)
+	log.SetFlags(0)
 	cfg = new(mockConfiguration)
 }
 

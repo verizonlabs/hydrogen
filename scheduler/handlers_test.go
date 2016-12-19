@@ -1,14 +1,40 @@
 package scheduler
 
 import (
+	"io/ioutil"
+	"log"
 	"mesos-sdk"
 	sched "mesos-sdk/scheduler"
+	ev "mesos-sdk/scheduler/events"
 	"reflect"
 	"testing"
 )
 
+// Mocked handlers.
+type mockHandlers struct {
+	sched scheduler
+	mux   *ev.Mux
+	ack   ev.Handler
+}
+
+func (m *mockHandlers) Mux() *ev.Mux {
+	return m.mux
+}
+
+func (m *mockHandlers) Ack() ev.Handler {
+	return m.ack
+}
+
+func (m *mockHandlers) ResourceOffers(offers []mesos.Offer) error {
+	return nil
+}
+
+var h handlers
+
 // Prepare common data for our tests.
 func init() {
+	log.SetOutput(ioutil.Discard)
+	log.SetFlags(0)
 	s = &mockScheduler{
 		cfg: cfg,
 		executor: &mesos.ExecutorInfo{
@@ -20,6 +46,7 @@ func init() {
 			frameworkId: "test",
 		},
 	}
+	h = NewHandlers(s)
 	event = &sched.Event{
 		Subscribed: &sched.Event_Subscribed{
 			FrameworkID: &mesos.FrameworkID{
@@ -36,14 +63,13 @@ func init() {
 func TestNewHandlers(t *testing.T) {
 	t.Parallel()
 
-	h := NewHandlers(s)
-	if reflect.TypeOf(h) != reflect.TypeOf(new(handlers)) {
+	if reflect.TypeOf(h) != reflect.TypeOf(new(sprintHandlers)) {
 		t.Fatal("Handlers is of the wrong type")
 	}
-	if err := h.mux.HandleEvent(event); err != nil {
+	if err := h.Mux().HandleEvent(event); err != nil {
 		t.Fatal("Handler mux failed to handle event: " + err.Error())
 	}
-	if err := h.ack.HandleEvent(event); err != nil {
+	if err := h.Ack().HandleEvent(event); err != nil {
 		t.Fatal("Handler ack failed to handle event: " + err.Error())
 	}
 }

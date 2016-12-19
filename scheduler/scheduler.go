@@ -14,6 +14,7 @@ import (
 
 // Base implementation of a scheduler.
 type scheduler interface {
+	Config() configuration
 	Run(c ctrl.Controller, config *ctrl.Config) error
 	State() *state
 	Caller() *calls.Caller
@@ -24,9 +25,11 @@ type scheduler interface {
 // Scheduler state.
 type state struct {
 	frameworkId   string
-	tasksLaunched uint
-	tasksFinished uint
-	totalTasks    uint
+	tasksLaunched int
+	tasksFinished int
+	totalTasks    int
+	taskResources mesos.Resources
+	role          string
 	done          bool
 	reviveTokens  <-chan struct{}
 }
@@ -83,6 +86,11 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 			reviveTokens: backoff.BurstNotifier(cfg.ReviveBurst(), cfg.ReviveWait(), cfg.ReviveWait(), nil),
 		},
 	}
+}
+
+// Returns the scheduler's configuration.
+func (s *sprintScheduler) Config() configuration {
+	return s.config
 }
 
 // Returns the internal state of the scheduler
