@@ -52,9 +52,6 @@ var s scheduler = &mockScheduler{
 			Value: "",
 		},
 	},
-	state: state{
-		frameworkId: "test",
-	},
 }
 
 // Suppress our logging and start the tests.

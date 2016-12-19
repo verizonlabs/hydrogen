@@ -31,7 +31,7 @@ var (
 	event *sched.Event = &sched.Event{
 		Subscribed: &sched.Event_Subscribed{
 			FrameworkID: &mesos.FrameworkID{
-				Value: s.State().frameworkId,
+				Value: "test",
 			},
 		},
 		Failure: &sched.Event_Failure{

@@ -43,10 +43,4 @@ func TestNewHandlers(t *testing.T) {
 	if reflect.TypeOf(h) != reflect.TypeOf(new(sprintHandlers)) {
 		t.Fatal("Handlers is of the wrong type")
 	}
-	if err := h.Mux().HandleEvent(event); err != nil {
-		t.Fatal("Handler mux failed to handle event: " + err.Error())
-	}
-	if err := h.Ack().HandleEvent(event); err != nil {
-		t.Fatal("Handler ack failed to handle event: " + err.Error())
-	}
 }
