@@ -152,3 +152,10 @@ func TestSprintEvents_Failure(t *testing.T) {
 		t.Fatal("Failure event failed: " + err.Error())
 	}
 }
+
+// Measures performance of the failure event.
+func BenchmarkSprintEvents_Failure(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		e.Failure(event)
+	}
+}
