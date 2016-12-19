@@ -105,6 +105,13 @@ func TestSprintEvents_Subscribed(t *testing.T) {
 	}
 }
 
+// Measures performance of the subscribed handler.
+func BenchmarkSprintEvents_Subscribed(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		e.Subscribed(event)
+	}
+}
+
 // Checks the offers event handler.
 func TestSprintEvents_Offers(t *testing.T) {
 	t.Parallel()
