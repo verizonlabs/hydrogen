@@ -3,11 +3,8 @@ package scheduler
 import (
 	"mesos-sdk"
 	sched "mesos-sdk/scheduler"
-	"mesos-sdk/scheduler/calls"
-	ev "mesos-sdk/scheduler/events"
+	"reflect"
 	"testing"
-	"log"
-	"io/ioutil"
 )
 
 //Mocked events.
@@ -30,34 +27,8 @@ func (m *mockEvents) Failure(event *sched.Event) error {
 }
 
 var (
-	e     events
-	event *sched.Event
-)
-
-// Prepare common data for our tests.
-func init() {
-	log.SetOutput(ioutil.Discard)
-	log.SetFlags(0)
-	cfg = new(mockConfiguration).Initialize(nil)
-	s = &mockScheduler{
-		cfg: cfg,
-		executor: &mesos.ExecutorInfo{
-			ExecutorID: mesos.ExecutorID{
-				Value: "test",
-			},
-		},
-		state: state{
-			frameworkId: "test",
-		},
-	}
-	h = &mockHandlers{
-		sched: s,
-		ack: ev.AcknowledgeUpdates(func() calls.Caller {
-			return *s.Caller()
-		}),
-	}
-	e = NewEvents(s, h.Ack(), h)
-	event = &sched.Event{
+	e     events       = &mockEvents{}
+	event *sched.Event = &sched.Event{
 		Subscribed: &sched.Event_Subscribed{
 			FrameworkID: &mesos.FrameworkID{
 				Value: s.State().frameworkId,
@@ -79,16 +50,14 @@ func init() {
 			},
 		},
 	}
-}
+)
 
 // Makes sure we get the correct type back for the events.
 func TestNewEvents(t *testing.T) {
 	t.Parallel()
 
-	switch e.(type) {
-	case *sprintEvents:
-		return
-	default:
+	e := NewEvents(s, h.Ack(), h)
+	if reflect.TypeOf(e) != reflect.TypeOf(new(sprintEvents)) {
 		t.Fatal("Controller is not of the right type")
 	}
 }
@@ -104,6 +73,8 @@ func BenchmarkNewEvents(b *testing.B) {
 func TestSprintEvents_Subscribed(t *testing.T) {
 	t.Parallel()
 
+	e := NewEvents(s, h.Ack(), h)
+
 	if err := e.Subscribed(event); err != nil {
 		t.Fatal("Subscribed event failure: " + err.Error())
 	}
@@ -111,6 +82,8 @@ func TestSprintEvents_Subscribed(t *testing.T) {
 
 // Measures performance of the subscribed event.
 func BenchmarkSprintEvents_Subscribed(b *testing.B) {
+	e := NewEvents(s, h.Ack(), h)
+
 	for n := 0; n < b.N; n++ {
 		e.Subscribed(event)
 	}
@@ -120,6 +93,8 @@ func BenchmarkSprintEvents_Subscribed(b *testing.B) {
 func TestSprintEvents_Offers(t *testing.T) {
 	t.Parallel()
 
+	e := NewEvents(s, h.Ack(), h)
+
 	if err := e.Offers(event); err != nil {
 		t.Fatal("Offers event failure: " + err.Error())
 	}
@@ -127,6 +102,8 @@ func TestSprintEvents_Offers(t *testing.T) {
 
 // Measures performance of the offers event.
 func BenchmarkSprintEvents_Offers(b *testing.B) {
+	e := NewEvents(s, h.Ack(), h)
+
 	for n := 0; n < b.N; n++ {
 		e.Offers(event)
 	}
@@ -136,6 +113,8 @@ func BenchmarkSprintEvents_Offers(b *testing.B) {
 func TestSprintEvents_Update(t *testing.T) {
 	t.Parallel()
 
+	e := NewEvents(s, h.Ack(), h)
+
 	if err := e.Update(event); err != nil {
 		t.Fatal("Update event failure: " + err.Error())
 	}
@@ -143,6 +122,8 @@ func TestSprintEvents_Update(t *testing.T) {
 
 // Measures performance of the update event.
 func BenchmarkSprintEvents_Update(b *testing.B) {
+	e := NewEvents(s, h.Ack(), h)
+
 	for n := 0; n < b.N; n++ {
 		e.Update(event)
 	}
@@ -152,6 +133,8 @@ func BenchmarkSprintEvents_Update(b *testing.B) {
 func TestSprintEvents_Failure(t *testing.T) {
 	t.Parallel()
 
+	e := NewEvents(s, h.Ack(), h)
+
 	if err := e.Failure(event); err != nil {
 		t.Fatal("Failure event failed: " + err.Error())
 	}
@@ -159,6 +142,8 @@ func TestSprintEvents_Failure(t *testing.T) {
 
 // Measures performance of the failure event.
 func BenchmarkSprintEvents_Failure(b *testing.B) {
+	e := NewEvents(s, h.Ack(), h)
+
 	for n := 0; n < b.N; n++ {
 		e.Failure(event)
 	}

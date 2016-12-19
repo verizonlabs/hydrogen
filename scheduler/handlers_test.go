@@ -1,10 +1,8 @@
 package scheduler
 
 import (
-	"io/ioutil"
-	"log"
 	"mesos-sdk"
-	sched "mesos-sdk/scheduler"
+	"mesos-sdk/scheduler/calls"
 	ev "mesos-sdk/scheduler/events"
 	"reflect"
 	"testing"
@@ -29,39 +27,18 @@ func (m *mockHandlers) ResourceOffers(offers []mesos.Offer) error {
 	return nil
 }
 
-var h handlers
-
-// Prepare common data for our tests.
-func init() {
-	log.SetOutput(ioutil.Discard)
-	log.SetFlags(0)
-	s = &mockScheduler{
-		cfg: cfg,
-		executor: &mesos.ExecutorInfo{
-			ExecutorID: mesos.ExecutorID{
-				Value: "test",
-			},
-		},
-		state: state{
-			frameworkId: "test",
-		},
-	}
-	h = NewHandlers(s)
-	event = &sched.Event{
-		Subscribed: &sched.Event_Subscribed{
-			FrameworkID: &mesos.FrameworkID{
-				Value: s.State().frameworkId,
-			},
-		},
-		Failure: &sched.Event_Failure{
-			ExecutorID: &s.ExecutorInfo().ExecutorID,
-		},
-	}
+var h handlers = &mockHandlers{
+	sched: s,
+	ack: ev.AcknowledgeUpdates(func() calls.Caller {
+		return *s.Caller()
+	}),
 }
 
 // Makes sure we get our handlers back correctly.
 func TestNewHandlers(t *testing.T) {
 	t.Parallel()
+
+	h := NewHandlers(s)
 
 	if reflect.TypeOf(h) != reflect.TypeOf(new(sprintHandlers)) {
 		t.Fatal("Handlers is of the wrong type")
