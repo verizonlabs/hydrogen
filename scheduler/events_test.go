@@ -6,6 +6,8 @@ import (
 	"mesos-sdk/scheduler/calls"
 	ev "mesos-sdk/scheduler/events"
 	"testing"
+	"log"
+	"io/ioutil"
 )
 
 //Mocked events.
@@ -34,6 +36,8 @@ var (
 
 // Prepare common data for our tests.
 func init() {
+	log.SetOutput(ioutil.Discard)
+	log.SetFlags(0)
 	cfg = new(mockConfiguration).Initialize(nil)
 	s = &mockScheduler{
 		cfg: cfg,

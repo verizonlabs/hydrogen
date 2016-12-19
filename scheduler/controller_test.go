@@ -1,6 +1,8 @@
 package scheduler
 
 import (
+	"io/ioutil"
+	"log"
 	"mesos-sdk"
 	ctrl "mesos-sdk/extras/scheduler/controller"
 	"mesos-sdk/scheduler/calls"
@@ -31,6 +33,8 @@ var c controller
 
 //Prepare common data for our tests.
 func init() {
+	log.SetOutput(ioutil.Discard)
+	log.SetFlags(0)
 	cfg = new(mockConfiguration).Initialize(nil)
 	s = &mockScheduler{
 		cfg: cfg,

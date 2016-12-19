@@ -2,6 +2,8 @@ package scheduler
 
 import (
 	"flag"
+	"io/ioutil"
+	"log"
 	"mesos-sdk"
 	"testing"
 	"time"
@@ -69,6 +71,8 @@ func (m *mockConfiguration) MaxRefuse() time.Duration {
 var cfg configuration
 
 func init() {
+	log.SetOutput(ioutil.Discard)
+	log.SetFlags(0)
 	cfg = new(mockConfiguration)
 }
 

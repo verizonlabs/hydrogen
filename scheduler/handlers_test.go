@@ -1,6 +1,8 @@
 package scheduler
 
 import (
+	"io/ioutil"
+	"log"
 	"mesos-sdk"
 	sched "mesos-sdk/scheduler"
 	ev "mesos-sdk/scheduler/events"
@@ -31,6 +33,8 @@ var h handlers
 
 // Prepare common data for our tests.
 func init() {
+	log.SetOutput(ioutil.Discard)
+	log.SetFlags(0)
 	s = &mockScheduler{
 		cfg: cfg,
 		executor: &mesos.ExecutorInfo{
