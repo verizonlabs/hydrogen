@@ -137,6 +137,13 @@ func TestSprintEvents_Update(t *testing.T) {
 	}
 }
 
+// Measures performance of the update event.
+func BenchmarkSprintEvents_Update(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		e.Update(event)
+	}
+}
+
 // Checks the failure event handler
 func TestSprintEvents_Failure(t *testing.T) {
 	t.Parallel()
