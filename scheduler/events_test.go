@@ -105,7 +105,7 @@ func TestSprintEvents_Subscribed(t *testing.T) {
 	}
 }
 
-// Measures performance of the subscribed handler.
+// Measures performance of the subscribed event.
 func BenchmarkSprintEvents_Subscribed(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		e.Subscribed(event)
@@ -118,6 +118,13 @@ func TestSprintEvents_Offers(t *testing.T) {
 
 	if err := e.Offers(event); err != nil {
 		t.Fatal("Offers event failure: " + err.Error())
+	}
+}
+
+// Measures performance of the offers event.
+func BenchmarkSprintEvents_Offers(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		e.Offers(event)
 	}
 }
 
