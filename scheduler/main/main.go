@@ -12,8 +12,7 @@ import (
 func main() {
 	fs := flag.NewFlagSet("scheduler", flag.ExitOnError)
 
-	config := new(scheduler.Configuration)
-	config.Initialize(fs)
+	config := new(scheduler.SprintConfiguration).Initialize(fs)
 
 	fs.Parse(os.Args[1:])
 
@@ -26,10 +25,9 @@ func main() {
 
 	log.Println("Starting framework scheduler")
 
-	err := sched.Run(controller.GetSchedulerCtrl(), controller.BuildConfig(
+	err := sched.Run(controller.SchedulerCtrl(), controller.BuildConfig(
 		controller.BuildContext(),
-		controller.BuildFrameworkInfo(config),
-		sched.GetCaller(),
+		sched.Caller(),
 		shutdown,
 		handlers,
 	))

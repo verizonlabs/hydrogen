@@ -2,49 +2,64 @@ package scheduler
 
 import (
 	"errors"
-	sched "github.com/verizonlabs/mesos-go/scheduler"
-	"github.com/verizonlabs/mesos-go/scheduler/calls"
-	ev "github.com/verizonlabs/mesos-go/scheduler/events"
 	"log"
+	sched "mesos-sdk/scheduler"
+	"mesos-sdk/scheduler/calls"
+	ev "mesos-sdk/scheduler/events"
 	"strconv"
 )
 
+// Base implementation for Mesos event handlers.
+type events interface {
+	Subscribed(event *sched.Event) error
+	Offers(event *sched.Event) error
+	Update(event *sched.Event) error
+	Failure(event *sched.Event) error
+}
+
 // Holds context about our scheduler and acknowledge handler.
-type events struct {
-	sched *scheduler
-	ack   ev.Handler
+type sprintEvents struct {
+	sched    scheduler
+	ack      ev.Handler
+	handlers handlers
 }
 
 // Applies the contextual information from the scheduler.
-func NewEvents(s *scheduler, a ev.Handler) *events {
-	return &events{
-		sched: s,
-		ack:   a,
+func NewEvents(s scheduler, a ev.Handler, h handlers) *sprintEvents {
+	return &sprintEvents{
+		sched:    s,
+		ack:      a,
+		handlers: h,
 	}
 }
 
-// Handler for subscribed events
-func (e *events) subscribed(event *sched.Event) error {
+// Handler for subscribed events.
+func (e *sprintEvents) Subscribed(event *sched.Event) error {
 	log.Println("Received subscribe event")
-	if e.sched.state.frameworkId == "" {
-		e.sched.state.frameworkId = event.GetSubscribed().GetFrameworkID().GetValue()
-		if e.sched.state.frameworkId == "" {
+	if e.sched.State().frameworkId == "" {
+		e.sched.State().frameworkId = event.GetSubscribed().GetFrameworkID().GetValue()
+		if e.sched.State().frameworkId == "" {
 			return errors.New("mesos gave us an empty frameworkID")
 		} else {
-			e.sched.http = calls.FrameworkCaller(e.sched.state.frameworkId).Apply(e.sched.http)
+			*e.sched.Caller() = calls.FrameworkCaller(e.sched.State().frameworkId).Apply(*e.sched.Caller())
 		}
 	}
 	return nil
 }
 
-// Handler for offers events
-func (e *events) offers(event *sched.Event) error {
-	//TODO implement handling resource offers
-	return nil
+// Handler for offers events.
+func (e *sprintEvents) Offers(event *sched.Event) error {
+	offers := event.GetOffers().GetOffers()
+	err := e.handlers.ResourceOffers(offers)
+	if err != nil {
+		log.Println("Error handling resource offers: " + err.Error())
+	}
+
+	return err
 }
 
-// Handler for update events
-func (e *events) update(event *sched.Event) error {
+// Handler for update events.
+func (e *sprintEvents) Update(event *sched.Event) error {
 	log.Println("Received update event")
 	if err := e.ack.HandleEvent(event); err != nil {
 		log.Println("Failed to acknowledge status update for task: " + err.Error())
@@ -53,8 +68,8 @@ func (e *events) update(event *sched.Event) error {
 	return nil
 }
 
-// Handler for failure events
-func (e *events) failure(event *sched.Event) error {
+// Handler for failure events.
+func (e *sprintEvents) Failure(event *sched.Event) error {
 	log.Println("Received failure event")
 	f := event.GetFailure()
 	if f.ExecutorID != nil {

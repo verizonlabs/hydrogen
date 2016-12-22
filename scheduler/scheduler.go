@@ -1,62 +1,79 @@
 package scheduler
 
 import (
-	"github.com/gogo/protobuf/proto"
-	"github.com/verizonlabs/mesos-go"
-	"github.com/verizonlabs/mesos-go/backoff"
-	"github.com/verizonlabs/mesos-go/encoding"
-	ctrl "github.com/verizonlabs/mesos-go/extras/scheduler/controller"
-	"github.com/verizonlabs/mesos-go/httpcli"
-	"github.com/verizonlabs/mesos-go/httpcli/httpsched"
-	"github.com/verizonlabs/mesos-go/scheduler/calls"
+	"mesos-sdk"
+	"mesos-sdk/backoff"
+	"mesos-sdk/encoding"
+	ctrl "mesos-sdk/extras/scheduler/controller"
+	"mesos-sdk/httpcli"
+	"mesos-sdk/httpcli/httpsched"
+	"mesos-sdk/scheduler/calls"
 	"net/http"
 	"time"
 )
 
+// Base implementation of a scheduler.
+type scheduler interface {
+	Config() configuration
+	Run(c ctrl.Controller, config *ctrl.Config) error
+	State() *state
+	Caller() *calls.Caller
+	FrameworkInfo() *mesos.FrameworkInfo
+	ExecutorInfo() *mesos.ExecutorInfo
+}
+
+// Scheduler state.
+type state struct {
+	frameworkId   string
+	tasksLaunched int
+	tasksFinished int
+	totalTasks    int
+	taskResources mesos.Resources
+	role          string
+	done          bool
+	reviveTokens  <-chan struct{}
+}
+
 // Holds all necessary information for our scheduler to function.
-type scheduler struct {
-	config    *Configuration
+type sprintScheduler struct {
+	config    configuration
 	framework *mesos.FrameworkInfo
 	executor  *mesos.ExecutorInfo
 	http      calls.Caller
 	shutdown  chan struct{}
-	state     struct {
-		frameworkId   string
-		tasksLaunched uint
-		tasksFinished uint
-		totalTasks    uint
-		done          bool
-		reviveTokens  <-chan struct{}
-	}
+	state     state
 }
 
 // Returns a new scheduler using user-supplied configuration.
-func NewScheduler(cfg *Configuration, shutdown chan struct{}) *scheduler {
-	return &scheduler{
+func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
+	var executorName = new(string)
+	*executorName = "Sprinter"
+
+	return &sprintScheduler{
 		config: cfg,
 		framework: &mesos.FrameworkInfo{
-			Name:       cfg.name,
-			Checkpoint: &cfg.checkpointing,
+			Name:       cfg.Name(),
+			Checkpoint: cfg.Checkpointing(),
 		},
 		executor: &mesos.ExecutorInfo{
 			ExecutorID: mesos.ExecutorID{
 				Value: "default",
 			},
-			Name: proto.String("Sprinter"),
+			Name: executorName,
 			Command: mesos.CommandInfo{
-				Value: proto.String(cfg.command),
-				URIs:  cfg.uris,
+				Value: cfg.Command(),
+				URIs:  cfg.Uris(),
 			},
 			Container: &mesos.ContainerInfo{
 				Type: mesos.ContainerInfo_MESOS.Enum(),
 			},
 		},
 		http: httpsched.NewCaller(httpcli.New(
-			httpcli.Endpoint(cfg.endpoint),
+			httpcli.Endpoint(cfg.Endpoint()),
 			httpcli.Codec(&encoding.ProtobufCodec),
 			httpcli.Do(
 				httpcli.With(
-					httpcli.Timeout(cfg.timeout),
+					httpcli.Timeout(cfg.Timeout()),
 					httpcli.Transport(func(t *http.Transport) {
 						t.ResponseHeaderTimeout = 15 * time.Second
 						t.MaxIdleConnsPerHost = 2
@@ -65,25 +82,38 @@ func NewScheduler(cfg *Configuration, shutdown chan struct{}) *scheduler {
 			),
 		)),
 		shutdown: shutdown,
-		state: struct {
-			frameworkId   string
-			tasksLaunched uint
-			tasksFinished uint
-			totalTasks    uint
-			done          bool
-			reviveTokens  <-chan struct{}
-		}{
-			reviveTokens: backoff.BurstNotifier(cfg.reviveBurst, cfg.reviveWait, cfg.reviveWait, nil),
+		state: state{
+			reviveTokens: backoff.BurstNotifier(cfg.ReviveBurst(), cfg.ReviveWait(), cfg.ReviveWait(), nil),
 		},
 	}
 }
 
+// Returns the scheduler's configuration.
+func (s *sprintScheduler) Config() configuration {
+	return s.config
+}
+
+// Returns the internal state of the scheduler
+func (s *sprintScheduler) State() *state {
+	return &s.state
+}
+
 // Returns the caller that we use for communication.
-func (s *scheduler) GetCaller() *calls.Caller {
+func (s *sprintScheduler) Caller() *calls.Caller {
 	return &s.http
 }
 
+// Returns the FrameworkInfo that is sent to Mesos.
+func (s *sprintScheduler) FrameworkInfo() *mesos.FrameworkInfo {
+	return s.framework
+}
+
+// Returns the ExecutorInfo that's associated with the scheduler.
+func (s *sprintScheduler) ExecutorInfo() *mesos.ExecutorInfo {
+	return s.executor
+}
+
 // Runs our scheduler with some applied configuration.
-func (s *scheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
+func (s *sprintScheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
 	return c.Run(*config)
 }
