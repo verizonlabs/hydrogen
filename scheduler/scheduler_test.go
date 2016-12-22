@@ -1,11 +1,14 @@
 package scheduler
 
 import (
+	"io/ioutil"
+	"log"
 	"mesos-sdk"
 	ctrl "mesos-sdk/extras/scheduler/controller"
 	"mesos-sdk/httpcli"
 	"mesos-sdk/httpcli/httpsched"
 	"mesos-sdk/scheduler/calls"
+	"os"
 	"reflect"
 	"testing"
 )
@@ -15,6 +18,10 @@ type mockScheduler struct {
 	cfg      configuration
 	executor *mesos.ExecutorInfo
 	state    state
+}
+
+func (m *mockScheduler) Config() configuration {
+	return m.cfg
 }
 
 func (m *mockScheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
@@ -38,22 +45,29 @@ func (m *mockScheduler) FrameworkInfo() *mesos.FrameworkInfo {
 	return &mesos.FrameworkInfo{}
 }
 
-var s scheduler
+var s scheduler = &mockScheduler{
+	cfg: cfg,
+	executor: &mesos.ExecutorInfo{
+		ExecutorID: mesos.ExecutorID{
+			Value: "",
+		},
+	},
+}
 
-//Prepare common data for our tests.
-func init() {
-	cfg = new(mockConfiguration).Initialize(nil)
-	s = NewScheduler(cfg, make(chan struct{}))
+// Suppress our logging and start the tests.
+func TestMain(m *testing.M) {
+	log.SetOutput(ioutil.Discard)
+	log.SetFlags(0)
+	os.Exit(m.Run())
 }
 
 // Ensures we get the correct type back for the scheduler.
 func TestNewScheduler(t *testing.T) {
 	t.Parallel()
 
-	switch s.(type) {
-	case *sprintScheduler:
-		return
-	default:
+	s := NewScheduler(cfg, make(chan struct{}))
+
+	if reflect.TypeOf(s) != reflect.TypeOf(new(sprintScheduler)) {
 		t.Fatal("Controller is not of the right type")
 	}
 }
@@ -61,6 +75,8 @@ func TestNewScheduler(t *testing.T) {
 // Ensures the scheduler's state and contained information is correct.
 func TestScheduler_GetState(t *testing.T) {
 	t.Parallel()
+
+	s := NewScheduler(cfg, make(chan struct{}))
 
 	st := s.State()
 	if reflect.TypeOf(st) != reflect.TypeOf(new(state)) {
@@ -75,6 +91,8 @@ func TestScheduler_GetState(t *testing.T) {
 // Tests to see if the scheduler has the right caller.
 func TestScheduler_GetCaller(t *testing.T) {
 	t.Parallel()
+
+	s := NewScheduler(cfg, make(chan struct{}))
 
 	caller := s.Caller()
 	if reflect.TypeOf(*caller) != reflect.TypeOf(httpsched.NewCaller(httpcli.New())) {

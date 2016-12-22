@@ -21,6 +21,7 @@ func (m *mockConfiguration) Initialize(fs *flag.FlagSet) *SprintConfiguration {
 	m.cfg.reviveBurst = 3
 	m.cfg.reviveWait = 1 * time.Second
 	m.cfg.timeout = 20 * time.Second
+	m.cfg.maxRefuse = 5 * time.Second
 
 	return &m.cfg
 }
@@ -61,11 +62,11 @@ func (m *mockConfiguration) ReviveWait() time.Duration {
 	return m.cfg.reviveWait
 }
 
-var cfg configuration
-
-func init() {
-	cfg = new(mockConfiguration)
+func (m *mockConfiguration) MaxRefuse() time.Duration {
+	return m.cfg.maxRefuse
 }
+
+var cfg configuration = new(mockConfiguration).Initialize(nil)
 
 // Tests setting up default configuration values
 func TestConfiguration_Initialize(t *testing.T) {

@@ -17,6 +17,7 @@ type configuration interface {
 	Timeout() time.Duration
 	ReviveBurst() int
 	ReviveWait() time.Duration
+	MaxRefuse() time.Duration
 }
 
 // Configuration for the scheduler, populated by user-supplied flags.
@@ -30,6 +31,7 @@ type SprintConfiguration struct {
 	timeout       time.Duration
 	reviveBurst   int
 	reviveWait    time.Duration
+	maxRefuse     time.Duration
 }
 
 // Applies values to the various configurations from user-supplied flags.
@@ -42,6 +44,7 @@ func (c *SprintConfiguration) Initialize(fs *flag.FlagSet) *SprintConfiguration 
 	fs.DurationVar(&c.timeout, "timeout", 20*time.Second, "Mesos connection timeout")
 	fs.IntVar(&c.reviveBurst, "revive.burst", 3, "Number of revive messages that may be sent in a burst within revive-wait period")
 	fs.DurationVar(&c.reviveWait, "revive.wait", 1*time.Second, "Wait this long to fully recharge revive-burst quota")
+	fs.DurationVar(&c.maxRefuse, "maxRefuse", 5*time.Second, "Max length of time to refuse future offers")
 
 	return c
 }
@@ -80,4 +83,8 @@ func (c *SprintConfiguration) ReviveBurst() int {
 
 func (c *SprintConfiguration) ReviveWait() time.Duration {
 	return c.reviveWait
+}
+
+func (c *SprintConfiguration) MaxRefuse() time.Duration {
+	return c.maxRefuse
 }

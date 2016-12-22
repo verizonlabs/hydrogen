@@ -19,21 +19,22 @@ type events interface {
 
 // Holds context about our scheduler and acknowledge handler.
 type sprintEvents struct {
-	sched scheduler
-	ack   ev.Handler
+	sched    scheduler
+	ack      ev.Handler
+	handlers handlers
 }
 
 // Applies the contextual information from the scheduler.
-func NewEvents(s scheduler, a ev.Handler) *sprintEvents {
+func NewEvents(s scheduler, a ev.Handler, h handlers) *sprintEvents {
 	return &sprintEvents{
-		sched: s,
-		ack:   a,
+		sched:    s,
+		ack:      a,
+		handlers: h,
 	}
 }
 
 // Handler for subscribed events.
 func (e *sprintEvents) Subscribed(event *sched.Event) error {
-	//TODO this prints out during the tests, inject this instead
 	log.Println("Received subscribe event")
 	if e.sched.State().frameworkId == "" {
 		e.sched.State().frameworkId = event.GetSubscribed().GetFrameworkID().GetValue()
@@ -46,13 +47,18 @@ func (e *sprintEvents) Subscribed(event *sched.Event) error {
 	return nil
 }
 
-// Handler for offers events
+// Handler for offers events.
 func (e *sprintEvents) Offers(event *sched.Event) error {
-	//TODO implement handling resource offers
-	return nil
+	offers := event.GetOffers().GetOffers()
+	err := e.handlers.ResourceOffers(offers)
+	if err != nil {
+		log.Println("Error handling resource offers: " + err.Error())
+	}
+
+	return err
 }
 
-// Handler for update events
+// Handler for update events.
 func (e *sprintEvents) Update(event *sched.Event) error {
 	log.Println("Received update event")
 	if err := e.ack.HandleEvent(event); err != nil {
@@ -62,9 +68,8 @@ func (e *sprintEvents) Update(event *sched.Event) error {
 	return nil
 }
 
-// Handler for failure events
+// Handler for failure events.
 func (e *sprintEvents) Failure(event *sched.Event) error {
-	//TODO this prints out during the tests, inject this instead
 	log.Println("Received failure event")
 	f := event.GetFailure()
 	if f.ExecutorID != nil {
@@ -75,10 +80,8 @@ func (e *sprintEvents) Failure(event *sched.Event) error {
 		if f.Status != nil {
 			msg += " with status=" + strconv.Itoa(int(*f.Status))
 		}
-		//TODO this prints out during the tests, inject this instead
 		log.Println(msg)
 	} else if f.AgentID != nil {
-		//TODO this prints out during the tests, inject this instead
 		log.Println("Agent '" + f.AgentID.Value + "' terminated")
 	}
 	return nil

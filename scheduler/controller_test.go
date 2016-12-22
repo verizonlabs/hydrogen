@@ -23,29 +23,19 @@ func (m *mockController) BuildFrameworkInfo(cfg configuration) *mesos.FrameworkI
 	return &mesos.FrameworkInfo{}
 }
 
-func (m *mockController) BuildConfig(ctx *ctrl.ContextAdapter, http *calls.Caller, shutdown <-chan struct{}, h *handlers) *ctrl.Config {
+func (m *mockController) BuildConfig(ctx *ctrl.ContextAdapter, http *calls.Caller, shutdown <-chan struct{}, h *sprintHandlers) *ctrl.Config {
 	return &ctrl.Config{}
 }
 
-var c controller
-
-//Prepare common data for our tests.
-func init() {
-	cfg = new(mockConfiguration).Initialize(nil)
-	s = &mockScheduler{
-		cfg: cfg,
-	}
-	c = NewController(s, make(<-chan struct{}))
-}
+var c controller = &mockController{}
 
 // Ensures that we get the correct type from creating a new controller.
 func TestNewController(t *testing.T) {
 	t.Parallel()
 
-	switch c.(type) {
-	case *sprintController:
-		return
-	default:
+	c := NewController(s, make(<-chan struct{}))
+
+	if reflect.TypeOf(c) != reflect.TypeOf(new(sprintController)) {
 		t.Fatal("Controller is not of the right type")
 	}
 }
@@ -53,6 +43,8 @@ func TestNewController(t *testing.T) {
 // Ensures that we get the correct type from getting the internal scheduler controller.
 func TestController_GetSchedulerCtrl(t *testing.T) {
 	t.Parallel()
+
+	c := NewController(s, make(<-chan struct{}))
 
 	switch c.SchedulerCtrl().(type) {
 	case ctrl.Controller:
@@ -65,6 +57,8 @@ func TestController_GetSchedulerCtrl(t *testing.T) {
 // Ensures we have the right types after building the context.
 func TestController_BuildContext(t *testing.T) {
 	t.Parallel()
+
+	c := NewController(s, make(<-chan struct{}))
 
 	ctx := c.BuildContext()
 
@@ -93,6 +87,8 @@ func TestController_BuildContext(t *testing.T) {
 func TestController_BuildFrameworkInfo(t *testing.T) {
 	t.Parallel()
 
+	c := NewController(s, make(<-chan struct{}))
+
 	info := c.BuildFrameworkInfo(cfg)
 	if info.GetName() != cfg.Name() {
 		t.Fatal("FrameworkInfo has the wrong name")
@@ -105,6 +101,8 @@ func TestController_BuildFrameworkInfo(t *testing.T) {
 // Ensures that we build the controller's configuration correctly.
 func TestController_BuildConfig(t *testing.T) {
 	t.Parallel()
+
+	c := NewController(s, make(<-chan struct{}))
 
 	ctx := c.BuildContext()
 	http := new(mockScheduler).Caller()
