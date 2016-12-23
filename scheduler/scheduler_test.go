@@ -191,3 +191,34 @@ func TestSprintScheduler_FrameworkInfo(t *testing.T) {
 		t.Fatal("Framework info contains the wrong framework name")
 	}
 }
+
+// Ensures the scheduler's executor info is valid.
+func TestSprintScheduler_ExecutorInfo(t *testing.T) {
+	t.Parallel()
+
+	s := NewScheduler(cfg, make(chan struct{}))
+
+	info := s.ExecutorInfo()
+	if reflect.TypeOf(info) != reflect.TypeOf(new(mesos.ExecutorInfo)) {
+		t.Fatal("Scheduler executor info is of the wrong type")
+	}
+
+	id := mesos.ExecutorID{
+		Value: "default",
+	}
+	if info.ExecutorID != id {
+		t.Fatal("Executor ID from executor info is incorrect")
+	}
+	if *info.Name != "Sprinter" {
+		t.Fatal("Executor has the wrong name")
+	}
+	if info.Command.GetValue() != "" {
+		t.Fatal("Executor command has the wrong value")
+	}
+	container := &mesos.ContainerInfo{
+		Type: mesos.ContainerInfo_MESOS.Enum(),
+	}
+	if reflect.TypeOf(info.Container) != reflect.TypeOf(container) {
+		t.Fatal("Executor info has the wrong container type")
+	}
+}
