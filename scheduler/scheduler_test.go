@@ -170,3 +170,24 @@ func TestSprintScheduler_Caller(t *testing.T) {
 		t.Fatal("Scheduler does not have the right kind of caller")
 	}
 }
+
+// Ensures the scheduler's framework info checks out.
+func TestSprintScheduler_FrameworkInfo(t *testing.T) {
+	t.Parallel()
+
+	s := NewScheduler(cfg, make(chan struct{}))
+
+	info := s.FrameworkInfo()
+	if reflect.TypeOf(info) != reflect.TypeOf(new(mesos.FrameworkInfo)) {
+		t.Fatal("Scheduler framework info is of the wrong type")
+	}
+	if !*info.Checkpoint {
+		t.Fatal("Checkpointing in scheduler framework info is not set correctly")
+	}
+	if info.ID != nil {
+		t.Fatal("Framework ID should not be set at this point")
+	}
+	if info.Name != "Sprint" {
+		t.Fatal("Framework info contains the wrong framework name")
+	}
+}
