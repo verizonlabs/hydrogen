@@ -122,9 +122,40 @@ func TestSprintScheduler_State(t *testing.T) {
 	if reflect.TypeOf(st) != reflect.TypeOf(new(state)) {
 		t.Fatal("Scheduler state is of the wrong type")
 	}
-
 	if st.tasksFinished != 0 || st.tasksLaunched != 0 || st.totalTasks != 0 {
 		t.Fatal("Starting state of scheduler tasks is not correct")
+	}
+	if st.done {
+		t.Fatal("Scheduler should not be marked as done here")
+	}
+	if st.frameworkId != "" || st.role != "" {
+		t.Fatal("Framework ID and/or role has the wrong starting value")
+	}
+
+	token := <-st.reviveTokens
+	if token != *new(struct{}) {
+		t.Fatal("Couldn't drain revive tokens")
+	}
+
+	resource := mesos.Resource{
+		Scalar: &mesos.Value_Scalar{
+			Value: 64,
+		},
+		Disk: &mesos.Resource_DiskInfo{
+			Volume: &mesos.Volume{
+				ContainerPath: "/tmp",
+			},
+			Source: &mesos.Resource_DiskInfo_Source{
+				Mount: &mesos.Resource_DiskInfo_Source_Mount{
+					Root: "/tmp",
+				},
+			},
+		},
+	}
+
+	st.taskResources.Add(resource)
+	if err := st.taskResources.Validate(); err != nil {
+		t.Fatal("Failed to validate task resources")
 	}
 }
 
