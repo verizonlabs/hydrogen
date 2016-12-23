@@ -11,6 +11,7 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
 )
 
 // Mocked scheduler.
@@ -69,6 +70,45 @@ func TestNewScheduler(t *testing.T) {
 
 	if reflect.TypeOf(s) != reflect.TypeOf(new(sprintScheduler)) {
 		t.Fatal("Controller is not of the right type")
+	}
+}
+
+// Checks the configuration stored inside of the scheduler.
+func TestSprintScheduler_Config(t *testing.T) {
+	t.Parallel()
+
+	s := NewScheduler(cfg, make(chan struct{}))
+
+	cfg := s.Config()
+	if reflect.TypeOf(cfg) != reflect.TypeOf(new(SprintConfiguration)) {
+		t.Fatal("Scheduler configuration is of the wrong type")
+	}
+	if !*cfg.Checkpointing() {
+		t.Fatal("Scheduler checkpointing is not set correctly")
+	}
+	if *cfg.Command() != "" {
+		t.Fatal("Scheduler command is not set properly")
+	}
+	if cfg.Endpoint() != "http://127.0.0.1:5050/api/v1/scheduler" {
+		t.Fatal("Scheduler endpoint is not set correctly")
+	}
+	if cfg.Name() != "Sprint" {
+		t.Fatal("Scheduler name is not set correctly")
+	}
+	if cfg.MaxRefuse() != 5*time.Second {
+		t.Fatal("Scheduler refusal time is not set correctly")
+	}
+	if cfg.ReviveBurst() != 3 {
+		t.Fatal("Scheduler revive burst amount is not set correctly")
+	}
+	if cfg.ReviveWait() != 1*time.Second {
+		t.Fatal("Scheduler revive wait period is not set correctly")
+	}
+	if cfg.Principal() != "Sprint" {
+		t.Fatal("Scheduler principal is not set correctly")
+	}
+	if cfg.Timeout() != 20*time.Second {
+		t.Fatal("Scheduler timeout is not set correctly")
 	}
 }
 
