@@ -46,6 +46,14 @@ func (m *mockScheduler) FrameworkInfo() *mesos.FrameworkInfo {
 	return &mesos.FrameworkInfo{}
 }
 
+// Mocked runner.
+// Used for testing the code to run the scheduler.
+type mockRunner struct{}
+
+func (m *mockRunner) Run(ctrl.Config) error {
+	return nil
+}
+
 var s scheduler = &mockScheduler{
 	cfg: cfg,
 	executor: &mesos.ExecutorInfo{
@@ -220,5 +228,17 @@ func TestSprintScheduler_ExecutorInfo(t *testing.T) {
 	}
 	if reflect.TypeOf(info.Container) != reflect.TypeOf(container) {
 		t.Fatal("Executor info has the wrong container type")
+	}
+}
+
+// Tests the scheduler's ability to run.
+func TestSprintScheduler_Run(t *testing.T) {
+	t.Parallel()
+
+	s := NewScheduler(cfg, make(chan struct{}))
+
+	err := s.Run(new(mockRunner), c.BuildConfig(c.BuildContext(), s.Caller(), make(chan struct{}), h))
+	if err != nil {
+		t.Fatal("Scheduler fails to run properly: " + err.Error())
 	}
 }

@@ -23,7 +23,7 @@ func (m *mockController) BuildFrameworkInfo(cfg configuration) *mesos.FrameworkI
 	return &mesos.FrameworkInfo{}
 }
 
-func (m *mockController) BuildConfig(ctx *ctrl.ContextAdapter, http *calls.Caller, shutdown <-chan struct{}, h *sprintHandlers) *ctrl.Config {
+func (m *mockController) BuildConfig(ctx *ctrl.ContextAdapter, http *calls.Caller, shutdown <-chan struct{}, h handlers) *ctrl.Config {
 	return &ctrl.Config{}
 }
 
