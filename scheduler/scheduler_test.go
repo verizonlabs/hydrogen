@@ -7,6 +7,7 @@ import (
 	ctrl "mesos-sdk/extras/scheduler/controller"
 	"mesos-sdk/httpcli"
 	"mesos-sdk/httpcli/httpsched"
+	sched "mesos-sdk/scheduler"
 	"mesos-sdk/scheduler/calls"
 	"os"
 	"reflect"
@@ -19,6 +20,7 @@ type mockScheduler struct {
 	cfg      configuration
 	executor *mesos.ExecutorInfo
 	state    state
+	http     calls.Caller
 }
 
 func (m *mockScheduler) Config() configuration {
@@ -34,8 +36,7 @@ func (m *mockScheduler) State() *state {
 }
 
 func (m *mockScheduler) Caller() *calls.Caller {
-	s := httpsched.NewCaller(httpcli.New())
-	return &s
+	return &m.http
 }
 
 func (m *mockScheduler) ExecutorInfo() *mesos.ExecutorInfo {
@@ -54,6 +55,15 @@ func (m *mockRunner) Run(ctrl.Config) error {
 	return nil
 }
 
+// Mocked caller.
+// Used for testing various things that try and call out to Mesos.
+type mockCaller struct{}
+
+func (m *mockCaller) Call(c *sched.Call) (mesos.Response, error) {
+	resp := new(mesos.Response)
+	return *resp, nil
+}
+
 var s scheduler = &mockScheduler{
 	cfg: cfg,
 	executor: &mesos.ExecutorInfo{
@@ -61,6 +71,10 @@ var s scheduler = &mockScheduler{
 			Value: "",
 		},
 	},
+	state: state{
+		totalTasks: 1,
+	},
+	http: new(mockCaller),
 }
 
 // Suppress our logging and start the tests.

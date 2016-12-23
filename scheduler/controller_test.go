@@ -119,7 +119,7 @@ func TestSprintController_BuildConfig(t *testing.T) {
 	if reflect.TypeOf(config.Framework) != reflect.TypeOf(s.FrameworkInfo()) {
 		t.Fatal("Configuration FrameworkInfo does not match")
 	}
-	if config.Caller != *http {
+	if reflect.TypeOf(config.Caller) != reflect.TypeOf(*http) {
 		t.Fatal("Configuration caller does not match")
 	}
 }

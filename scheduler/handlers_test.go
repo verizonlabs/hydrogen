@@ -66,3 +66,36 @@ func TestSprintHandlers_Ack(t *testing.T) {
 		t.Fatal("Acknowledgement handler has the wrong type")
 	}
 }
+
+func TestSprintHandlers_ResourceOffers(t *testing.T) {
+	t.Parallel()
+
+	h := NewHandlers(s)
+
+	offers := []mesos.Offer{
+		{
+			ID: mesos.OfferID{
+				Value: "test",
+			},
+			Resources: []mesos.Resource{
+				{
+					Scalar: &mesos.Value_Scalar{
+						Value: 64,
+					},
+					Ranges: &mesos.Value_Ranges{
+						Range: []mesos.Value_Range{
+							{
+								Begin: 1,
+								End:   100,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if err := h.ResourceOffers(offers); err != nil {
+		t.Fatal("Failed to handle resource offers: " + err.Error())
+	}
+}
