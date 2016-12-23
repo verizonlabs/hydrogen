@@ -44,3 +44,25 @@ func TestNewHandlers(t *testing.T) {
 		t.Fatal("Handlers is of the wrong type")
 	}
 }
+
+// Handler multiplexer tests.
+func TestSprintHandlers_Mux(t *testing.T) {
+	t.Parallel()
+
+	h := NewHandlers(s)
+
+	if reflect.TypeOf(h.Mux()) != reflect.TypeOf(new(ev.Mux)) {
+		t.Fatal("Handler multiplexer has the wrong type")
+	}
+}
+
+// Acknowledgement handler tests.
+func TestSprintHandlers_Ack(t *testing.T) {
+	t.Parallel()
+
+	h := NewHandlers(s)
+
+	if reflect.TypeOf(h.Ack()) != reflect.TypeOf(ev.AcknowledgeUpdates(nil)) {
+		t.Fatal("Acknowledgement handler has the wrong type")
+	}
+}
