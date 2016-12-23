@@ -41,7 +41,7 @@ func TestNewController(t *testing.T) {
 }
 
 // Ensures that we get the correct type from getting the internal scheduler controller.
-func TestController_SchedulerCtrl(t *testing.T) {
+func TestSprintController_SchedulerCtrl(t *testing.T) {
 	t.Parallel()
 
 	c := NewController(s, make(<-chan struct{}))
@@ -55,7 +55,7 @@ func TestController_SchedulerCtrl(t *testing.T) {
 }
 
 // Ensures we have the right types after building the context.
-func TestController_BuildContext(t *testing.T) {
+func TestSprintController_BuildContext(t *testing.T) {
 	t.Parallel()
 
 	c := NewController(s, make(<-chan struct{}))
@@ -84,7 +84,7 @@ func TestController_BuildContext(t *testing.T) {
 }
 
 // Ensures that we have correctly build the FrameworkInfo that will be sent to Mesos.
-func TestController_BuildFrameworkInfo(t *testing.T) {
+func TestSprintController_BuildFrameworkInfo(t *testing.T) {
 	t.Parallel()
 
 	c := NewController(s, make(<-chan struct{}))
@@ -99,7 +99,7 @@ func TestController_BuildFrameworkInfo(t *testing.T) {
 }
 
 // Ensures that we build the controller's configuration correctly.
-func TestController_BuildConfig(t *testing.T) {
+func TestSprintController_BuildConfig(t *testing.T) {
 	t.Parallel()
 
 	c := NewController(s, make(<-chan struct{}))

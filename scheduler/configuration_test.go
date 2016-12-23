@@ -69,7 +69,7 @@ func (m *mockConfiguration) MaxRefuse() time.Duration {
 var cfg configuration = new(mockConfiguration).Initialize(nil)
 
 // Tests setting up default configuration values
-func TestConfiguration_Initialize(t *testing.T) {
+func TestSprintConfiguration_Initialize(t *testing.T) {
 	t.Parallel()
 
 	fs := flag.NewFlagSet("test", flag.PanicOnError)
@@ -103,7 +103,7 @@ func TestConfiguration_Initialize(t *testing.T) {
 }
 
 // Benchmarks setting up default configuration values
-func BenchmarkConfiguration_Initialize(b *testing.B) {
+func BenchmarkSprintConfiguration_Initialize(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		fs := flag.NewFlagSet("test", flag.PanicOnError)
 
