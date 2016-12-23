@@ -67,11 +67,11 @@ func TestSprintHandlers_Ack(t *testing.T) {
 	}
 }
 
+// Tests to make sure we can handle resource offers without error.
 func TestSprintHandlers_ResourceOffers(t *testing.T) {
 	t.Parallel()
 
 	h := NewHandlers(s)
-
 	offers := []mesos.Offer{
 		{
 			ID: mesos.OfferID{
@@ -97,5 +97,36 @@ func TestSprintHandlers_ResourceOffers(t *testing.T) {
 
 	if err := h.ResourceOffers(offers); err != nil {
 		t.Fatal("Failed to handle resource offers: " + err.Error())
+	}
+}
+
+// Measures performance for handling resource offers.
+func BenchmarkSprintHandlers_ResourceOffers(b *testing.B) {
+	h := NewHandlers(s)
+	offers := []mesos.Offer{
+		{
+			ID: mesos.OfferID{
+				Value: "test",
+			},
+			Resources: []mesos.Resource{
+				{
+					Scalar: &mesos.Value_Scalar{
+						Value: 64,
+					},
+					Ranges: &mesos.Value_Ranges{
+						Range: []mesos.Value_Range{
+							{
+								Begin: 1,
+								End:   100,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for n := 0; n < b.N; n++ {
+		h.ResourceOffers(offers)
 	}
 }
