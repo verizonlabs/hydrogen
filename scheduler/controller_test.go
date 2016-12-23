@@ -41,7 +41,7 @@ func TestNewController(t *testing.T) {
 }
 
 // Ensures that we get the correct type from getting the internal scheduler controller.
-func TestController_GetSchedulerCtrl(t *testing.T) {
+func TestController_SchedulerCtrl(t *testing.T) {
 	t.Parallel()
 
 	c := NewController(s, make(<-chan struct{}))

@@ -73,7 +73,7 @@ func TestNewScheduler(t *testing.T) {
 }
 
 // Ensures the scheduler's state and contained information is correct.
-func TestScheduler_GetState(t *testing.T) {
+func TestScheduler_State(t *testing.T) {
 	t.Parallel()
 
 	s := NewScheduler(cfg, make(chan struct{}))
@@ -89,7 +89,7 @@ func TestScheduler_GetState(t *testing.T) {
 }
 
 // Tests to see if the scheduler has the right caller.
-func TestScheduler_GetCaller(t *testing.T) {
+func TestScheduler_Caller(t *testing.T) {
 	t.Parallel()
 
 	s := NewScheduler(cfg, make(chan struct{}))
