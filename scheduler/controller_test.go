@@ -105,7 +105,7 @@ func TestSprintController_BuildConfig(t *testing.T) {
 	c := NewController(s, make(<-chan struct{}))
 
 	ctx := c.BuildContext()
-	http := new(mockScheduler).Caller()
+	http := s.Caller()
 	shutdown := make(<-chan struct{})
 	handlers := NewHandlers(s)
 
