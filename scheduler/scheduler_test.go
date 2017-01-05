@@ -85,6 +85,7 @@ var s scheduler = &mockScheduler{
 	http: new(mockCaller),
 }
 
+// ENTRY POINT FOR ALL TESTS IN THIS PACKAGE
 // Suppress our logging and start the tests.
 func TestMain(m *testing.M) {
 	log.SetOutput(ioutil.Discard)
@@ -100,6 +101,13 @@ func TestNewScheduler(t *testing.T) {
 
 	if reflect.TypeOf(s) != reflect.TypeOf(new(sprintScheduler)) {
 		t.Fatal("Controller is not of the right type")
+	}
+}
+
+// Measures performance of creating a new scheduler.
+func BenchmarkNewScheduler(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		NewScheduler(cfg, make(chan struct{}))
 	}
 }
 
@@ -139,6 +147,15 @@ func TestSprintScheduler_Config(t *testing.T) {
 	}
 	if cfg.Timeout() != 20*time.Second {
 		t.Fatal("Scheduler timeout is not set correctly")
+	}
+}
+
+// Measures performance of getting the scheduler's configuration.
+func BenchmarkSprintScheduler_Config(b *testing.B) {
+	s := NewScheduler(cfg, make(chan struct{}))
+
+	for n := 0; n < b.N; n++ {
+		s.Config()
 	}
 }
 
@@ -189,6 +206,15 @@ func TestSprintScheduler_State(t *testing.T) {
 	}
 }
 
+// Measures performance of getting the scheduler's state.
+func BenchmarkSprintScheduler_State(b *testing.B) {
+	s := NewScheduler(cfg, make(chan struct{}))
+
+	for n := 0; n < b.N; n++ {
+		s.State()
+	}
+}
+
 // Tests to see if the scheduler has the right caller.
 func TestSprintScheduler_Caller(t *testing.T) {
 	t.Parallel()
@@ -198,6 +224,15 @@ func TestSprintScheduler_Caller(t *testing.T) {
 	caller := s.Caller()
 	if reflect.TypeOf(*caller) != reflect.TypeOf(httpsched.NewCaller(httpcli.New())) {
 		t.Fatal("Scheduler does not have the right kind of caller")
+	}
+}
+
+// Measures performance of getting the scheduler's HTTP caller.
+func BenchmarkSprintScheduler_Caller(b *testing.B) {
+	s := NewScheduler(cfg, make(chan struct{}))
+
+	for n := 0; n < b.N; n++ {
+		s.Caller()
 	}
 }
 
@@ -219,6 +254,15 @@ func TestSprintScheduler_FrameworkInfo(t *testing.T) {
 	}
 	if info.Name != "Sprint" {
 		t.Fatal("Framework info contains the wrong framework name")
+	}
+}
+
+// Measures performance of getting the scheduler's framework information.
+func BenchmarkSprintScheduler_FrameworkInfo(b *testing.B) {
+	s := NewScheduler(cfg, make(chan struct{}))
+
+	for n := 0; n < b.N; n++ {
+		s.FrameworkInfo()
 	}
 }
 
@@ -253,6 +297,15 @@ func TestSprintScheduler_ExecutorInfo(t *testing.T) {
 	}
 }
 
+// Measures performance of getting the scheduler's executor information.
+func BenchmarkSprintScheduler_ExecutorInfo(b *testing.B) {
+	s := NewScheduler(cfg, make(chan struct{}))
+
+	for n := 0; n < b.N; n++ {
+		s.ExecutorInfo()
+	}
+}
+
 // Tests the scheduler's ability to run.
 func TestSprintScheduler_Run(t *testing.T) {
 	t.Parallel()
@@ -262,6 +315,19 @@ func TestSprintScheduler_Run(t *testing.T) {
 	err := s.Run(new(mockRunner), c.BuildConfig(c.BuildContext(), s.Caller(), make(chan struct{}), h))
 	if err != nil {
 		t.Fatal("Scheduler fails to run properly: " + err.Error())
+	}
+}
+
+// Measures performance of running the scheduler.
+func BenchmarkSprintScheduler_Run(b *testing.B) {
+	s := NewScheduler(cfg, make(chan struct{}))
+
+	// Set these up once and only once.
+	runner := new(mockRunner)
+	config := c.BuildConfig(c.BuildContext(), s.Caller(), make(chan struct{}), h)
+
+	for n := 0; n < b.N; n++ {
+		s.Run(runner, config)
 	}
 }
 
@@ -281,6 +347,20 @@ func TestSprintScheduler_ReviveOffers(t *testing.T) {
 	}
 }
 
+// Measures performance of reviving offers.
+func BenchmarkSprintScheduler_ReviveOffers(b *testing.B) {
+	s := NewScheduler(cfg, make(chan struct{}))
+	s.http = new(mockCaller)
+
+	tokens := make(chan struct{}, 1)
+	s.state.reviveTokens = tokens
+
+	for n := 0; n < b.N; n++ {
+		tokens <- struct{}{}
+		s.ReviveOffers()
+	}
+}
+
 // Tests offer suppression.
 func TestSprintScheduler_SuppressOffers(t *testing.T) {
 	t.Parallel()
@@ -290,5 +370,15 @@ func TestSprintScheduler_SuppressOffers(t *testing.T) {
 
 	if err := s.SuppressOffers(); err != nil {
 		t.Fatal("Failed to suppress offers: " + err.Error())
+	}
+}
+
+// Measures performance of suppressing offers.
+func BenchmarkSprintScheduler_SuppressOffers(b *testing.B) {
+	s := NewScheduler(cfg, make(chan struct{}))
+	s.http = new(mockCaller)
+
+	for n := 0; n < b.N; n++ {
+		s.SuppressOffers()
 	}
 }
