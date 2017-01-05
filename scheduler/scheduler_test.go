@@ -47,6 +47,14 @@ func (m *mockScheduler) FrameworkInfo() *mesos.FrameworkInfo {
 	return &mesos.FrameworkInfo{}
 }
 
+func (m *mockScheduler) SuppressOffers() error {
+	return nil
+}
+
+func (m *mockScheduler) ReviveOffers() error {
+	return nil
+}
+
 // Mocked runner.
 // Used for testing the code to run the scheduler.
 type mockRunner struct{}
@@ -254,5 +262,33 @@ func TestSprintScheduler_Run(t *testing.T) {
 	err := s.Run(new(mockRunner), c.BuildConfig(c.BuildContext(), s.Caller(), make(chan struct{}), h))
 	if err != nil {
 		t.Fatal("Scheduler fails to run properly: " + err.Error())
+	}
+}
+
+// Tests offer revival.
+func TestSprintScheduler_ReviveOffers(t *testing.T) {
+	t.Parallel()
+
+	s := NewScheduler(cfg, make(chan struct{}))
+	s.http = new(mockCaller)
+
+	tokens := make(chan struct{}, 1)
+	tokens <- struct{}{}
+	s.state.reviveTokens = tokens
+
+	if err := s.ReviveOffers(); err != nil {
+		t.Fatal("Failed to revive offers: " + err.Error())
+	}
+}
+
+// Tests offer suppression.
+func TestSprintScheduler_SuppressOffers(t *testing.T) {
+	t.Parallel()
+
+	s := NewScheduler(cfg, make(chan struct{}))
+	s.http = new(mockCaller)
+
+	if err := s.SuppressOffers(); err != nil {
+		t.Fatal("Failed to suppress offers: " + err.Error())
 	}
 }
