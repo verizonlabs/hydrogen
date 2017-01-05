@@ -20,6 +20,8 @@ type scheduler interface {
 	Caller() *calls.Caller
 	FrameworkInfo() *mesos.FrameworkInfo
 	ExecutorInfo() *mesos.ExecutorInfo
+	SuppressOffers() error
+	ReviveOffers() error
 }
 
 // Scheduler state.
@@ -116,4 +118,20 @@ func (s *sprintScheduler) ExecutorInfo() *mesos.ExecutorInfo {
 // Runs our scheduler with some applied configuration.
 func (s *sprintScheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
 	return c.Run(*config)
+}
+
+// This call suppresses our offers received from Mesos.
+func (s *sprintScheduler) SuppressOffers() error {
+	return calls.CallNoData(s.http, calls.Suppress())
+}
+
+// This call revives our offers received from Mesos.
+func (s *sprintScheduler) ReviveOffers() error {
+	select {
+	// Rate limit offer revivals.
+	case <-s.state.reviveTokens:
+		return calls.CallNoData(s.http, calls.Revive())
+	default:
+		return nil
+	}
 }
