@@ -27,6 +27,10 @@ func (m *mockHandlers) ResourceOffers(offers []mesos.Offer) error {
 	return nil
 }
 
+func (m *mockHandlers) StatusUpdates(s mesos.TaskStatus) {
+
+}
+
 var h handlers = &mockHandlers{
 	sched: s,
 	ack: ev.AcknowledgeUpdates(func() calls.Caller {
@@ -128,5 +132,39 @@ func BenchmarkSprintHandlers_ResourceOffers(b *testing.B) {
 
 	for n := 0; n < b.N; n++ {
 		h.ResourceOffers(offers)
+	}
+}
+
+// Tests all of the possible status updates we could get from Mesos.
+func TestSprintHandlers_StatusUpdates(t *testing.T) {
+	t.Parallel()
+
+	h := NewHandlers(s)
+
+	for number := range mesos.TaskState_name {
+		state := mesos.TaskState(number)
+
+		h.StatusUpdates(mesos.TaskStatus{
+			State: &state,
+		})
+	}
+
+	if s.State().tasksFinished != 1 {
+		t.Fatal("Number of finished tasks is not correct")
+	}
+}
+
+// Measures performance of handling all of the possible status updates.
+func BenchmarkSprintHandlers_StatusUpdates(b *testing.B) {
+	h := NewHandlers(s)
+
+	for n := 0; n < b.N; n++ {
+		for number := range mesos.TaskState_name {
+			state := mesos.TaskState(number)
+
+			h.StatusUpdates(mesos.TaskStatus{
+				State: &state,
+			})
+		}
 	}
 }
