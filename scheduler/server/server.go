@@ -47,9 +47,10 @@ func (s *executorServer) ServeExecutorTLS(path string, port int, cert, key strin
 			// Use very strong crypto curves.
 			CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
 			PreferServerCipherSuites: true,
-			// Use very strong cipher suites.
+			// Use very strong cipher suites (order is important here!)
 			CipherSuites: []uint16{
 				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256, // Required for HTTP/2 support.
 				tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
 				tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
 				tls.TLS_RSA_WITH_AES_256_CBC_SHA,
