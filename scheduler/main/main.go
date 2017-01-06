@@ -2,10 +2,27 @@ package main
 
 import (
 	"flag"
-	"sprint/scheduler"
 	"log"
 	"os"
+	"sprint/scheduler"
+	"sprint/scheduler/server"
 )
+
+func startExecutorServer(config *scheduler.SprintConfiguration) {
+	if config.ExecutorSrvCert() != "" && config.ExecutorSrvKey() != "" {
+		server.NewExecutorServer().ServeExecutorTLS(
+			config.ExecutorSrvPath(),
+			config.ExecutorSrvPort(),
+			config.ExecutorSrvCert(),
+			config.ExecutorSrvKey(),
+		)
+	} else {
+		server.NewExecutorServer().ServeExecutor(
+			config.ExecutorSrvPath(),
+			config.ExecutorSrvPort(),
+		)
+	}
+}
 
 // Entry point for the scheduler.
 // Parses configuration from user-supplied flags and prepares the scheduler for execution.
@@ -15,6 +32,8 @@ func main() {
 	config := new(scheduler.SprintConfiguration).Initialize(fs)
 
 	fs.Parse(os.Args[1:])
+
+	go startExecutorServer(config)
 
 	shutdown := make(chan struct{})
 	defer close(shutdown)
