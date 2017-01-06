@@ -8,6 +8,7 @@ import (
 	"sprint/scheduler/server"
 )
 
+// Serves the executor over HTTP or HTTPS.
 func startExecutorServer(config *scheduler.SprintConfiguration) {
 	if config.ExecutorSrvCert() != "" && config.ExecutorSrvKey() != "" {
 		server.NewExecutorServer().ServeExecutorTLS(
