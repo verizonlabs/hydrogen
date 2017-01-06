@@ -23,7 +23,7 @@ func (m *mockController) BuildFrameworkInfo(cfg configuration) *mesos.FrameworkI
 	return &mesos.FrameworkInfo{}
 }
 
-func (m *mockController) BuildConfig(ctx *ctrl.ContextAdapter, http *calls.Caller, shutdown <-chan struct{}, h *sprintHandlers) *ctrl.Config {
+func (m *mockController) BuildConfig(ctx *ctrl.ContextAdapter, http *calls.Caller, shutdown <-chan struct{}, h handlers) *ctrl.Config {
 	return &ctrl.Config{}
 }
 
@@ -41,7 +41,7 @@ func TestNewController(t *testing.T) {
 }
 
 // Ensures that we get the correct type from getting the internal scheduler controller.
-func TestController_GetSchedulerCtrl(t *testing.T) {
+func TestSprintController_SchedulerCtrl(t *testing.T) {
 	t.Parallel()
 
 	c := NewController(s, make(<-chan struct{}))
@@ -55,7 +55,7 @@ func TestController_GetSchedulerCtrl(t *testing.T) {
 }
 
 // Ensures we have the right types after building the context.
-func TestController_BuildContext(t *testing.T) {
+func TestSprintController_BuildContext(t *testing.T) {
 	t.Parallel()
 
 	c := NewController(s, make(<-chan struct{}))
@@ -84,7 +84,7 @@ func TestController_BuildContext(t *testing.T) {
 }
 
 // Ensures that we have correctly build the FrameworkInfo that will be sent to Mesos.
-func TestController_BuildFrameworkInfo(t *testing.T) {
+func TestSprintController_BuildFrameworkInfo(t *testing.T) {
 	t.Parallel()
 
 	c := NewController(s, make(<-chan struct{}))
@@ -99,13 +99,13 @@ func TestController_BuildFrameworkInfo(t *testing.T) {
 }
 
 // Ensures that we build the controller's configuration correctly.
-func TestController_BuildConfig(t *testing.T) {
+func TestSprintController_BuildConfig(t *testing.T) {
 	t.Parallel()
 
 	c := NewController(s, make(<-chan struct{}))
 
 	ctx := c.BuildContext()
-	http := new(mockScheduler).Caller()
+	http := s.Caller()
 	shutdown := make(<-chan struct{})
 	handlers := NewHandlers(s)
 
@@ -119,7 +119,7 @@ func TestController_BuildConfig(t *testing.T) {
 	if reflect.TypeOf(config.Framework) != reflect.TypeOf(s.FrameworkInfo()) {
 		t.Fatal("Configuration FrameworkInfo does not match")
 	}
-	if config.Caller != *http {
+	if reflect.TypeOf(config.Caller) != reflect.TypeOf(*http) {
 		t.Fatal("Configuration caller does not match")
 	}
 }
