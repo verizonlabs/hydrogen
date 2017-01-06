@@ -246,7 +246,7 @@ func TestSprintConfiguration_ExecutorSrvCert(t *testing.T) {
 
 	fs := flag.NewFlagSet("test", flag.PanicOnError)
 	config := new(SprintConfiguration).Initialize(fs)
-	if config.ExecutorSrvCert() != "tls.crt" {
+	if config.ExecutorSrvCert() != "" {
 		t.Fatal("TLS certificate is wrong")
 	}
 }
@@ -257,7 +257,7 @@ func TestSprintConfiguration_ExecutorSrvKey(t *testing.T) {
 
 	fs := flag.NewFlagSet("test", flag.PanicOnError)
 	config := new(SprintConfiguration).Initialize(fs)
-	if config.ExecutorSrvKey() != "tls.key" {
+	if config.ExecutorSrvKey() != "" {
 		t.Fatal("TLS key is wrong")
 	}
 }
