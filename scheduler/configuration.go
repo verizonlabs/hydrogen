@@ -51,8 +51,8 @@ func (c *SprintConfiguration) Initialize(fs *flag.FlagSet) *SprintConfiguration 
 	fs.IntVar(&c.reviveBurst, "revive.burst", 3, "Number of revive messages that may be sent in a burst within revive-wait period")
 	fs.DurationVar(&c.reviveWait, "revive.wait", 1*time.Second, "Wait this long to fully recharge revive-burst quota")
 	fs.DurationVar(&c.maxRefuse, "maxRefuse", 5*time.Second, "Max length of time to refuse future offers")
-	fs.StringVar(&c.executorSrvCert, "server.executor.cert", "tls.crt", "TLS certificate")
-	fs.StringVar(&c.executorSrvKey, "server.executor.key", "tls.key", "TLS key")
+	fs.StringVar(&c.executorSrvCert, "server.executor.cert", "", "TLS certificate")
+	fs.StringVar(&c.executorSrvKey, "server.executor.key", "", "TLS key")
 	fs.StringVar(&c.executorSrvPath, "server.executor.path", "executor", "Path to the executor binary")
 	fs.IntVar(&c.executorSrvPort, "server.executor.port", 8081, "Executor server listen port")
 
