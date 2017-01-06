@@ -22,6 +22,7 @@ func NewExecutorServer() *executorServer {
 func (s *executorServer) executorHandle(path string, tls bool) {
 	s.mux.HandleFunc("/executor", func(w http.ResponseWriter, r *http.Request) {
 		if tls {
+			// Don't allow fallbacks to HTTP.
 			w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 		}
 		http.ServeFile(w, r, path)
