@@ -15,6 +15,7 @@ type handlers interface {
 	Mux() *ev.Mux
 	Ack() ev.Handler
 	ResourceOffers(offers []mesos.Offer) error
+	StatusUpdates(mesos.TaskStatus)
 }
 
 // Holds context about our event multiplexer and acknowledge handler.
@@ -109,4 +110,28 @@ func (h *sprintHandlers) ResourceOffers(offers []mesos.Offer) error {
 		}
 	}
 	return nil
+}
+
+// Handler for status updates from Mesos.
+func (h *sprintHandlers) StatusUpdates(s mesos.TaskStatus) {
+	state := h.sched.State()
+
+	switch st := s.GetState(); st {
+	case mesos.TASK_FINISHED:
+		state.tasksFinished++
+
+		if state.tasksFinished == state.totalTasks {
+			h.sched.SuppressOffers()
+		} else {
+			h.sched.ReviveOffers()
+		}
+	case mesos.TASK_LOST:
+		// TODO Handle task lost.
+	case mesos.TASK_KILLED:
+		// TODO Handle task killed.
+	case mesos.TASK_FAILED:
+		// TODO Handle task failed.
+	case mesos.TASK_ERROR:
+		// TODO Handle task error.
+	}
 }
