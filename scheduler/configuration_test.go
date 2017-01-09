@@ -22,6 +22,8 @@ func (m *mockConfiguration) Initialize(fs *flag.FlagSet) *SprintConfiguration {
 	m.cfg.reviveWait = 1 * time.Second
 	m.cfg.timeout = 20 * time.Second
 	m.cfg.maxRefuse = 5 * time.Second
+	m.cfg.executorSrvPath = "executor"
+	m.cfg.executorSrvPort = 8081
 
 	return &m.cfg
 }
@@ -64,6 +66,22 @@ func (m *mockConfiguration) ReviveWait() time.Duration {
 
 func (m *mockConfiguration) MaxRefuse() time.Duration {
 	return m.cfg.maxRefuse
+}
+
+func (m *mockConfiguration) ExecutorSrvCert() string {
+	return m.cfg.executorSrvCert
+}
+
+func (m *mockConfiguration) ExecutorSrvKey() string {
+	return m.cfg.executorSrvKey
+}
+
+func (m *mockConfiguration) ExecutorSrvPath() string {
+	return m.cfg.executorSrvPath
+}
+
+func (m *mockConfiguration) ExecutorSrvPort() int {
+	return m.cfg.executorSrvPort
 }
 
 var cfg configuration = new(mockConfiguration).Initialize(nil)
@@ -219,5 +237,49 @@ func TestSprintConfiguration_MaxRefuse(t *testing.T) {
 	config := new(SprintConfiguration).Initialize(fs)
 	if config.MaxRefuse() != 5*time.Second {
 		t.Fatal("Max refusal time is not set to the right value")
+	}
+}
+
+// Make sure we get our TLS certificate properly.
+func TestSprintConfiguration_ExecutorSrvCert(t *testing.T) {
+	t.Parallel()
+
+	fs := flag.NewFlagSet("test", flag.PanicOnError)
+	config := new(SprintConfiguration).Initialize(fs)
+	if config.ExecutorSrvCert() != "" {
+		t.Fatal("TLS certificate is wrong")
+	}
+}
+
+// Make sure we get our TLS key properly.
+func TestSprintConfiguration_ExecutorSrvKey(t *testing.T) {
+	t.Parallel()
+
+	fs := flag.NewFlagSet("test", flag.PanicOnError)
+	config := new(SprintConfiguration).Initialize(fs)
+	if config.ExecutorSrvKey() != "" {
+		t.Fatal("TLS key is wrong")
+	}
+}
+
+// Make sure we get our executor path properly.
+func TestSprintConfiguration_ExecutorSrvPath(t *testing.T) {
+	t.Parallel()
+
+	fs := flag.NewFlagSet("test", flag.PanicOnError)
+	config := new(SprintConfiguration).Initialize(fs)
+	if config.ExecutorSrvPath() != "executor" {
+		t.Fatal("Executor binary path is wrong")
+	}
+}
+
+// Make sure we get our executor port properly.
+func TestSprintConfiguration_ExecutorSrvPort(t *testing.T) {
+	t.Parallel()
+
+	fs := flag.NewFlagSet("test", flag.PanicOnError)
+	config := new(SprintConfiguration).Initialize(fs)
+	if config.ExecutorSrvPort() != 8081 {
+		t.Fatal("Executor server port is wrong")
 	}
 }
