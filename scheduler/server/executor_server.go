@@ -30,11 +30,12 @@ func NewExecutorServer(path string, port int, cert, key string) *executorServer 
 	}
 }
 
-// Handler to serve the executor binary.
+// Maps endpoints to handlers.
 func (s *executorServer) executorHandlers(path string, tls bool) {
 	s.mux.HandleFunc("/executor", s.executorBinary)
 }
 
+// Serve the executor binary.
 func (s *executorServer) executorBinary(w http.ResponseWriter, r *http.Request) {
 	if s.tls {
 		// Don't allow fallbacks to HTTP.
@@ -43,7 +44,7 @@ func (s *executorServer) executorBinary(w http.ResponseWriter, r *http.Request) 
 	http.ServeFile(w, r, s.path)
 }
 
-// Serve the executor over plain HTTP.
+// Start the server with or without TLS.
 func (s *executorServer) Serve() {
 	s.executorHandlers(s.path, s.tls)
 
