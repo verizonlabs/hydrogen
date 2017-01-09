@@ -30,13 +30,13 @@ func (s *executorServer) executorHandle(path string, tls bool) {
 }
 
 // Serve the executor over plain HTTP.
-func (s *executorServer) ServeExecutor(path string, port int) {
+func (s *executorServer) serveExecutor(path string, port int) {
 	s.executorHandle(path, false)
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(port), s.mux))
 }
 
 // Serve the executor over TLS.
-func (s *executorServer) ServeExecutorTLS(path string, port int, cert, key string) {
+func (s *executorServer) serveExecutorTLS(path string, port int, cert, key string) {
 	s.executorHandle(path, true)
 
 	srv := &http.Server{
@@ -60,4 +60,13 @@ func (s *executorServer) ServeExecutorTLS(path string, port int, cert, key strin
 	}
 
 	log.Fatal(srv.ListenAndServeTLS(cert, key))
+}
+
+// Start the server
+func (s *executorServer) Serve(path string, port int, cert, key string) {
+	if cert == "" && key == "" {
+		s.serveExecutor(path, port)
+	} else {
+		s.serveExecutorTLS(path, port, cert, key)
+	}
 }

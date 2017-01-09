@@ -8,23 +8,6 @@ import (
 	"sprint/scheduler/server"
 )
 
-// Serves the executor over HTTP or HTTPS.
-func startExecutorServer(config *scheduler.SprintConfiguration) {
-	if config.ExecutorSrvCert() != "" && config.ExecutorSrvKey() != "" {
-		server.NewExecutorServer().ServeExecutorTLS(
-			config.ExecutorSrvPath(),
-			config.ExecutorSrvPort(),
-			config.ExecutorSrvCert(),
-			config.ExecutorSrvKey(),
-		)
-	} else {
-		server.NewExecutorServer().ServeExecutor(
-			config.ExecutorSrvPath(),
-			config.ExecutorSrvPort(),
-		)
-	}
-}
-
 // Entry point for the scheduler.
 // Parses configuration from user-supplied flags and prepares the scheduler for execution.
 func main() {
@@ -34,7 +17,12 @@ func main() {
 
 	fs.Parse(os.Args[1:])
 
-	go startExecutorServer(config)
+	go server.NewExecutorServer().Serve(
+		config.ExecutorSrvPath(),
+		config.ExecutorSrvPort(),
+		config.ExecutorSrvCert(),
+		config.ExecutorSrvKey(),
+	)
 
 	shutdown := make(chan struct{})
 	defer close(shutdown)
