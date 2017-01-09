@@ -36,7 +36,7 @@ type state struct {
 	reviveTokens  <-chan struct{}
 }
 
-// Holds all nece  ssary information for our scheduler to function.
+// Holds all necessary information for our scheduler to function.
 type sprintScheduler struct {
 	config    configuration
 	framework *mesos.FrameworkInfo

@@ -61,7 +61,6 @@ func (h *sprintHandlers) Ack() ev.Handler {
 
 // Handler for our received resource offers.
 func (h *sprintHandlers) ResourceOffers(offers []mesos.Offer) error {
-	log.Println("In resource offers...")
 	jitter := rand.New(rand.NewSource(time.Now().Unix()))
 	callOption := calls.RefuseSecondsWithJitter(jitter, h.sched.Config().MaxRefuse())
 	state := h.sched.State()
@@ -72,21 +71,13 @@ func (h *sprintHandlers) ResourceOffers(offers []mesos.Offer) error {
 			tasks     = []mesos.TaskInfo{}
 		)
 
-		log.Println("received offer id '" + offers[i].ID.Value + "' with resources " + remaining.String())
-
 		var executorResources mesos.Resources
 		if len(offers[i].ExecutorIDs) == 0 {
 			executorResources = mesos.Resources(h.sched.ExecutorInfo().Resources)
 		}
-		log.Println("Executor resources: " + executorResources.String())
 
 		flattened := remaining.Flatten()
 		taskResources := state.taskResources.Plus(executorResources...)
-
-		log.Println("Tasks launched: " + strconv.Itoa(state.tasksLaunched))
-		log.Println("RESOURCES: " + taskResources.String())
-		log.Println("RESOURCES FLAT: " + flattened.String())
-		log.Println("Total tasks: " + strconv.Itoa(state.totalTasks))
 
 		for state.tasksLaunched < state.totalTasks && flattened.ContainsAll(taskResources) {
 			state.tasksLaunched++
@@ -108,19 +99,15 @@ func (h *sprintHandlers) ResourceOffers(offers []mesos.Offer) error {
 			flattened = remaining.Flatten()
 		}
 
-		log.Println("Generating an accept call")
-		log.Println(tasks)
 		accept := calls.Accept(
 			calls.OfferOperations{
 				calls.OpLaunch(tasks...),
 			}.WithOffers(offers[i].ID),
 		).With(callOption)
 
-		log.Println("POST accept call")
-		log.Println(accept.String())
 		err := calls.CallNoData(*h.sched.Caller(), accept)
 		if err != nil {
-			log.Printf("failed to launch tasks: %+v", err)
+			return err
 		}
 	}
 	return nil
