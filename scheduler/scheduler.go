@@ -1,17 +1,17 @@
 package scheduler
 
 import (
+	"fmt"
+	"github.com/gogo/protobuf/proto"
 	"mesos-sdk"
 	"mesos-sdk/backoff"
 	"mesos-sdk/encoding"
 	ctrl "mesos-sdk/extras/scheduler/controller"
 	"mesos-sdk/httpcli"
+	"mesos-sdk/httpcli/httpsched"
 	"mesos-sdk/scheduler/calls"
 	"net/http"
 	"time"
-	"mesos-sdk/httpcli/httpsched"
-	"github.com/gogo/protobuf/proto"
-	"fmt"
 )
 
 // Base implementation of a scheduler.
@@ -48,7 +48,6 @@ type sprintScheduler struct {
 	state     state
 }
 
-
 // Returns a new scheduler using user-supplied configuration.
 func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 	var executorName = new(string)
@@ -60,7 +59,7 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 	var uris = make([]mesos.CommandInfo_URI, 1)
 
 	uris[0] = mesos.CommandInfo_URI{
-		Value: "http://localhost:8081/executor",
+		Value:      "http://localhost:8081/executor",
 		Executable: isExecutable,
 	}
 
@@ -77,21 +76,21 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 		},
 		executor: &mesos.ExecutorInfo{
 			ExecutorID: mesos.ExecutorID{Value: "Default"},
-			Name: proto.String("Test Executor"),
+			Name:       proto.String("Test Executor"),
 			Command: mesos.CommandInfo{
 				Value: proto.String("echo hello"),
 				Shell: proto.Bool(true),
-				URIs: uris,
+				URIs:  uris,
 			},
 			Resources: []mesos.Resource{
 				{
-					Name: "cpus",
-					Type: mesos.SCALAR.Enum(),
+					Name:   "cpus",
+					Type:   mesos.SCALAR.Enum(),
 					Scalar: &mesos.Value_Scalar{Value: 0.5},
 				},
 				{
-					Name: "mem",
-					Type: mesos.SCALAR.Enum(),
+					Name:   "mem",
+					Type:   mesos.SCALAR.Enum(),
 					Scalar: &mesos.Value_Scalar{Value: 1024.0},
 				},
 			},
@@ -105,7 +104,6 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 						Type: mesos.Image_DOCKER.Enum(),
 					},
 				},
-
 			},
 		},
 		http: httpsched.NewCaller(httpcli.New(
@@ -123,7 +121,7 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 		)),
 		shutdown: shutdown,
 		state: state{
-			totalTasks: 5, // For testing, we need to allow POST'ing of tasks to the framework.
+			totalTasks:   5, // For testing, we need to allow POST'ing of tasks to the framework.
 			reviveTokens: backoff.BurstNotifier(cfg.ReviveBurst(), cfg.ReviveWait(), cfg.ReviveWait(), nil),
 		},
 	}

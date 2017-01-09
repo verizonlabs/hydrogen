@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"log"
 	"math/rand"
 	"mesos-sdk"
 	ctrl "mesos-sdk/extras/scheduler/controller"
@@ -9,7 +10,6 @@ import (
 	ev "mesos-sdk/scheduler/events"
 	"strconv"
 	"time"
-	"log"
 )
 
 type handlers interface {

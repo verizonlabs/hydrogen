@@ -2,20 +2,20 @@ package main
 
 import (
 	"errors"
+	"github.com/pborman/uuid"
 	"io"
 	"log"
-	"net/url"
-	"os"
-	"time"
-	"github.com/pborman/uuid"
 	"mesos-sdk"
-	"mesos-sdk/httpcli"
 	"mesos-sdk/backoff"
-	"mesos-sdk/executor/config"
 	"mesos-sdk/encoding"
 	"mesos-sdk/executor"
 	"mesos-sdk/executor/calls"
+	"mesos-sdk/executor/config"
 	"mesos-sdk/executor/events"
+	"mesos-sdk/httpcli"
+	"net/url"
+	"os"
+	"time"
 )
 
 const (
@@ -27,14 +27,14 @@ var errMustAbort = errors.New("received abort signal from mesos, will attempt to
 
 func main() {
 	cfg := config.Config{
-		FrameworkID: uuid.NewRandom().String(),
-		ExecutorID: uuid.NewRandom().String(),
-		Directory: "slave/",
-		AgentEndpoint: "127.0.0.1:5050",
+		FrameworkID:                 uuid.NewRandom().String(),
+		ExecutorID:                  uuid.NewRandom().String(),
+		Directory:                   "slave/",
+		AgentEndpoint:               "127.0.0.1:5050",
 		ExecutorShutdownGracePeriod: 25 * time.Second,
-		Checkpoint: true,
-		RecoveryTimeout: 60 * time.Second,
-		SubscriptionBackoffMax: 5 * time.Second,
+		Checkpoint:                  true,
+		RecoveryTimeout:             60 * time.Second,
+		SubscriptionBackoffMax:      5 * time.Second,
 	}
 
 	log.Printf("configuration loaded: %+v", cfg)
