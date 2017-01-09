@@ -1,7 +1,6 @@
 package scheduler
 
 import (
-	"log"
 	"math/rand"
 	"mesos-sdk"
 	ctrl "mesos-sdk/extras/scheduler/controller"
