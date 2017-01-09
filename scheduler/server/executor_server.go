@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"os"
 )
 
 type executorServer struct {
@@ -31,8 +32,13 @@ func (s *executorServer) executorHandle(path string, tls bool) {
 
 // Serve the executor over plain HTTP.
 func (s *executorServer) ServeExecutor(path string, port int) {
-	s.executorHandle(path, false)
-	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(port), s.mux))
+	_, err := os.Stat(path) // check if the file exists first.
+	if err != nil {
+		log.Fatal(path + " does not exist. " + err.Error())
+	} else {
+		s.executorHandle(path, false)
+		log.Fatal(http.ListenAndServe(":" + strconv.Itoa(port), s.mux))
+	}
 }
 
 // Serve the executor over TLS.

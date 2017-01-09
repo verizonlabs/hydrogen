@@ -9,6 +9,7 @@ import (
 type configuration interface {
 	Initialize(fs *flag.FlagSet) *SprintConfiguration
 	Name() string
+	Executor() string
 	Checkpointing() *bool
 	Principal() string
 	Command() *string
@@ -26,6 +27,7 @@ type configuration interface {
 type SprintConfiguration struct {
 	endpoint        string
 	name            string
+	executor        string
 	checkpointing   bool
 	principal       string
 	uris            []mesos.CommandInfo_URI
@@ -44,6 +46,7 @@ type SprintConfiguration struct {
 func (c *SprintConfiguration) Initialize(fs *flag.FlagSet) *SprintConfiguration {
 	fs.StringVar(&c.endpoint, "endpoint", "http://127.0.0.1:5050/api/v1/scheduler", "Mesos scheduler API endpoint")
 	fs.StringVar(&c.name, "name", "Sprint", "Framework name")
+	fs.StringVar(&c.executor, "executor", "example_executor", "Path of executor binary")
 	fs.BoolVar(&c.checkpointing, "checkpointing", true, "Enable or disable checkpointing")
 	fs.StringVar(&c.principal, "principal", "Sprint", "Framework principal")
 	fs.StringVar(&c.command, "command", "", "Executor command")
@@ -61,6 +64,10 @@ func (c *SprintConfiguration) Initialize(fs *flag.FlagSet) *SprintConfiguration 
 
 func (c *SprintConfiguration) Name() string {
 	return c.name
+}
+
+func (c *SprintConfiguration) Executor() string {
+	return c.executor
 }
 
 func (c *SprintConfiguration) Checkpointing() *bool {

@@ -41,6 +41,7 @@ func (e *sprintEvents) Subscribed(event *sched.Event) error {
 		if e.sched.State().frameworkId == "" {
 			return errors.New("mesos gave us an empty frameworkID")
 		} else {
+			log.Println("scheduler caller is set to " + e.sched.State().frameworkId + " frameworkID.")
 			*e.sched.Caller() = calls.FrameworkCaller(e.sched.State().frameworkId).Apply(*e.sched.Caller())
 		}
 	}

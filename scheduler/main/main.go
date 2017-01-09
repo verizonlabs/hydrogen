@@ -6,10 +6,13 @@ import (
 	"os"
 	"sprint/scheduler"
 	"sprint/scheduler/server"
+	"strconv"
 )
 
 // Serves the executor over HTTP or HTTPS.
 func startExecutorServer(config *scheduler.SprintConfiguration) {
+	log.Println("New server at " + config.ExecutorSrvPath() + ":" + strconv.Itoa(config.ExecutorSrvPort()))
+
 	if config.ExecutorSrvCert() != "" && config.ExecutorSrvKey() != "" {
 		server.NewExecutorServer().ServeExecutorTLS(
 			config.ExecutorSrvPath(),
@@ -34,6 +37,7 @@ func main() {
 
 	fs.Parse(os.Args[1:])
 
+	log.Println("Making a new server....")
 	go startExecutorServer(config)
 
 	shutdown := make(chan struct{})
