@@ -1,8 +1,6 @@
 package scheduler
 
 import (
-	"fmt"
-	"github.com/gogo/protobuf/proto"
 	"mesos-sdk"
 	"mesos-sdk/backoff"
 	"mesos-sdk/encoding"
@@ -50,23 +48,16 @@ type sprintScheduler struct {
 
 // Returns a new scheduler using user-supplied configuration.
 func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
+	// TODO make this a config option
 	var executorName = new(string)
 	*executorName = "Sprinter"
 
 	var isExecutable = new(bool)
 	*isExecutable = true
 
-	var uris = make([]mesos.CommandInfo_URI, 1)
-
-	uris[0] = mesos.CommandInfo_URI{
-		Value:      "http://localhost:8081/executor",
-		Executable: isExecutable,
-	}
-
-	var mesosContainer = new(mesos.ContainerInfo_Type)
-	*mesosContainer = mesos.ContainerInfo_MESOS
-
-	fmt.Print("Executor is at " + uris[0].Value + "\n")
+	// TODO hook this up to the API (once it's built) that will accept tasks from users
+	var command = new(string)
+	*command = "/bin/echo hello"
 
 	return &sprintScheduler{
 		config: cfg,
@@ -75,13 +66,19 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 			Checkpoint: cfg.Checkpointing(),
 		},
 		executor: &mesos.ExecutorInfo{
+			// TODO we should probably use a better executor ID
 			ExecutorID: mesos.ExecutorID{Value: "Default"},
-			Name:       proto.String("Test Executor"),
+			Name:       executorName,
 			Command: mesos.CommandInfo{
-				Value: proto.String("echo hello"),
-				Shell: proto.Bool(true),
-				URIs:  uris,
+				Value: command,
+				URIs: []mesos.CommandInfo_URI{
+					{
+						Value:      "http://localhost:8081/executor",
+						Executable: isExecutable,
+					},
+				},
 			},
+			// TODO make this flexible for config or dynamic modification
 			Resources: []mesos.Resource{
 				{
 					Name:   "cpus",

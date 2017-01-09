@@ -6,7 +6,6 @@ import (
 	"os"
 	"sprint/scheduler"
 	"sprint/scheduler/server"
-	"strconv"
 )
 
 // Entry point for the scheduler.
