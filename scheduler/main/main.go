@@ -17,12 +17,12 @@ func main() {
 
 	fs.Parse(os.Args[1:])
 
-	go server.NewExecutorServer().Serve(
+	go server.NewExecutorServer(
 		config.ExecutorSrvPath(),
 		config.ExecutorSrvPort(),
 		config.ExecutorSrvCert(),
 		config.ExecutorSrvKey(),
-	)
+	).Serve()
 
 	shutdown := make(chan struct{})
 	defer close(shutdown)
