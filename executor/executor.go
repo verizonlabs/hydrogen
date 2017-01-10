@@ -290,16 +290,3 @@ func newStatus(state *executorState, id mesos.TaskID) mesos.TaskStatus {
 		UUID:       []byte(extras.Uuid()),
 	}
 }
-
-type executorState struct {
-	callOptions    executor.CallOptions
-	cli            *httpcli.Client
-	cfg            config.Config
-	framework      mesos.FrameworkInfo
-	executor       mesos.ExecutorInfo
-	agent          mesos.AgentInfo
-	unackedTasks   map[mesos.TaskID]mesos.TaskInfo
-	unackedUpdates map[string]executor.Call_Update
-	failedTasks    map[mesos.TaskID]mesos.TaskStatus
-	shouldQuit     bool
-}
