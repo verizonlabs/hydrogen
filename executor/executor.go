@@ -10,7 +10,6 @@ import (
 	"time"
 	"errors"
 	"github.com/pborman/uuid"
-	"github.com/gogo/protobuf/proto"
 	"mesos-sdk/encoding"
 	"mesos-sdk/executor"
 	"mesos-sdk/executor/calls"
@@ -33,11 +32,23 @@ const (
 
 var errMustAbort = errors.New("received abort signal from mesos, will attempt to re-subscribe")
 
+func stringToStringPointer(str string) (*string){
+	var ptr = new(string)
+	*ptr = str
+	return ptr
+}
+
+func boolToBoolPointer(b bool) (*bool){
+	var ptr = new(bool)
+	*ptr = b
+	return ptr
+}
+
 // TODO make a NewExecutorWithConfig()
 func NewExecutor() (*mesos.ExecutorInfo) {
 	return &mesos.ExecutorInfo{
 		ExecutorID: mesos.ExecutorID{Value: uuid.NewRandom().String()},
-		Name:       proto.String("Sprinter"),
+		Name:       stringToStringPointer("Sprinter"),
 		Command: getCommandInfo("echo 'hello world'"),
 		Resources: []mesos.Resource{
 			getCpuResources(0.5),
@@ -53,12 +64,12 @@ func NewExecutor() (*mesos.ExecutorInfo) {
  */
 func getCommandInfo(command string) (mesos.CommandInfo){
 	return mesos.CommandInfo{
-		Value: proto.String(command),
+		Value: stringToStringPointer(command),
 		// URI is needed to pull the executor down!
 		URIs: []mesos.CommandInfo_URI{
 			{
 				Value:      executorFetcherURI,
-				Executable: proto.Bool(isExecutable),
+				Executable: boolToBoolPointer(isExecutable),
 			},
 		},
 	}
@@ -203,7 +214,6 @@ func unacknowledgedUpdates(state *executorState) executor.CallOpt {
 
 func eventLoop(state *executorState, decoder encoding.Decoder, h events.Handler) (err error) {
 	for err == nil && !state.shouldQuit {
-		// housekeeping
 		sendFailedTasks(state)
 
 		var e executor.Event
@@ -324,6 +334,6 @@ type executorState struct {
 	agent          mesos.AgentInfo
 	unackedTasks   map[mesos.TaskID]mesos.TaskInfo
 	unackedUpdates map[string]executor.Call_Update
-	failedTasks    map[mesos.TaskID]mesos.TaskStatus // send updates for these as we can
+	failedTasks    map[mesos.TaskID]mesos.TaskStatus
 	shouldQuit     bool
 }
