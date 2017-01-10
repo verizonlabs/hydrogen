@@ -47,7 +47,7 @@ var errMustAbort = errors.New("received abort signal from mesos, will attempt to
 
 func NewExecutor() *mesos.ExecutorInfo {
 	return &mesos.ExecutorInfo{
-		ExecutorID: mesos.ExecutorID{Value: uuid.NewRandom().String()},
+		ExecutorID: mesos.ExecutorID{Value: extras.Uuid()},
 		Name:       ProtoString("Sprinter"),
 		Command:    CommandInfo("echo 'hello world'"),
 		Resources: []mesos.Resource{
