@@ -2,13 +2,13 @@ package executor
 
 import (
 	"errors"
-	"github.com/pborman/uuid"
 	"io"
 	"log"
 	"mesos-sdk"
 	"mesos-sdk/backoff"
 	"mesos-sdk/encoding"
 	"mesos-sdk/executor"
+	"mesos-sdk/extras"
 	"mesos-sdk/executor/calls"
 	"mesos-sdk/executor/config"
 	"mesos-sdk/executor/events"
@@ -231,7 +231,6 @@ func buildEventHandler(state *executorState) events.Handler {
 }
 
 func sendFailedTasks(state *executorState) {
-	log.Println("Sending failed tasks.")
 	for taskID, status := range state.failedTasks {
 		updateErr := update(state, status)
 		if updateErr != nil {
@@ -288,6 +287,19 @@ func newStatus(state *executorState, id mesos.TaskID) mesos.TaskStatus {
 		TaskID:     id,
 		Source:     mesos.SOURCE_EXECUTOR.Enum(),
 		ExecutorID: &state.executor.ExecutorID,
-		UUID:       []byte(uuid.NewRandom()),
+		UUID:       []byte(extras.Uuid()),
 	}
+}
+
+type executorState struct {
+	callOptions    executor.CallOptions
+	cli            *httpcli.Client
+	cfg            config.Config
+	framework      mesos.FrameworkInfo
+	executor       mesos.ExecutorInfo
+	agent          mesos.AgentInfo
+	unackedTasks   map[mesos.TaskID]mesos.TaskInfo
+	unackedUpdates map[string]executor.Call_Update
+	failedTasks    map[mesos.TaskID]mesos.TaskStatus
+	shouldQuit     bool
 }
