@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 )
 
@@ -37,6 +38,11 @@ func (s *executorServer) executorHandlers(path string, tls bool) {
 
 // Serve the executor binary.
 func (s *executorServer) executorBinary(w http.ResponseWriter, r *http.Request) {
+	_, err := os.Stat(s.path) // check if the file exists first.
+	if err != nil {
+		log.Fatal(s.path + " does not exist. " + err.Error())
+	}
+
 	if s.tls {
 		// Don't allow fallbacks to HTTP.
 		w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
