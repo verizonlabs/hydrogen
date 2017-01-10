@@ -9,8 +9,8 @@ import (
 	"mesos-sdk/httpcli/httpsched"
 	"mesos-sdk/scheduler/calls"
 	"net/http"
-	"time"
 	"sprint/executor"
+	"time"
 )
 
 // Base implementation of a scheduler.
