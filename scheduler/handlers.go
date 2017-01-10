@@ -76,6 +76,10 @@ func (h *sprintHandlers) ResourceOffers(offers []mesos.Offer) error {
 		}
 
 		flattened := remaining.Flatten()
+		// TODO build support for specifying resources
+		// This will be eventually hooked up to the API where users can submit tasks
+		// In this way we can parameterize the executor/task resources (per task too)
+		// We also want to combine the task resources with the executor resources
 		taskResources := state.taskResources.Plus(executorResources...)
 
 		for state.tasksLaunched < state.totalTasks && flattened.ContainsAll(taskResources) {
@@ -86,8 +90,10 @@ func (h *sprintHandlers) ResourceOffers(offers []mesos.Offer) error {
 				TaskID: mesos.TaskID{
 					Value: strconv.Itoa(taskId),
 				},
-				AgentID:   offers[i].AgentID,
-				Executor:  h.sched.ExecutorInfo(),
+				AgentID:  offers[i].AgentID,
+				Executor: h.sched.ExecutorInfo(),
+				// TODO once the resource parameterization is in place reference state.taskResources again
+				// Right now state.taskResources is empty which will cause issues
 				Resources: remaining.Find(taskResources.Flatten(mesos.Role(state.role).Assign())),
 			}
 			task.Name = "task_" + task.TaskID.Value
