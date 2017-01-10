@@ -147,6 +147,7 @@ func TestSprintConfiguration_Name(t *testing.T) {
 	}
 }
 
+// Ensures that we can detect the current user and pass it into the framework info.
 func TestSprintConfiguration_User(t *testing.T) {
 	t.Parallel()
 
