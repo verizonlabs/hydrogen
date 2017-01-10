@@ -10,6 +10,7 @@ import (
 	"mesos-sdk/scheduler/calls"
 	"net/http"
 	"time"
+	"sprint/executor"
 )
 
 // Base implementation of a scheduler.
@@ -48,62 +49,13 @@ type sprintScheduler struct {
 
 // Returns a new scheduler using user-supplied configuration.
 func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
-	// TODO make this a config option
-	var executorName = new(string)
-	*executorName = "Sprinter"
-
-	var isExecutable = new(bool)
-	*isExecutable = true
-
-	// TODO hook this up to the API (once it's built) that will accept tasks from users
-	var command = new(string)
-	*command = "/bin/echo hello"
-
 	return &sprintScheduler{
 		config: cfg,
 		framework: &mesos.FrameworkInfo{
 			Name:       cfg.Name(),
 			Checkpoint: cfg.Checkpointing(),
 		},
-		executor: &mesos.ExecutorInfo{
-			// TODO we should probably use a better executor ID
-			ExecutorID: mesos.ExecutorID{Value: "Default"},
-			Name:       executorName,
-			Command: mesos.CommandInfo{
-				Value: command,
-				URIs: []mesos.CommandInfo_URI{
-					{
-						Value:      "http://localhost:8081/executor", // TODO parameterize this
-						Executable: isExecutable,
-					},
-				},
-			},
-			// TODO make this flexible for config or dynamic modification
-			Resources: []mesos.Resource{
-				{
-					Name:   "cpus",
-					Type:   mesos.SCALAR.Enum(),
-					Scalar: &mesos.Value_Scalar{Value: 0.5},
-				},
-				{
-					Name:   "mem",
-					Type:   mesos.SCALAR.Enum(),
-					Scalar: &mesos.Value_Scalar{Value: 1024.0},
-				},
-			},
-			Container: &mesos.ContainerInfo{
-				Type: mesos.ContainerInfo_MESOS.Enum(),
-				Mesos: &mesos.ContainerInfo_MesosInfo{
-					Image: &mesos.Image{
-						// TODO eventually do away with this
-						Docker: &mesos.Image_Docker{
-							Name: "busybox:latest",
-						},
-						Type: mesos.Image_DOCKER.Enum(),
-					},
-				},
-			},
-		},
+		executor: executor.NewExecutor(),
 		http: httpsched.NewCaller(httpcli.New(
 			httpcli.Endpoint(cfg.Endpoint()),
 			httpcli.Codec(&encoding.ProtobufCodec),

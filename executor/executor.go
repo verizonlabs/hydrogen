@@ -1,55 +1,119 @@
-package main
+package executor
 
 import (
+	"mesos-sdk"
+	"log"
+	"mesos-sdk/httpcli"
+	"net/url"
+	"mesos-sdk/backoff"
+	"mesos-sdk/executor/config"
+	"time"
 	"errors"
 	"github.com/pborman/uuid"
-	"io"
-	"log"
-	"mesos-sdk"
-	"mesos-sdk/backoff"
+	"github.com/gogo/protobuf/proto"
 	"mesos-sdk/encoding"
 	"mesos-sdk/executor"
 	"mesos-sdk/executor/calls"
-	"mesos-sdk/executor/config"
+	"io"
 	"mesos-sdk/executor/events"
-	"mesos-sdk/httpcli"
-	"net/url"
-	"os"
-	"time"
 )
 
 const (
 	apiPath     = "/api/v1/executor"
 	httpTimeout = 10 * time.Second
+
+	// Fetcher for the executor
+	executorFetcherPath = "/executor"
+	executorFetcherPort = "8081"
+	executorFetcherHost = "localhost"
+	executorFetcherProto = "http"
+	executorFetcherURI = executorFetcherProto + "://" + executorFetcherHost + ":" + executorFetcherPort + executorFetcherPath
+	isExecutable = true
 )
 
 var errMustAbort = errors.New("received abort signal from mesos, will attempt to re-subscribe")
 
-func main() {
-	cfg := config.Config{
-		FrameworkID:                 uuid.NewRandom().String(),
-		ExecutorID:                  uuid.NewRandom().String(),
-		Directory:                   "slave/",
-		AgentEndpoint:               "127.0.0.1:5050",
-		ExecutorShutdownGracePeriod: 25 * time.Second,
-		Checkpoint:                  true,
-		RecoveryTimeout:             60 * time.Second,
-		SubscriptionBackoffMax:      5 * time.Second,
+// TODO make a NewExecutorWithConfig()
+func NewExecutor() (*mesos.ExecutorInfo) {
+	return &mesos.ExecutorInfo{
+		ExecutorID: mesos.ExecutorID{Value: uuid.NewRandom().String()},
+		Name:       proto.String("Sprinter"),
+		Command: getCommandInfo("echo 'hello world'"),
+		Resources: []mesos.Resource{
+			getCpuResources(0.5),
+			getMemResources(1024.0),
+		},
+		Container: getContainer("busybox:latest"),
 	}
-
-	log.Printf("configuration loaded: %+v", cfg)
-	run(cfg)
-	os.Exit(0)
 }
 
-func run(cfg config.Config) {
+
+/*
+	Returns a commandInfo protobuf with the specified command
+ */
+func getCommandInfo(command string) (mesos.CommandInfo){
+	return mesos.CommandInfo{
+		Value: proto.String(command),
+		// URI is needed to pull the executor down!
+		URIs: []mesos.CommandInfo_URI{
+			{
+				Value:      executorFetcherURI,
+				Executable: proto.Bool(isExecutable),
+			},
+		},
+	}
+}
+
+/*
+	Convenience function to get a mesos container running a docker image.
+	Requires slave to run with mesos containerization flag set.
+ */
+func getContainer(imageName string) (*mesos.ContainerInfo){
+	return &mesos.ContainerInfo{
+		Type: mesos.ContainerInfo_MESOS.Enum(),
+		Mesos: &mesos.ContainerInfo_MesosInfo{
+			Image: &mesos.Image{
+				Docker: &mesos.Image_Docker{
+					Name: imageName,
+				},
+				Type: mesos.Image_DOCKER.Enum(),
+			},
+		},
+	}
+}
+
+/*
+	Convenience function to return mesos CPU resources.
+	CPU resources can be fractional.
+ */
+func getCpuResources(amount float64) (mesos.Resource){
+	return mesos.Resource{
+		Name:   "cpus",
+		Type:   mesos.SCALAR.Enum(),
+		Scalar: &mesos.Value_Scalar{Value: 0.5},
+	}
+}
+
+/*
+	Convenience function to return mesos memory resources.
+	Memory allocated is in mb.
+ */
+func getMemResources(amount float64) (mesos.Resource){
+	return mesos.Resource{
+		Name: "mem",
+		Type: mesos.SCALAR.Enum(),
+		Scalar: &mesos.Value_Scalar{Value: amount},
+	}
+}
+
+func Run(cfg config.Config) {
 	var (
 		apiURL = url.URL{
 			Scheme: "http",
 			Host:   cfg.AgentEndpoint,
 			Path:   apiPath,
 		}
-		state = &internalState{
+		state = &executorState{
 			cli: httpcli.New(
 				httpcli.Endpoint(apiURL.String()),
 				httpcli.Codec(&encoding.ProtobufCodec),
@@ -107,7 +171,7 @@ func run(cfg config.Config) {
 
 // unacknowledgedTasks is a functional option that sets the value of the UnacknowledgedTasks
 // field of a Subscribe call.
-func unacknowledgedTasks(state *internalState) executor.CallOpt {
+func unacknowledgedTasks(state *executorState) executor.CallOpt {
 	return func(call *executor.Call) {
 		if n := len(state.unackedTasks); n > 0 {
 			unackedTasks := make([]mesos.TaskInfo, 0, n)
@@ -123,7 +187,7 @@ func unacknowledgedTasks(state *internalState) executor.CallOpt {
 
 // unacknowledgedUpdates is a functional option that sets the value of the UnacknowledgedUpdates
 // field of a Subscribe call.
-func unacknowledgedUpdates(state *internalState) executor.CallOpt {
+func unacknowledgedUpdates(state *executorState) executor.CallOpt {
 	return func(call *executor.Call) {
 		if n := len(state.unackedUpdates); n > 0 {
 			unackedUpdates := make([]executor.Call_Update, 0, n)
@@ -137,7 +201,7 @@ func unacknowledgedUpdates(state *internalState) executor.CallOpt {
 	}
 }
 
-func eventLoop(state *internalState, decoder encoding.Decoder, h events.Handler) (err error) {
+func eventLoop(state *executorState, decoder encoding.Decoder, h events.Handler) (err error) {
 	for err == nil && !state.shouldQuit {
 		// housekeeping
 		sendFailedTasks(state)
@@ -150,7 +214,7 @@ func eventLoop(state *internalState, decoder encoding.Decoder, h events.Handler)
 	return err
 }
 
-func buildEventHandler(state *internalState) events.Handler {
+func buildEventHandler(state *executorState) events.Handler {
 	return events.NewMux(
 		events.Handle(executor.Event_SUBSCRIBED, events.HandlerFunc(func(e *executor.Event) error {
 			log.Println("SUBSCRIBED")
@@ -188,7 +252,7 @@ func buildEventHandler(state *internalState) events.Handler {
 	)
 }
 
-func sendFailedTasks(state *internalState) {
+func sendFailedTasks(state *executorState) {
 	for taskID, status := range state.failedTasks {
 		updateErr := update(state, status)
 		if updateErr != nil {
@@ -199,7 +263,7 @@ func sendFailedTasks(state *internalState) {
 	}
 }
 
-func launch(state *internalState, task mesos.TaskInfo) {
+func launch(state *executorState, task mesos.TaskInfo) {
 	state.unackedTasks[task.TaskID] = task
 
 	// send RUNNING
@@ -228,7 +292,7 @@ func launch(state *internalState, task mesos.TaskInfo) {
 
 func protoString(s string) *string { return &s }
 
-func update(state *internalState, status mesos.TaskStatus) error {
+func update(state *executorState, status mesos.TaskStatus) error {
 	upd := calls.Update(status).With(state.callOptions...)
 	resp, err := state.cli.Do(upd)
 	if resp != nil {
@@ -242,7 +306,7 @@ func update(state *internalState, status mesos.TaskStatus) error {
 	return err
 }
 
-func newStatus(state *internalState, id mesos.TaskID) mesos.TaskStatus {
+func newStatus(state *executorState, id mesos.TaskID) mesos.TaskStatus {
 	return mesos.TaskStatus{
 		TaskID:     id,
 		Source:     mesos.SOURCE_EXECUTOR.Enum(),
@@ -251,7 +315,7 @@ func newStatus(state *internalState, id mesos.TaskID) mesos.TaskStatus {
 	}
 }
 
-type internalState struct {
+type executorState struct {
 	callOptions    executor.CallOptions
 	cli            *httpcli.Client
 	cfg            config.Config
