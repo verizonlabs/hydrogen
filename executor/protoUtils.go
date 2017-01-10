@@ -7,16 +7,20 @@ import "mesos-sdk"
 */
 func CommandInfo(command string) mesos.CommandInfo {
 	return mesos.CommandInfo{
-		Value: protoString(command),
+		Value: ProtoString(command),
 		// URI is needed to pull the executor down!
 		URIs: []mesos.CommandInfo_URI{
 			{
 				Value:      executorFetcherURI,
-				Executable: protoBool(isExecutable),
+				Executable: ProtoBool(isExecutable),
 			},
 		},
 	}
 }
+
+func ProtoString(s string) *string { return &s }
+
+func ProtoBool(b bool) *bool { return &b }
 
 /*
 	Convenience function to get a mesos container running a docker image.

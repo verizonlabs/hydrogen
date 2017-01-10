@@ -45,12 +45,10 @@ type executorState struct {
 
 var errMustAbort = errors.New("received abort signal from mesos, will attempt to re-subscribe")
 
-func protoBool(b bool) *bool { return &b }
-
 func NewExecutor() *mesos.ExecutorInfo {
 	return &mesos.ExecutorInfo{
 		ExecutorID: mesos.ExecutorID{Value: uuid.NewRandom().String()},
-		Name:       protoString("Sprinter"),
+		Name:       ProtoString("Sprinter"),
 		Command:    CommandInfo("echo 'hello world'"),
 		Resources: []mesos.Resource{
 			CpuResources(0.5),
@@ -233,6 +231,7 @@ func buildEventHandler(state *executorState) events.Handler {
 }
 
 func sendFailedTasks(state *executorState) {
+	log.Println("Sending failed tasks.")
 	for taskID, status := range state.failedTasks {
 		updateErr := update(state, status)
 		if updateErr != nil {
@@ -253,7 +252,7 @@ func launch(state *executorState, task mesos.TaskInfo) {
 	if err != nil {
 		log.Printf("failed to send TASK_RUNNING for task %s: %+v", task.TaskID.Value, err)
 		status.State = mesos.TASK_FAILED.Enum()
-		status.Message = protoString(err.Error())
+		status.Message = ProtoString(err.Error())
 		state.failedTasks[task.TaskID] = status
 		return
 	}
@@ -265,12 +264,10 @@ func launch(state *executorState, task mesos.TaskInfo) {
 	if err != nil {
 		log.Printf("failed to send TASK_FINISHED for task %s: %+v", task.TaskID.Value, err)
 		status.State = mesos.TASK_FAILED.Enum()
-		status.Message = protoString(err.Error())
+		status.Message = ProtoString(err.Error())
 		state.failedTasks[task.TaskID] = status
 	}
 }
-
-func protoString(s string) *string { return &s }
 
 func update(state *executorState, status mesos.TaskStatus) error {
 	upd := calls.Update(status).With(state.callOptions...)
