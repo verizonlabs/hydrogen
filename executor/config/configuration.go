@@ -3,8 +3,8 @@ package execConfig
 import (
 	"flag"
 	"mesos-sdk/executor/config"
-	"github.com/mesos/mesos-go/examples/Godeps/_workspace/src/github.com/pborman/uuid"
 	"time"
+	"github.com/pborman/uuid"
 )
 
 // Create a default configuration if no flags are passed
