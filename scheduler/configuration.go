@@ -3,12 +3,14 @@ package scheduler
 import (
 	"flag"
 	"mesos-sdk"
+	"os/user"
 	"time"
 )
 
 type configuration interface {
 	Initialize(fs *flag.FlagSet) *SprintConfiguration
 	Name() string
+	User() string
 	Checkpointing() *bool
 	Principal() string
 	Command() *string
@@ -26,6 +28,7 @@ type configuration interface {
 type SprintConfiguration struct {
 	endpoint        string
 	name            string
+	user            string
 	checkpointing   bool
 	principal       string
 	uris            []mesos.CommandInfo_URI
@@ -42,8 +45,14 @@ type SprintConfiguration struct {
 
 // Applies values to the various configurations from user-supplied flags.
 func (c *SprintConfiguration) Initialize(fs *flag.FlagSet) *SprintConfiguration {
+	u, err := user.Current()
+	if err != nil {
+		panic("Unable to detect current user: " + err.Error())
+	}
+
 	fs.StringVar(&c.endpoint, "endpoint", "http://127.0.0.1:5050/api/v1/scheduler", "Mesos scheduler API endpoint")
 	fs.StringVar(&c.name, "name", "Sprint", "Framework name")
+	fs.StringVar(&c.user, "user", u.Username, "User that the executor/task will be launched as")
 	fs.BoolVar(&c.checkpointing, "checkpointing", true, "Enable or disable checkpointing")
 	fs.StringVar(&c.principal, "principal", "Sprint", "Framework principal")
 	fs.StringVar(&c.command, "command", "", "Executor command")
@@ -61,6 +70,10 @@ func (c *SprintConfiguration) Initialize(fs *flag.FlagSet) *SprintConfiguration 
 
 func (c *SprintConfiguration) Name() string {
 	return c.name
+}
+
+func (c *SprintConfiguration) User() string {
+	return c.user
 }
 
 func (c *SprintConfiguration) Checkpointing() *bool {

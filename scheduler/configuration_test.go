@@ -3,6 +3,7 @@ package scheduler
 import (
 	"flag"
 	"mesos-sdk"
+	"os/user"
 	"testing"
 	"time"
 )
@@ -14,6 +15,7 @@ type mockConfiguration struct {
 
 func (m *mockConfiguration) Initialize(fs *flag.FlagSet) *SprintConfiguration {
 	m.cfg.name = "Sprint"
+	m.cfg.user = "root"
 	m.cfg.checkpointing = true
 	m.cfg.command = ""
 	m.cfg.endpoint = "http://127.0.0.1:5050/api/v1/scheduler"
@@ -30,6 +32,10 @@ func (m *mockConfiguration) Initialize(fs *flag.FlagSet) *SprintConfiguration {
 
 func (m *mockConfiguration) Name() string {
 	return m.cfg.name
+}
+
+func (m *mockConfiguration) User() string {
+	return m.cfg.user
 }
 
 func (m *mockConfiguration) Checkpointing() *bool {
@@ -138,6 +144,22 @@ func TestSprintConfiguration_Name(t *testing.T) {
 	config := new(SprintConfiguration).Initialize(fs)
 	if config.Name() != "Sprint" {
 		t.Fatal("Configuration has wrong name")
+	}
+}
+
+// Ensures that we can detect the current user and pass it into the framework info.
+func TestSprintConfiguration_User(t *testing.T) {
+	t.Parallel()
+
+	u, err := user.Current()
+	if err != nil {
+		t.Fatal("Unable to detect current user: " + err.Error())
+	}
+
+	fs := flag.NewFlagSet("test", flag.PanicOnError)
+	config := new(SprintConfiguration).Initialize(fs)
+	if config.User() != u.Username {
+		t.Fatal("User is not set correctly")
 	}
 }
 
