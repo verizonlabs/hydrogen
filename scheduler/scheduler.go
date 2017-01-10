@@ -62,6 +62,7 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 	return &sprintScheduler{
 		config: cfg,
 		framework: &mesos.FrameworkInfo{
+			User:       cfg.User(),
 			Name:       cfg.Name(),
 			Checkpoint: cfg.Checkpointing(),
 		},
