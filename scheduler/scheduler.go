@@ -73,7 +73,7 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 				Value: command,
 				URIs: []mesos.CommandInfo_URI{
 					{
-						Value:      "http://localhost:8081/executor",
+						Value:      "http://localhost:8081/executor", // TODO parameterize this
 						Executable: isExecutable,
 					},
 				},
@@ -95,6 +95,7 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 				Type: mesos.ContainerInfo_MESOS.Enum(),
 				Mesos: &mesos.ContainerInfo_MesosInfo{
 					Image: &mesos.Image{
+						// TODO eventually do away with this
 						Docker: &mesos.Image_Docker{
 							Name: "busybox:latest",
 						},
@@ -118,7 +119,7 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 		)),
 		shutdown: shutdown,
 		state: state{
-			totalTasks:   5, // For testing, we need to allow POST'ing of tasks to the framework.
+			totalTasks:   5, // TODO For testing, we need to allow POST'ing of tasks to the framework.
 			reviveTokens: backoff.BurstNotifier(cfg.ReviveBurst(), cfg.ReviveWait(), cfg.ReviveWait(), nil),
 		},
 	}
