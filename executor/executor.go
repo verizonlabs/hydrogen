@@ -1,20 +1,20 @@
 package executor
 
 import (
-	"mesos-sdk"
-	"log"
-	"mesos-sdk/httpcli"
-	"net/url"
-	"mesos-sdk/backoff"
-	"mesos-sdk/executor/config"
-	"time"
 	"errors"
 	"github.com/pborman/uuid"
+	"io"
+	"log"
+	"mesos-sdk"
+	"mesos-sdk/backoff"
 	"mesos-sdk/encoding"
 	"mesos-sdk/executor"
 	"mesos-sdk/executor/calls"
-	"io"
+	"mesos-sdk/executor/config"
 	"mesos-sdk/executor/events"
+	"mesos-sdk/httpcli"
+	"net/url"
+	"time"
 )
 
 const (
@@ -22,34 +22,34 @@ const (
 	httpTimeout = 10 * time.Second
 
 	// Fetcher for the executor
-	executorFetcherPath = "/executor"
-	executorFetcherPort = "8081"
-	executorFetcherHost = "localhost"
+	executorFetcherPath  = "/executor"
+	executorFetcherPort  = "8081"
+	executorFetcherHost  = "localhost"
 	executorFetcherProto = "http"
-	executorFetcherURI = executorFetcherProto + "://" + executorFetcherHost + ":" + executorFetcherPort + executorFetcherPath
-	isExecutable = true
+	executorFetcherURI   = executorFetcherProto + "://" + executorFetcherHost + ":" + executorFetcherPort + executorFetcherPath
+	isExecutable         = true
 )
 
 var errMustAbort = errors.New("received abort signal from mesos, will attempt to re-subscribe")
 
-func stringToStringPointer(str string) (*string){
+func stringToStringPointer(str string) *string {
 	var ptr = new(string)
 	*ptr = str
 	return ptr
 }
 
-func boolToBoolPointer(b bool) (*bool){
+func boolToBoolPointer(b bool) *bool {
 	var ptr = new(bool)
 	*ptr = b
 	return ptr
 }
 
 // TODO make a NewExecutorWithConfig()
-func NewExecutor() (*mesos.ExecutorInfo) {
+func NewExecutor() *mesos.ExecutorInfo {
 	return &mesos.ExecutorInfo{
 		ExecutorID: mesos.ExecutorID{Value: uuid.NewRandom().String()},
 		Name:       stringToStringPointer("Sprinter"),
-		Command: getCommandInfo("echo 'hello world'"),
+		Command:    getCommandInfo("echo 'hello world'"),
 		Resources: []mesos.Resource{
 			getCpuResources(0.5),
 			getMemResources(1024.0),
@@ -58,11 +58,10 @@ func NewExecutor() (*mesos.ExecutorInfo) {
 	}
 }
 
-
 /*
 	Returns a commandInfo protobuf with the specified command
- */
-func getCommandInfo(command string) (mesos.CommandInfo){
+*/
+func getCommandInfo(command string) mesos.CommandInfo {
 	return mesos.CommandInfo{
 		Value: stringToStringPointer(command),
 		// URI is needed to pull the executor down!
@@ -78,8 +77,8 @@ func getCommandInfo(command string) (mesos.CommandInfo){
 /*
 	Convenience function to get a mesos container running a docker image.
 	Requires slave to run with mesos containerization flag set.
- */
-func getContainer(imageName string) (*mesos.ContainerInfo){
+*/
+func getContainer(imageName string) *mesos.ContainerInfo {
 	return &mesos.ContainerInfo{
 		Type: mesos.ContainerInfo_MESOS.Enum(),
 		Mesos: &mesos.ContainerInfo_MesosInfo{
@@ -96,8 +95,8 @@ func getContainer(imageName string) (*mesos.ContainerInfo){
 /*
 	Convenience function to return mesos CPU resources.
 	CPU resources can be fractional.
- */
-func getCpuResources(amount float64) (mesos.Resource){
+*/
+func getCpuResources(amount float64) mesos.Resource {
 	return mesos.Resource{
 		Name:   "cpus",
 		Type:   mesos.SCALAR.Enum(),
@@ -108,11 +107,11 @@ func getCpuResources(amount float64) (mesos.Resource){
 /*
 	Convenience function to return mesos memory resources.
 	Memory allocated is in mb.
- */
-func getMemResources(amount float64) (mesos.Resource){
+*/
+func getMemResources(amount float64) mesos.Resource {
 	return mesos.Resource{
-		Name: "mem",
-		Type: mesos.SCALAR.Enum(),
+		Name:   "mem",
+		Type:   mesos.SCALAR.Enum(),
 		Scalar: &mesos.Value_Scalar{Value: amount},
 	}
 }
