@@ -2,13 +2,13 @@ package executor
 
 import (
 	"errors"
-	"github.com/pborman/uuid"
 	"io"
 	"log"
 	"mesos-sdk"
 	"mesos-sdk/backoff"
 	"mesos-sdk/encoding"
 	"mesos-sdk/executor"
+	"mesos-sdk/extras"
 	"mesos-sdk/executor/calls"
 	"mesos-sdk/executor/config"
 	"mesos-sdk/executor/events"
@@ -47,7 +47,7 @@ func boolToBoolPointer(b bool) *bool {
 // TODO make a NewExecutorWithConfig()
 func NewExecutor() *mesos.ExecutorInfo {
 	return &mesos.ExecutorInfo{
-		ExecutorID: mesos.ExecutorID{Value: uuid.NewRandom().String()},
+		ExecutorID: mesos.ExecutorID{Value: extras.Uuid()},
 		Name:       stringToStringPointer("Sprinter"),
 		Command:    getCommandInfo("echo 'hello world'"),
 		Resources: []mesos.Resource{
@@ -320,7 +320,7 @@ func newStatus(state *executorState, id mesos.TaskID) mesos.TaskStatus {
 		TaskID:     id,
 		Source:     mesos.SOURCE_EXECUTOR.Enum(),
 		ExecutorID: &state.executor.ExecutorID,
-		UUID:       []byte(uuid.NewRandom()),
+		UUID:       []byte(extras.Uuid()),
 	}
 }
 
