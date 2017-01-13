@@ -22,6 +22,8 @@ type configuration interface {
 	MaxRefuse() time.Duration
 	ExecutorSrvPath() string
 	ExecutorSrvPort() int
+	ExecutorName() *string
+	ExecutorCmd() *string
 }
 
 // Configuration for the scheduler, populated by user-supplied flags.
@@ -41,6 +43,8 @@ type SprintConfiguration struct {
 	executorSrvKey  string
 	executorSrvPath string
 	executorSrvPort int
+	executorName    string
+	executorCmd     string
 }
 
 // Applies values to the various configurations from user-supplied flags.
@@ -64,6 +68,8 @@ func (c *SprintConfiguration) Initialize(fs *flag.FlagSet) *SprintConfiguration 
 	fs.StringVar(&c.executorSrvKey, "server.executor.key", "", "TLS key")
 	fs.StringVar(&c.executorSrvPath, "server.executor.path", "executor", "Path to the executor binary")
 	fs.IntVar(&c.executorSrvPort, "server.executor.port", 8081, "Executor server listen port")
+	fs.StringVar(&c.executorName, "executor.name", "Sprinter", "Name of the executor")
+	fs.StringVar(&c.executorCmd, "executor.command", "./executor", "Executor command")
 
 	return c
 }
@@ -126,4 +132,12 @@ func (c *SprintConfiguration) ExecutorSrvPath() string {
 
 func (c *SprintConfiguration) ExecutorSrvPort() int {
 	return c.executorSrvPort
+}
+
+func (c *SprintConfiguration) ExecutorName() *string {
+	return &c.executorName
+}
+
+func (c *SprintConfiguration) ExecutorCmd() *string {
+	return &c.executorCmd
 }

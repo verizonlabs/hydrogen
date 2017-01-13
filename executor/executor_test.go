@@ -7,7 +7,6 @@ import (
 	"mesos-sdk/executor/config"
 	"os"
 	"sprint"
-	"strconv"
 	"testing"
 )
 

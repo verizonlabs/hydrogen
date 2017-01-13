@@ -26,6 +26,8 @@ func (m *mockConfiguration) Initialize(fs *flag.FlagSet) *SprintConfiguration {
 	m.cfg.maxRefuse = 5 * time.Second
 	m.cfg.executorSrvPath = "executor"
 	m.cfg.executorSrvPort = 8081
+	m.cfg.executorName = "Sprinter"
+	m.cfg.executorCmd = "./executor"
 
 	return &m.cfg
 }
@@ -88,6 +90,14 @@ func (m *mockConfiguration) ExecutorSrvPath() string {
 
 func (m *mockConfiguration) ExecutorSrvPort() int {
 	return m.cfg.executorSrvPort
+}
+
+func (m *mockConfiguration) ExecutorName() *string {
+	return &m.cfg.executorName
+}
+
+func (m *mockConfiguration) ExecutorCmd() *string {
+	return &m.cfg.executorCmd
 }
 
 var cfg configuration = new(mockConfiguration).Initialize(nil)
@@ -303,5 +313,27 @@ func TestSprintConfiguration_ExecutorSrvPort(t *testing.T) {
 	config := new(SprintConfiguration).Initialize(fs)
 	if config.ExecutorSrvPort() != 8081 {
 		t.Fatal("Executor server port is wrong")
+	}
+}
+
+// Make sure we get our executor name correctly.
+func TestSprintConfiguration_ExecutorName(t *testing.T) {
+	t.Parallel()
+
+	fs := flag.NewFlagSet("test", flag.PanicOnError)
+	config := new(SprintConfiguration).Initialize(fs)
+	if *config.ExecutorName() != "Sprinter" {
+		t.Fatal("Executor name is wrong")
+	}
+}
+
+// Make sure we get our executor command correctly.
+func TestSprintConfiguration_ExecutorCmd(t *testing.T) {
+	t.Parallel()
+
+	fs := flag.NewFlagSet("test", flag.PanicOnError)
+	config := new(SprintConfiguration).Initialize(fs)
+	if *config.ExecutorCmd() != "./executor" {
+		t.Fatal("Executor command is wrong")
 	}
 }

@@ -64,10 +64,9 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 		},
 		executor: &mesos.ExecutorInfo{
 			ExecutorID: mesos.ExecutorID{Value: id},
-			Name:       sprint.ProtoString("Sprinter"),
+			Name:       cfg.ExecutorName(),
 			Command: mesos.CommandInfo{
-				// TODO don't hardcode this
-				Value: sprint.ProtoString("./executor"),
+				Value: cfg.ExecutorCmd(),
 				URIs: []mesos.CommandInfo_URI{
 					{
 						// TODO make this configurable
