@@ -10,12 +10,10 @@ import (
 // Entry point for the scheduler.
 // Parses configuration from user-supplied flags and prepares the scheduler for execution.
 func main() {
-	schedulerConfig := new(scheduler.SprintConfiguration).Initialize()
 	executorSrvConfig := new(server.ServerConfiguration).Initialize()
+	schedulerConfig := new(scheduler.SprintConfiguration).Initialize().SetExecutorSrvCfg(executorSrvConfig)
 
 	flag.Parse()
-
-	schedulerConfig.SetExecutorSrvCfg(executorSrvConfig)
 
 	go server.NewExecutorServer(executorSrvConfig).Serve()
 
