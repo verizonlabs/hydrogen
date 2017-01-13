@@ -41,9 +41,11 @@ func (e *sprintEvents) Subscribed(event *sched.Event) error {
 		if e.sched.State().frameworkId == "" {
 			return errors.New("mesos gave us an empty frameworkID")
 		} else {
+			log.Println("Scheduler's framework ID is " + e.sched.State().frameworkId)
 			*e.sched.Caller() = calls.FrameworkCaller(e.sched.State().frameworkId).Apply(*e.sched.Caller())
 		}
 	}
+
 	return nil
 }
 
@@ -64,7 +66,8 @@ func (e *sprintEvents) Update(event *sched.Event) error {
 	if err := e.ack.HandleEvent(event); err != nil {
 		log.Println("Failed to acknowledge status update for task: " + err.Error())
 	}
-	// TODO handle status updates
+	e.handlers.StatusUpdates(event.GetUpdate().GetStatus())
+
 	return nil
 }
 
@@ -84,5 +87,6 @@ func (e *sprintEvents) Failure(event *sched.Event) error {
 	} else if f.AgentID != nil {
 		log.Println("Agent '" + f.AgentID.Value + "' terminated")
 	}
+
 	return nil
 }

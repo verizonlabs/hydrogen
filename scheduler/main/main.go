@@ -2,24 +2,25 @@ package main
 
 import (
 	"flag"
-	"sprint/scheduler"
 	"log"
-	"os"
+	"sprint/scheduler"
+	"sprint/scheduler/server"
 )
 
 // Entry point for the scheduler.
 // Parses configuration from user-supplied flags and prepares the scheduler for execution.
 func main() {
-	fs := flag.NewFlagSet("scheduler", flag.ExitOnError)
+	executorSrvConfig := new(server.ServerConfiguration).Initialize()
+	schedulerConfig := new(scheduler.SprintConfiguration).Initialize().SetExecutorSrvCfg(executorSrvConfig)
 
-	config := new(scheduler.SprintConfiguration).Initialize(fs)
+	flag.Parse()
 
-	fs.Parse(os.Args[1:])
+	go server.NewExecutorServer(executorSrvConfig).Serve()
 
 	shutdown := make(chan struct{})
 	defer close(shutdown)
 
-	sched := scheduler.NewScheduler(config, shutdown)
+	sched := scheduler.NewScheduler(schedulerConfig, shutdown)
 	controller := scheduler.NewController(sched, shutdown)
 	handlers := scheduler.NewHandlers(sched)
 

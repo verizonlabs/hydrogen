@@ -1,14 +1,18 @@
 package scheduler
 
 import (
+	"fmt"
 	"mesos-sdk"
 	"mesos-sdk/backoff"
 	"mesos-sdk/encoding"
+	"mesos-sdk/extras"
 	ctrl "mesos-sdk/extras/scheduler/controller"
 	"mesos-sdk/httpcli"
 	"mesos-sdk/httpcli/httpsched"
 	"mesos-sdk/scheduler/calls"
 	"net/http"
+	"sprint"
+	"strconv"
 	"time"
 )
 
@@ -20,6 +24,8 @@ type scheduler interface {
 	Caller() *calls.Caller
 	FrameworkInfo() *mesos.FrameworkInfo
 	ExecutorInfo() *mesos.ExecutorInfo
+	SuppressOffers() error
+	ReviveOffers() error
 }
 
 // Scheduler state.
@@ -46,23 +52,34 @@ type sprintScheduler struct {
 
 // Returns a new scheduler using user-supplied configuration.
 func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
-	var executorName = new(string)
-	*executorName = "Sprinter"
+	uuid := extras.Uuid()
+	id := fmt.Sprintf("%X-%X-%X-%X-%X", uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:])
+	// TODO don't hardcode IP
+	executorUri := cfg.ExecutorSrvCfg().ExecutorSrvProtocol() + "://10.0.2.2:" + strconv.Itoa(cfg.ExecutorSrvCfg().ExecutorSrvPort()) + "/executor"
 
 	return &sprintScheduler{
 		config: cfg,
 		framework: &mesos.FrameworkInfo{
+			User:       cfg.User(),
 			Name:       cfg.Name(),
 			Checkpoint: cfg.Checkpointing(),
 		},
 		executor: &mesos.ExecutorInfo{
-			ExecutorID: mesos.ExecutorID{
-				Value: "default",
-			},
-			Name: executorName,
+			ExecutorID: mesos.ExecutorID{Value: id},
+			Name:       cfg.ExecutorName(),
 			Command: mesos.CommandInfo{
-				Value: cfg.Command(),
-				URIs:  cfg.Uris(),
+				Value: cfg.ExecutorCmd(),
+				URIs: []mesos.CommandInfo_URI{
+					{
+						Value:      executorUri,
+						Executable: sprint.ProtoBool(true),
+					},
+				},
+			},
+			// TODO parameterize this
+			Resources: []mesos.Resource{
+				sprint.Resource("cpus", 0.5),
+				sprint.Resource("mem", 1024.0),
 			},
 			Container: &mesos.ContainerInfo{
 				Type: mesos.ContainerInfo_MESOS.Enum(),
@@ -83,6 +100,7 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 		)),
 		shutdown: shutdown,
 		state: state{
+			totalTasks:   5, // TODO For testing, we need to allow POST'ing of tasks to the framework.
 			reviveTokens: backoff.BurstNotifier(cfg.ReviveBurst(), cfg.ReviveWait(), cfg.ReviveWait(), nil),
 		},
 	}
@@ -116,4 +134,20 @@ func (s *sprintScheduler) ExecutorInfo() *mesos.ExecutorInfo {
 // Runs our scheduler with some applied configuration.
 func (s *sprintScheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
 	return c.Run(*config)
+}
+
+// This call suppresses our offers received from Mesos.
+func (s *sprintScheduler) SuppressOffers() error {
+	return calls.CallNoData(s.http, calls.Suppress())
+}
+
+// This call revives our offers received from Mesos.
+func (s *sprintScheduler) ReviveOffers() error {
+	select {
+	// Rate limit offer revivals.
+	case <-s.state.reviveTokens:
+		return calls.CallNoData(s.http, calls.Revive())
+	default:
+		return nil
+	}
 }

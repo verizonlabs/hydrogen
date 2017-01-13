@@ -7,6 +7,7 @@ import (
 	sched "mesos-sdk/scheduler"
 	"mesos-sdk/scheduler/calls"
 	ev "mesos-sdk/scheduler/events"
+	"sprint/executor"
 	"strconv"
 	"time"
 )
@@ -15,6 +16,7 @@ type handlers interface {
 	Mux() *ev.Mux
 	Ack() ev.Handler
 	ResourceOffers(offers []mesos.Offer) error
+	StatusUpdates(mesos.TaskStatus)
 }
 
 // Holds context about our event multiplexer and acknowledge handler.
@@ -75,6 +77,10 @@ func (h *sprintHandlers) ResourceOffers(offers []mesos.Offer) error {
 		}
 
 		flattened := remaining.Flatten()
+		// TODO build support for specifying resources
+		// This will be eventually hooked up to the API where users can submit tasks
+		// In this way we can parameterize the executor/task resources (per task too)
+		// We also want to combine the task resources with the executor resources
 		taskResources := state.taskResources.Plus(executorResources...)
 
 		for state.tasksLaunched < state.totalTasks && flattened.ContainsAll(taskResources) {
@@ -85,9 +91,12 @@ func (h *sprintHandlers) ResourceOffers(offers []mesos.Offer) error {
 				TaskID: mesos.TaskID{
 					Value: strconv.Itoa(taskId),
 				},
-				AgentID:   offers[i].AgentID,
-				Executor:  h.sched.ExecutorInfo(),
-				Resources: remaining.Find(state.taskResources.Flatten(mesos.Role(state.role).Assign())),
+				AgentID: offers[i].AgentID,
+				// Create a new executor from the scheduler template.
+				Executor: executor.NewExecutor(h.sched.ExecutorInfo()),
+				// TODO once the resource parameterization is in place reference state.taskResources again
+				// Right now state.taskResources is empty which will cause issues
+				Resources: remaining.Find(taskResources.Flatten(mesos.Role(state.role).Assign())),
 			}
 			task.Name = "task_" + task.TaskID.Value
 
@@ -109,4 +118,28 @@ func (h *sprintHandlers) ResourceOffers(offers []mesos.Offer) error {
 		}
 	}
 	return nil
+}
+
+// Handler for status updates from Mesos.
+func (h *sprintHandlers) StatusUpdates(s mesos.TaskStatus) {
+	state := h.sched.State()
+
+	switch st := s.GetState(); st {
+	case mesos.TASK_FINISHED:
+		state.tasksFinished++
+
+		if state.tasksFinished == state.totalTasks {
+			h.sched.SuppressOffers()
+		} else {
+			h.sched.ReviveOffers()
+		}
+	case mesos.TASK_LOST:
+		// TODO Handle task lost.
+	case mesos.TASK_KILLED:
+		// TODO Handle task killed.
+	case mesos.TASK_FAILED:
+		// TODO Handle task failed.
+	case mesos.TASK_ERROR:
+		// TODO Handle task error.
+	}
 }
