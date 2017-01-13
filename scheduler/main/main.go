@@ -17,12 +17,7 @@ func main() {
 
 	schedulerConfig.SetExecutorSrvCfg(executorSrvConfig)
 
-	go server.NewExecutorServer(
-		executorSrvConfig.ExecutorSrvPath(),
-		executorSrvConfig.ExecutorSrvPort(),
-		executorSrvConfig.ExecutorSrvCert(),
-		executorSrvConfig.ExecutorSrvKey(),
-	).Serve()
+	go server.NewExecutorServer(executorSrvConfig).Serve()
 
 	shutdown := make(chan struct{})
 	defer close(shutdown)

@@ -14,7 +14,7 @@ func TestNewExecutorServer(t *testing.T) {
 	cert := ""
 	key := ""
 
-	server := NewExecutorServer(path, port, cert, key)
+	server := NewExecutorServer(cfg)
 	if reflect.TypeOf(server) != reflect.TypeOf(new(executorServer)) {
 		t.Fatal("Executor server is of the wrong type")
 	}
