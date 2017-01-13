@@ -2,6 +2,7 @@ package executor
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"mesos-sdk"
@@ -45,8 +46,11 @@ type executorState struct {
 
 // TODO: uuid needs to be parsed into utf8. Mesos throws warnings.
 func NewExecutor(execInfo *mesos.ExecutorInfo) *mesos.ExecutorInfo {
+	uuid := extras.Uuid()
+	id := fmt.Sprintf("%X-%X-%X-%X-%X", uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:])
+
 	return &mesos.ExecutorInfo{
-		ExecutorID:  mesos.ExecutorID{Value: string(extras.Uuid()[:])},
+		ExecutorID:  mesos.ExecutorID{Value: id},
 		FrameworkID: execInfo.FrameworkID,
 		Command:     execInfo.Command,
 		Container:   execInfo.Container,
