@@ -6,6 +6,7 @@ import (
 	"mesos-sdk"
 	"mesos-sdk/executor/config"
 	"os"
+	"sprint"
 	"testing"
 )
 
@@ -17,13 +18,14 @@ type mockExec struct {
 var exec = mockExec{
 	execInfo: mesos.ExecutorInfo{
 		ExecutorID: mesos.ExecutorID{Value: "Mock executor"},
-		Name:       ProtoString("Sprinter"),
-		Command:    CommandInfo("echo 'hello world'"),
+		Name:       sprint.ProtoString("Mocker"),
 		Resources: []mesos.Resource{
-			CpuResources(0.5),
-			MemResources(1024.0),
+			sprint.Resource("cpus", 0.5),
+			sprint.Resource("mem", 1024.0),
 		},
-		Container: Container("busybox:latest"),
+		Container: &mesos.ContainerInfo{
+			Type: mesos.ContainerInfo_MESOS.Enum(),
+		},
 	},
 }
 

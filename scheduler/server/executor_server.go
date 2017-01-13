@@ -18,21 +18,19 @@ type executorServer struct {
 }
 
 // Returns a new instance of our server.
-func NewExecutorServer(path string, port int, cert, key string) *executorServer {
-	enableTls := cert != "" && key != ""
-
+func NewExecutorServer(cfg Configuration) *executorServer {
 	return &executorServer{
 		mux:  http.NewServeMux(),
-		path: path,
-		port: port,
-		tls:  enableTls,
-		cert: cert,
-		key:  key,
+		path: cfg.ExecutorSrvPath(),
+		port: cfg.ExecutorSrvPort(),
+		tls:  cfg.ExecutorSrvCert() != "" && cfg.ExecutorSrvKey() != "",
+		cert: cfg.ExecutorSrvCert(),
+		key:  cfg.ExecutorSrvKey(),
 	}
 }
 
 // Maps endpoints to handlers.
-func (s *executorServer) executorHandlers(path string, tls bool) {
+func (s *executorServer) executorHandlers(path string) {
 	s.mux.HandleFunc("/executor", s.executorBinary)
 }
 
@@ -52,7 +50,7 @@ func (s *executorServer) executorBinary(w http.ResponseWriter, r *http.Request) 
 
 // Start the server with or without TLS.
 func (s *executorServer) Serve() {
-	s.executorHandlers(s.path, s.tls)
+	s.executorHandlers(s.path)
 
 	if s.tls {
 		srv := &http.Server{

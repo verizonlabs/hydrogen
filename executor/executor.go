@@ -2,6 +2,7 @@ package executor
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"mesos-sdk"
@@ -14,6 +15,8 @@ import (
 	"mesos-sdk/extras"
 	"mesos-sdk/httpcli"
 	"net/url"
+	"os"
+	"sprint"
 	"time"
 )
 
@@ -26,8 +29,6 @@ const (
 	executorFetcherPort  = "8081"
 	executorFetcherHost  = "localhost"
 	executorFetcherProto = "http"
-	executorFetcherURI   = executorFetcherProto + "://" + executorFetcherHost + ":" + executorFetcherPort + executorFetcherPath
-	isExecutable         = true
 )
 
 type executorState struct {
@@ -43,34 +44,23 @@ type executorState struct {
 	shouldQuit     bool
 }
 
-var errMustAbort = errors.New("received abort signal from mesos, will attempt to re-subscribe")
+// TODO: uuid needs to be parsed into utf8. Mesos throws warnings.
+func NewExecutor(execInfo *mesos.ExecutorInfo) *mesos.ExecutorInfo {
+	uuid := extras.Uuid()
+	id := fmt.Sprintf("%X-%X-%X-%X-%X", uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:])
 
-func NewExecutor() *mesos.ExecutorInfo {
 	return &mesos.ExecutorInfo{
-		ExecutorID: mesos.ExecutorID{Value: extras.Uuid()},
-		Name:       ProtoString("Sprinter"),
-		Command:    CommandInfo("echo 'hello world'"),
-		Resources: []mesos.Resource{
-			CpuResources(0.5),
-			MemResources(1024.0),
-		},
-		Container: Container("busybox:latest"),
+		ExecutorID:  mesos.ExecutorID{Value: id},
+		FrameworkID: execInfo.FrameworkID,
+		Command:     execInfo.Command,
+		Container:   execInfo.Container,
+		Resources:   execInfo.Resources,
+		Name:        execInfo.Name,
+		Source:      execInfo.Source,
+		Data:        execInfo.Data,
+		Discovery:   execInfo.Discovery,
 	}
 }
-
-/*
-	Copy constructor for ExecutorInfo
-*/
-func NewExecutorWithConfig(cfg *mesos.ExecutorInfo) *mesos.ExecutorInfo {
-	return &mesos.ExecutorInfo{
-		ExecutorID: cfg.ExecutorID,
-		Name:       cfg.Name,
-		Command:    cfg.Command,
-		Resources:  cfg.Resources,
-		Container:  cfg.Container,
-	}
-}
-
 func NewExecutorState(cfg config.Config) *executorState {
 	var (
 		apiURL = url.URL{
@@ -86,8 +76,8 @@ func NewExecutorState(cfg config.Config) *executorState {
 			httpcli.Do(httpcli.With(httpcli.Timeout(httpTimeout))),
 		),
 		callOptions: executor.CallOptions{
-			calls.Framework(cfg.FrameworkID),
-			calls.Executor(cfg.ExecutorID),
+			calls.Framework(os.Getenv("MESOS_FRAMEWORK_ID")),
+			calls.Executor(os.Getenv("MESOS_EXECUTOR_ID")),
 		},
 		unackedTasks:   make(map[mesos.TaskID]mesos.TaskInfo),
 		unackedUpdates: make(map[string]executor.Call_Update),
@@ -225,7 +215,7 @@ func buildEventHandler(state *executorState) events.Handler {
 		})),
 		events.Handle(executor.Event_ERROR, events.HandlerFunc(func(e *executor.Event) error {
 			log.Println("ERROR received")
-			return errMustAbort
+			return errors.New("received abort signal from mesos, will attempt to re-subscribe")
 		})),
 	)
 }
@@ -251,7 +241,7 @@ func launch(state *executorState, task mesos.TaskInfo) {
 	if err != nil {
 		log.Printf("failed to send TASK_RUNNING for task %s: %+v", task.TaskID.Value, err)
 		status.State = mesos.TASK_FAILED.Enum()
-		status.Message = ProtoString(err.Error())
+		status.Message = sprint.ProtoString(err.Error())
 		state.failedTasks[task.TaskID] = status
 		return
 	}
@@ -263,7 +253,7 @@ func launch(state *executorState, task mesos.TaskInfo) {
 	if err != nil {
 		log.Printf("failed to send TASK_FINISHED for task %s: %+v", task.TaskID.Value, err)
 		status.State = mesos.TASK_FAILED.Enum()
-		status.Message = ProtoString(err.Error())
+		status.Message = sprint.ProtoString(err.Error())
 		state.failedTasks[task.TaskID] = status
 	}
 }
@@ -287,6 +277,6 @@ func newStatus(state *executorState, id mesos.TaskID) mesos.TaskStatus {
 		TaskID:     id,
 		Source:     mesos.SOURCE_EXECUTOR.Enum(),
 		ExecutorID: &state.executor.ExecutorID,
-		UUID:       []byte(extras.Uuid()),
+		UUID:       extras.Uuid(),
 	}
 }
