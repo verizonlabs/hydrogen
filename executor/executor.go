@@ -28,8 +28,6 @@ const (
 	executorFetcherPort  = "8081"
 	executorFetcherHost  = "localhost"
 	executorFetcherProto = "http"
-	executorFetcherURI   = executorFetcherProto + "://" + executorFetcherHost + ":" + executorFetcherPort + executorFetcherPath
-	isExecutable         = true
 )
 
 type executorState struct {
