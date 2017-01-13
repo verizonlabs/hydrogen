@@ -71,7 +71,7 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 					{
 						// TODO make this configurable
 						// Expose more configuration for the server which can be reused here
-						Value:      "http://10.0.2.2:" + strconv.Itoa(cfg.ExecutorSrvPort()) + "/executor",
+						Value:      "http://10.0.2.2:" + strconv.Itoa(cfg.ExecutorSrvCfg().ExecutorSrvPort()) + "/executor",
 						Executable: sprint.ProtoBool(true),
 					},
 				},

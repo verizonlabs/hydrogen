@@ -1,9 +1,9 @@
 package scheduler
 
 import (
-	"flag"
 	"mesos-sdk"
 	"os/user"
+	"sprint/scheduler/server"
 	"testing"
 	"time"
 )
@@ -13,7 +13,7 @@ type mockConfiguration struct {
 	cfg SprintConfiguration
 }
 
-func (m *mockConfiguration) Initialize(fs *flag.FlagSet) *SprintConfiguration {
+func (m *mockConfiguration) Initialize() *SprintConfiguration {
 	m.cfg.name = "Sprint"
 	m.cfg.user = "root"
 	m.cfg.checkpointing = true
@@ -24,8 +24,7 @@ func (m *mockConfiguration) Initialize(fs *flag.FlagSet) *SprintConfiguration {
 	m.cfg.reviveWait = 1 * time.Second
 	m.cfg.timeout = 20 * time.Second
 	m.cfg.maxRefuse = 5 * time.Second
-	m.cfg.executorSrvPath = "executor"
-	m.cfg.executorSrvPort = 8081
+	m.cfg.executorSrvCfg = new(server.ServerConfiguration).Initialize()
 	m.cfg.executorName = "Sprinter"
 	m.cfg.executorCmd = "./executor"
 
@@ -76,20 +75,14 @@ func (m *mockConfiguration) MaxRefuse() time.Duration {
 	return m.cfg.maxRefuse
 }
 
-func (m *mockConfiguration) ExecutorSrvCert() string {
-	return m.cfg.executorSrvCert
+func (m *mockConfiguration) SetExecutorSrvCfg(cfg server.Configuration) *SprintConfiguration {
+	m.cfg.executorSrvCfg = cfg
+
+	return &m.cfg
 }
 
-func (m *mockConfiguration) ExecutorSrvKey() string {
-	return m.cfg.executorSrvKey
-}
-
-func (m *mockConfiguration) ExecutorSrvPath() string {
-	return m.cfg.executorSrvPath
-}
-
-func (m *mockConfiguration) ExecutorSrvPort() int {
-	return m.cfg.executorSrvPort
+func (m *mockConfiguration) ExecutorSrvCfg() server.Configuration {
+	return m.cfg.executorSrvCfg
 }
 
 func (m *mockConfiguration) ExecutorName() *string {
@@ -100,49 +93,36 @@ func (m *mockConfiguration) ExecutorCmd() *string {
 	return &m.cfg.executorCmd
 }
 
-var cfg configuration = new(mockConfiguration).Initialize(nil)
+var cfg configuration = new(mockConfiguration).Initialize()
+var sprintConfig = new(SprintConfiguration).Initialize()
 
 // Tests setting up default configuration values
 func TestSprintConfiguration_Initialize(t *testing.T) {
 	t.Parallel()
 
-	fs := flag.NewFlagSet("test", flag.PanicOnError)
-
-	config := new(SprintConfiguration).Initialize(fs)
-
-	if config.endpoint != cfg.Endpoint() {
+	if sprintConfig.endpoint != cfg.Endpoint() {
 		t.Fatal("Invalid endpoint")
 	}
-	if config.checkpointing != *cfg.Checkpointing() {
+	if sprintConfig.checkpointing != *cfg.Checkpointing() {
 		t.Fatal("Checkpointing is disabled")
 	}
-	if config.command != *cfg.Command() {
+	if sprintConfig.command != *cfg.Command() {
 		t.Fatal("Invalid command")
 	}
-	if config.name != cfg.Name() {
+	if sprintConfig.name != cfg.Name() {
 		t.Fatal("Invalid framework name")
 	}
-	if config.principal != cfg.Principal() {
+	if sprintConfig.principal != cfg.Principal() {
 		t.Fatal("Invalid framework principal")
 	}
-	if config.timeout != cfg.Timeout() {
+	if sprintConfig.timeout != cfg.Timeout() {
 		t.Fatal("Timeout value is not consistent")
 	}
-	if config.reviveBurst != cfg.ReviveBurst() {
+	if sprintConfig.reviveBurst != cfg.ReviveBurst() {
 		t.Fatal("Revive burst value is not consistent")
 	}
-	if config.reviveWait != cfg.ReviveWait() {
+	if sprintConfig.reviveWait != cfg.ReviveWait() {
 		t.Fatal("Revive wait duration is not consistent")
-	}
-}
-
-// Benchmarks setting up default configuration values
-func BenchmarkSprintConfiguration_Initialize(b *testing.B) {
-	for n := 0; n < b.N; n++ {
-		fs := flag.NewFlagSet("test", flag.PanicOnError)
-
-		config := new(SprintConfiguration)
-		config.Initialize(fs)
 	}
 }
 
@@ -150,9 +130,7 @@ func BenchmarkSprintConfiguration_Initialize(b *testing.B) {
 func TestSprintConfiguration_Name(t *testing.T) {
 	t.Parallel()
 
-	fs := flag.NewFlagSet("test", flag.PanicOnError)
-	config := new(SprintConfiguration).Initialize(fs)
-	if config.Name() != "Sprint" {
+	if sprintConfig.Name() != "Sprint" {
 		t.Fatal("Configuration has wrong name")
 	}
 }
@@ -166,9 +144,7 @@ func TestSprintConfiguration_User(t *testing.T) {
 		t.Fatal("Unable to detect current user: " + err.Error())
 	}
 
-	fs := flag.NewFlagSet("test", flag.PanicOnError)
-	config := new(SprintConfiguration).Initialize(fs)
-	if config.User() != u.Username {
+	if sprintConfig.User() != u.Username {
 		t.Fatal("User is not set correctly")
 	}
 }
@@ -177,9 +153,7 @@ func TestSprintConfiguration_User(t *testing.T) {
 func TestSprintConfiguration_Checkpointing(t *testing.T) {
 	t.Parallel()
 
-	fs := flag.NewFlagSet("test", flag.PanicOnError)
-	config := new(SprintConfiguration).Initialize(fs)
-	if !*config.Checkpointing() {
+	if !*sprintConfig.Checkpointing() {
 		t.Fatal("Checkpointing is not set to the right value")
 	}
 }
@@ -188,9 +162,7 @@ func TestSprintConfiguration_Checkpointing(t *testing.T) {
 func TestSprintConfiguration_Principal(t *testing.T) {
 	t.Parallel()
 
-	fs := flag.NewFlagSet("test", flag.PanicOnError)
-	config := new(SprintConfiguration).Initialize(fs)
-	if config.Principal() != "Sprint" {
+	if sprintConfig.Principal() != "Sprint" {
 		t.Fatal("Principal is not set to the right value")
 	}
 }
@@ -199,9 +171,7 @@ func TestSprintConfiguration_Principal(t *testing.T) {
 func TestSprintConfiguration_Command(t *testing.T) {
 	t.Parallel()
 
-	fs := flag.NewFlagSet("test", flag.PanicOnError)
-	config := new(SprintConfiguration).Initialize(fs)
-	if *config.Command() != "" {
+	if *sprintConfig.Command() != "" {
 		t.Fatal("Command is not set to the right value")
 	}
 }
@@ -210,9 +180,7 @@ func TestSprintConfiguration_Command(t *testing.T) {
 func TestSprintConfiguration_Uris(t *testing.T) {
 	t.Parallel()
 
-	fs := flag.NewFlagSet("test", flag.PanicOnError)
-	config := new(SprintConfiguration).Initialize(fs)
-	if len(config.Uris()) != 0 {
+	if len(sprintConfig.Uris()) != 0 {
 		t.Fatal("The number of URIs should be 0")
 	}
 }
@@ -221,9 +189,7 @@ func TestSprintConfiguration_Uris(t *testing.T) {
 func TestSprintConfiguration_Timeout(t *testing.T) {
 	t.Parallel()
 
-	fs := flag.NewFlagSet("test", flag.PanicOnError)
-	config := new(SprintConfiguration).Initialize(fs)
-	if config.Timeout() != 20*time.Second {
+	if sprintConfig.Timeout() != 20*time.Second {
 		t.Fatal("Timeout is not set to the right value")
 	}
 }
@@ -232,9 +198,7 @@ func TestSprintConfiguration_Timeout(t *testing.T) {
 func TestSprintConfiguration_Endpoint(t *testing.T) {
 	t.Parallel()
 
-	fs := flag.NewFlagSet("test", flag.PanicOnError)
-	config := new(SprintConfiguration).Initialize(fs)
-	if config.Endpoint() != "http://127.0.0.1:5050/api/v1/scheduler" {
+	if sprintConfig.Endpoint() != "http://127.0.0.1:5050/api/v1/scheduler" {
 		t.Fatal("Endpoint is not set to the right value")
 	}
 }
@@ -243,9 +207,7 @@ func TestSprintConfiguration_Endpoint(t *testing.T) {
 func TestSprintConfiguration_ReviveBurst(t *testing.T) {
 	t.Parallel()
 
-	fs := flag.NewFlagSet("test", flag.PanicOnError)
-	config := new(SprintConfiguration).Initialize(fs)
-	if config.ReviveBurst() != 3 {
+	if sprintConfig.ReviveBurst() != 3 {
 		t.Fatal("Revive burst is not set to the right value")
 	}
 }
@@ -254,9 +216,7 @@ func TestSprintConfiguration_ReviveBurst(t *testing.T) {
 func TestSprintConfiguration_ReviveWait(t *testing.T) {
 	t.Parallel()
 
-	fs := flag.NewFlagSet("test", flag.PanicOnError)
-	config := new(SprintConfiguration).Initialize(fs)
-	if config.ReviveWait() != 1*time.Second {
+	if sprintConfig.ReviveWait() != 1*time.Second {
 		t.Fatal("Revive wait period is not set to the right value")
 	}
 }
@@ -265,54 +225,8 @@ func TestSprintConfiguration_ReviveWait(t *testing.T) {
 func TestSprintConfiguration_MaxRefuse(t *testing.T) {
 	t.Parallel()
 
-	fs := flag.NewFlagSet("test", flag.PanicOnError)
-	config := new(SprintConfiguration).Initialize(fs)
-	if config.MaxRefuse() != 5*time.Second {
+	if sprintConfig.MaxRefuse() != 5*time.Second {
 		t.Fatal("Max refusal time is not set to the right value")
-	}
-}
-
-// Make sure we get our TLS certificate properly.
-func TestSprintConfiguration_ExecutorSrvCert(t *testing.T) {
-	t.Parallel()
-
-	fs := flag.NewFlagSet("test", flag.PanicOnError)
-	config := new(SprintConfiguration).Initialize(fs)
-	if config.ExecutorSrvCert() != "" {
-		t.Fatal("TLS certificate is wrong")
-	}
-}
-
-// Make sure we get our TLS key properly.
-func TestSprintConfiguration_ExecutorSrvKey(t *testing.T) {
-	t.Parallel()
-
-	fs := flag.NewFlagSet("test", flag.PanicOnError)
-	config := new(SprintConfiguration).Initialize(fs)
-	if config.ExecutorSrvKey() != "" {
-		t.Fatal("TLS key is wrong")
-	}
-}
-
-// Make sure we get our executor path properly.
-func TestSprintConfiguration_ExecutorSrvPath(t *testing.T) {
-	t.Parallel()
-
-	fs := flag.NewFlagSet("test", flag.PanicOnError)
-	config := new(SprintConfiguration).Initialize(fs)
-	if config.ExecutorSrvPath() != "executor" {
-		t.Fatal("Executor binary path is wrong")
-	}
-}
-
-// Make sure we get our executor port properly.
-func TestSprintConfiguration_ExecutorSrvPort(t *testing.T) {
-	t.Parallel()
-
-	fs := flag.NewFlagSet("test", flag.PanicOnError)
-	config := new(SprintConfiguration).Initialize(fs)
-	if config.ExecutorSrvPort() != 8081 {
-		t.Fatal("Executor server port is wrong")
 	}
 }
 
@@ -320,9 +234,7 @@ func TestSprintConfiguration_ExecutorSrvPort(t *testing.T) {
 func TestSprintConfiguration_ExecutorName(t *testing.T) {
 	t.Parallel()
 
-	fs := flag.NewFlagSet("test", flag.PanicOnError)
-	config := new(SprintConfiguration).Initialize(fs)
-	if *config.ExecutorName() != "Sprinter" {
+	if *sprintConfig.ExecutorName() != "Sprinter" {
 		t.Fatal("Executor name is wrong")
 	}
 }
@@ -331,9 +243,7 @@ func TestSprintConfiguration_ExecutorName(t *testing.T) {
 func TestSprintConfiguration_ExecutorCmd(t *testing.T) {
 	t.Parallel()
 
-	fs := flag.NewFlagSet("test", flag.PanicOnError)
-	config := new(SprintConfiguration).Initialize(fs)
-	if *config.ExecutorCmd() != "./executor" {
+	if *sprintConfig.ExecutorCmd() != "./executor" {
 		t.Fatal("Executor command is wrong")
 	}
 }
