@@ -2,6 +2,7 @@ package executor
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"mesos-sdk"
@@ -14,6 +15,7 @@ import (
 	"mesos-sdk/extras"
 	"mesos-sdk/httpcli"
 	"net/url"
+	"os"
 	"time"
 )
 
@@ -46,10 +48,13 @@ type executorState struct {
 var errMustAbort = errors.New("received abort signal from mesos, will attempt to re-subscribe")
 
 func NewExecutor() *mesos.ExecutorInfo {
+	uuid := extras.Uuid()
+	id := fmt.Sprintf("%X-%X-%X-%X-%X", uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:])
+
 	return &mesos.ExecutorInfo{
-		ExecutorID: mesos.ExecutorID{Value: extras.Uuid()},
+		ExecutorID: mesos.ExecutorID{Value: id},
 		Name:       ProtoString("Sprinter"),
-		Command:    CommandInfo("echo 'hello world'"),
+		Command:    CommandInfo("./executor"),
 		Resources: []mesos.Resource{
 			CpuResources(0.5),
 			MemResources(1024.0),
@@ -86,8 +91,8 @@ func NewExecutorState(cfg config.Config) *executorState {
 			httpcli.Do(httpcli.With(httpcli.Timeout(httpTimeout))),
 		),
 		callOptions: executor.CallOptions{
-			calls.Framework(cfg.FrameworkID),
-			calls.Executor(cfg.ExecutorID),
+			calls.Framework(os.Getenv("MESOS_FRAMEWORK_ID")),
+			calls.Executor(os.Getenv("MESOS_EXECUTOR_ID")),
 		},
 		unackedTasks:   make(map[mesos.TaskID]mesos.TaskInfo),
 		unackedUpdates: make(map[string]executor.Call_Update),
@@ -287,6 +292,6 @@ func newStatus(state *executorState, id mesos.TaskID) mesos.TaskStatus {
 		TaskID:     id,
 		Source:     mesos.SOURCE_EXECUTOR.Enum(),
 		ExecutorID: &state.executor.ExecutorID,
-		UUID:       []byte(extras.Uuid()),
+		UUID:       extras.Uuid(),
 	}
 }
