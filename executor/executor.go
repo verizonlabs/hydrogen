@@ -2,7 +2,6 @@ package executor
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"mesos-sdk"
@@ -16,6 +15,7 @@ import (
 	"mesos-sdk/httpcli"
 	"net/url"
 	"os"
+	"sprint"
 	"time"
 )
 
@@ -43,37 +43,6 @@ type executorState struct {
 	unackedUpdates map[string]executor.Call_Update
 	failedTasks    map[mesos.TaskID]mesos.TaskStatus
 	shouldQuit     bool
-}
-
-var errMustAbort = errors.New("received abort signal from mesos, will attempt to re-subscribe")
-
-func NewExecutor() *mesos.ExecutorInfo {
-	uuid := extras.Uuid()
-	id := fmt.Sprintf("%X-%X-%X-%X-%X", uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:])
-
-	return &mesos.ExecutorInfo{
-		ExecutorID: mesos.ExecutorID{Value: id},
-		Name:       ProtoString("Sprinter"),
-		Command:    CommandInfo("./executor"),
-		Resources: []mesos.Resource{
-			CpuResources(0.5),
-			MemResources(1024.0),
-		},
-		Container: Container("busybox:latest"),
-	}
-}
-
-/*
-	Copy constructor for ExecutorInfo
-*/
-func NewExecutorWithConfig(cfg *mesos.ExecutorInfo) *mesos.ExecutorInfo {
-	return &mesos.ExecutorInfo{
-		ExecutorID: cfg.ExecutorID,
-		Name:       cfg.Name,
-		Command:    cfg.Command,
-		Resources:  cfg.Resources,
-		Container:  cfg.Container,
-	}
 }
 
 func NewExecutorState(cfg config.Config) *executorState {
@@ -230,7 +199,7 @@ func buildEventHandler(state *executorState) events.Handler {
 		})),
 		events.Handle(executor.Event_ERROR, events.HandlerFunc(func(e *executor.Event) error {
 			log.Println("ERROR received")
-			return errMustAbort
+			return errors.New("received abort signal from mesos, will attempt to re-subscribe")
 		})),
 	)
 }
@@ -256,7 +225,7 @@ func launch(state *executorState, task mesos.TaskInfo) {
 	if err != nil {
 		log.Printf("failed to send TASK_RUNNING for task %s: %+v", task.TaskID.Value, err)
 		status.State = mesos.TASK_FAILED.Enum()
-		status.Message = ProtoString(err.Error())
+		status.Message = sprint.ProtoString(err.Error())
 		state.failedTasks[task.TaskID] = status
 		return
 	}
@@ -268,7 +237,7 @@ func launch(state *executorState, task mesos.TaskInfo) {
 	if err != nil {
 		log.Printf("failed to send TASK_FINISHED for task %s: %+v", task.TaskID.Value, err)
 		status.State = mesos.TASK_FAILED.Enum()
-		status.Message = ProtoString(err.Error())
+		status.Message = sprint.ProtoString(err.Error())
 		state.failedTasks[task.TaskID] = status
 	}
 }

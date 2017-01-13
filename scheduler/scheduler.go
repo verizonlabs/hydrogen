@@ -1,15 +1,18 @@
 package scheduler
 
 import (
+	"fmt"
 	"mesos-sdk"
 	"mesos-sdk/backoff"
 	"mesos-sdk/encoding"
+	"mesos-sdk/extras"
 	ctrl "mesos-sdk/extras/scheduler/controller"
 	"mesos-sdk/httpcli"
 	"mesos-sdk/httpcli/httpsched"
 	"mesos-sdk/scheduler/calls"
 	"net/http"
-	"sprint/executor"
+	"sprint"
+	"strconv"
 	"time"
 )
 
@@ -49,6 +52,9 @@ type sprintScheduler struct {
 
 // Returns a new scheduler using user-supplied configuration.
 func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
+	uuid := extras.Uuid()
+	id := fmt.Sprintf("%X-%X-%X-%X-%X", uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:])
+
 	return &sprintScheduler{
 		config: cfg,
 		framework: &mesos.FrameworkInfo{
@@ -56,7 +62,30 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 			Name:       cfg.Name(),
 			Checkpoint: cfg.Checkpointing(),
 		},
-		executor: executor.NewExecutor(),
+		executor: &mesos.ExecutorInfo{
+			ExecutorID: mesos.ExecutorID{Value: id},
+			Name:       sprint.ProtoString("Sprinter"),
+			Command: mesos.CommandInfo{
+				// TODO don't hardcode this
+				Value: sprint.ProtoString("./executor"),
+				URIs: []mesos.CommandInfo_URI{
+					{
+						// TODO make this configurable
+						// Expose more configuration for the server which can be reused here
+						Value:      "http://10.0.2.2:" + strconv.Itoa(cfg.ExecutorSrvPort()) + "/executor",
+						Executable: sprint.ProtoBool(true),
+					},
+				},
+			},
+			// TODO parameterize this
+			Resources: []mesos.Resource{
+				sprint.CpuResources(0.5),
+				sprint.MemResources(1024.0),
+			},
+			Container: &mesos.ContainerInfo{
+				Type: mesos.ContainerInfo_MESOS.Enum(),
+			},
+		},
 		http: httpsched.NewCaller(httpcli.New(
 			httpcli.Endpoint(cfg.Endpoint()),
 			httpcli.Codec(&encoding.ProtobufCodec),
