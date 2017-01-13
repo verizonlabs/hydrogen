@@ -79,8 +79,8 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 			},
 			// TODO parameterize this
 			Resources: []mesos.Resource{
-				sprint.CpuResources(0.5),
-				sprint.MemResources(1024.0),
+				sprint.Resource("cpus", 0.5),
+				sprint.Resource("mem", 1024.0),
 			},
 			Container: &mesos.ContainerInfo{
 				Type: mesos.ContainerInfo_MESOS.Enum(),
