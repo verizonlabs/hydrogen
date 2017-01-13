@@ -9,8 +9,6 @@ import (
 // Create a default configuration if no flags are passed
 func Initialize(flags *flag.FlagSet) (config config.Config) {
 	c := config
-	flags.StringVar(&c.FrameworkID, "framework.id", "012345-678910", "FrameworkID to be used.")
-	flags.StringVar(&c.ExecutorID, "executor.id", "109876-54321", "ExecutorID to be used.")
 	flags.StringVar(&c.Directory, "directory", "slave/", "Working directory of the slave.")
 	flags.StringVar(&c.AgentEndpoint, "agent.endpoint", "127.0.0.1:5051", "Endpoint to hit for the slave.")
 	flags.DurationVar(&c.ExecutorShutdownGracePeriod, "executor.shutdown.grace.period", 60*time.Second, "Amount of time the slave would wait for an executor to shut down")
