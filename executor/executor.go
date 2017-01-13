@@ -43,6 +43,20 @@ type executorState struct {
 	shouldQuit     bool
 }
 
+// TODO: uuid needs to be parsed into utf8. Mesos throws warnings.
+func NewExecutor(execInfo *mesos.ExecutorInfo) *mesos.ExecutorInfo {
+	return &mesos.ExecutorInfo{
+		ExecutorID:  mesos.ExecutorID{Value: string(extras.Uuid()[:])},
+		FrameworkID: execInfo.FrameworkID,
+		Command:     execInfo.Command,
+		Container:   execInfo.Container,
+		Resources:   execInfo.Resources,
+		Name:        execInfo.Name,
+		Source:      execInfo.Source,
+		Data:        execInfo.Data,
+		Discovery:   execInfo.Discovery,
+	}
+}
 func NewExecutorState(cfg config.Config) *executorState {
 	var (
 		apiURL = url.URL{

@@ -55,7 +55,7 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 	uuid := extras.Uuid()
 	id := fmt.Sprintf("%X-%X-%X-%X-%X", uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:])
 	// TODO don't hardcode IP
-	executorUri := cfg.ExecutorSrvCfg().ExecutorSrvProtocol() + "://10.0.2.2:" + strconv.Itoa(cfg.ExecutorSrvCfg().ExecutorSrvPort()) + "/" + cfg.ExecutorSrvCfg().ExecutorSrvPath()
+	executorUri := cfg.ExecutorSrvCfg().ExecutorSrvProtocol() + "://10.0.2.2:" + strconv.Itoa(cfg.ExecutorSrvCfg().ExecutorSrvPort()) + "/executor"
 
 	return &sprintScheduler{
 		config: cfg,
