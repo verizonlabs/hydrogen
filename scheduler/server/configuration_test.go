@@ -70,3 +70,12 @@ func TestServerConfiguration_ExecutorSrvPort(t *testing.T) {
 		t.Fatal("Executor server port is wrong")
 	}
 }
+
+// Make sure our protocol is set correctly.
+func TestServerConfiguration_ExecutorSrvProtocol(t *testing.T) {
+	t.Parallel()
+
+	if serverCfg.ExecutorSrvProtocol() != "http" {
+		t.Fatal("Executor server protocol is incorrect")
+	}
+}

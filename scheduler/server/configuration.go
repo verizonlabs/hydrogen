@@ -10,6 +10,7 @@ type Configuration interface {
 	ExecutorSrvKey() string
 	ExecutorSrvPath() string
 	ExecutorSrvPort() int
+	ExecutorSrvProtocol() string
 }
 
 // Configuration for the executor server.
@@ -44,4 +45,12 @@ func (c *ServerConfiguration) ExecutorSrvPath() string {
 
 func (c *ServerConfiguration) ExecutorSrvPort() int {
 	return c.executorSrvPort
+}
+
+func (c *ServerConfiguration) ExecutorSrvProtocol() string {
+	if c.executorSrvCert != "" && c.executorSrvKey != "" {
+		return "https"
+	} else {
+		return "http"
+	}
 }

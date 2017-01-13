@@ -54,6 +54,8 @@ type sprintScheduler struct {
 func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 	uuid := extras.Uuid()
 	id := fmt.Sprintf("%X-%X-%X-%X-%X", uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:])
+	// TODO don't hardcode IP
+	executorUri := cfg.ExecutorSrvCfg().ExecutorSrvProtocol() + "://10.0.2.2:" + strconv.Itoa(cfg.ExecutorSrvCfg().ExecutorSrvPort()) + "/" + cfg.ExecutorSrvCfg().ExecutorSrvPath()
 
 	return &sprintScheduler{
 		config: cfg,
@@ -69,9 +71,7 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 				Value: cfg.ExecutorCmd(),
 				URIs: []mesos.CommandInfo_URI{
 					{
-						// TODO make this configurable
-						// Expose more configuration for the server which can be reused here
-						Value:      "http://10.0.2.2:" + strconv.Itoa(cfg.ExecutorSrvCfg().ExecutorSrvPort()) + "/executor",
+						Value:      executorUri,
 						Executable: sprint.ProtoBool(true),
 					},
 				},
