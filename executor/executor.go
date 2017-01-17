@@ -18,10 +18,12 @@ import (
 )
 
 // TODO test this stuff
+// Base implementation of an executor.
 type executor interface {
 	Run()
 }
 
+// Holds all necessary information for our executor to function.
 type sprintExecutor struct {
 	callOptions    exec.CallOptions
 	cli            *httpcli.Client
@@ -36,6 +38,7 @@ type sprintExecutor struct {
 	shouldQuit     bool
 }
 
+// Returns a new executor using user-supplied configuration.
 func NewExecutor(cfg configuration) *sprintExecutor {
 	executor := sprintExecutor{
 		callOptions: exec.CallOptions{
@@ -61,6 +64,7 @@ func NewExecutor(cfg configuration) *sprintExecutor {
 	return &executor
 }
 
+// Start execution of the executor
 func (e *sprintExecutor) Run() {
 	shouldReconnect := backoff.Notifier(1*time.Second, e.config.SubscriptionBackoffMax()*4/3, nil)
 	disconnected := time.Now()
@@ -106,8 +110,7 @@ func (e *sprintExecutor) Run() {
 	}
 }
 
-// unacknowledgedTasks is a functional option that sets the value of the UnacknowledgedTasks
-// field of a Subscribe call.
+// UnacknowledgedTasks is a functional option that sets the value of the UnacknowledgedTasks field of a Subscribe call.
 func (e *sprintExecutor) unacknowledgedTasks() exec.CallOpt {
 	return func(call *exec.Call) {
 		if n := len(e.unackedTasks); n > 0 {
@@ -122,8 +125,7 @@ func (e *sprintExecutor) unacknowledgedTasks() exec.CallOpt {
 	}
 }
 
-// unacknowledgedUpdates is a functional option that sets the value of the UnacknowledgedUpdates
-// field of a Subscribe call.
+// UnacknowledgedUpdates is a functional option that sets the value of the UnacknowledgedUpdates field of a Subscribe call.
 func (e *sprintExecutor) unacknowledgedUpdates() exec.CallOpt {
 	return func(call *exec.Call) {
 		if n := len(e.unackedUpdates); n > 0 {
@@ -138,6 +140,7 @@ func (e *sprintExecutor) unacknowledgedUpdates() exec.CallOpt {
 	}
 }
 
+// Processes and decodes events from our Mesos stream.
 func (e *sprintExecutor) eventLoop(decoder encoding.Decoder) (err error) {
 	for err == nil && !e.shouldQuit {
 		e.sendFailedTasks()
@@ -150,6 +153,7 @@ func (e *sprintExecutor) eventLoop(decoder encoding.Decoder) (err error) {
 	return err
 }
 
+// Defines event handlers for various events that will be received from Mesos.
 func (e *sprintExecutor) buildEventHandler() events.Handler {
 	return events.NewMux(
 		events.Handle(exec.Event_SUBSCRIBED, events.HandlerFunc(func(event *exec.Event) error {
@@ -164,6 +168,7 @@ func (e *sprintExecutor) buildEventHandler() events.Handler {
 			return nil
 		})),
 		events.Handle(exec.Event_KILL, events.HandlerFunc(func(event *exec.Event) error {
+			// TODO implement this
 			log.Println("warning: KILL not implemented")
 			return nil
 		})),
@@ -182,12 +187,14 @@ func (e *sprintExecutor) buildEventHandler() events.Handler {
 			return nil
 		})),
 		events.Handle(exec.Event_ERROR, events.HandlerFunc(func(event *exec.Event) error {
+			// TODO implement this
 			log.Println("ERROR received")
 			return errors.New("received abort signal from mesos, will attempt to re-subscribe")
 		})),
 	)
 }
 
+// Notify Mesos of any failed tasks we have.
 func (e *sprintExecutor) sendFailedTasks() {
 	for taskID, status := range e.failedTasks {
 		updateErr := e.update(status)
@@ -199,6 +206,7 @@ func (e *sprintExecutor) sendFailedTasks() {
 	}
 }
 
+// Tell Mesos that we're starting or finishing our tasks.
 func (e *sprintExecutor) launch(task mesos.TaskInfo) {
 	e.unackedTasks[task.TaskID] = task
 
@@ -224,6 +232,7 @@ func (e *sprintExecutor) launch(task mesos.TaskInfo) {
 	}
 }
 
+// Sends a status update to Mesos.
 func (e *sprintExecutor) update(status mesos.TaskStatus) error {
 	upd := calls.Update(status).With(e.callOptions...)
 	resp, err := e.cli.Do(upd)
@@ -238,6 +247,7 @@ func (e *sprintExecutor) update(status mesos.TaskStatus) error {
 	return err
 }
 
+// Constructs a new TaskStatus which can be used to send Mesos status updates.
 func (e *sprintExecutor) newStatus(id mesos.TaskID, state mesos.TaskState) mesos.TaskStatus {
 	return mesos.TaskStatus{
 		TaskID:     id,
