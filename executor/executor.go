@@ -19,6 +19,7 @@ import (
 
 // TODO test this stuff
 type executor interface {
+	Run()
 }
 
 type sprintExecutor struct {
