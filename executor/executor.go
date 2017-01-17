@@ -102,7 +102,7 @@ func (e *sprintExecutor) Run() {
 			return
 		}
 		if time.Now().Sub(disconnected) > e.config.RecoveryTimeout() {
-			log.Printf("Failed to re-establish subscription with agent within %v, aborting", e.config.RecoveryTimeout)
+			log.Printf("Failed to re-establish subscription with agent within %v, aborting", e.config.RecoveryTimeout())
 			return
 		}
 
