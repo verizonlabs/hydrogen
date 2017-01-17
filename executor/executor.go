@@ -57,18 +57,16 @@ func NewExecutor(cfg configuration) *sprintExecutor {
 }
 
 func (e *sprintExecutor) Run() {
-	// TODO make these configurable
-	var (
-		subscribe       = calls.Subscribe(nil, nil).With(e.callOptions...)
-		shouldReconnect = backoff.Notifier(1*time.Second, e.config.SubscriptionBackoffMax()*4/3, nil)
-		disconnected    = time.Now()
-	)
+	shouldReconnect := backoff.Notifier(1*time.Second, e.config.SubscriptionBackoffMax()*4/3, nil)
+	disconnected := time.Now()
+	subscribe := calls.Subscribe(nil, nil).With(e.callOptions...)
 
 	for {
 		subscribe = subscribe.With(
 			e.unacknowledgedTasks(),
 			e.unacknowledgedUpdates(),
 		)
+
 		func() {
 			resp, err := e.cli.Do(subscribe, httpcli.Close(true))
 			if resp != nil {
@@ -83,22 +81,23 @@ func (e *sprintExecutor) Run() {
 			if err != nil && err != io.EOF {
 				log.Println(err)
 			} else {
-				log.Println("disconnected")
+				log.Println("Executor disconnected")
 			}
 		}()
 		if e.shouldQuit {
-			log.Println("Gracefully shutting down")
+			log.Println("Gracefully shutting down...")
 			return
 		}
 		if !e.config.Checkpoint() {
-			log.Println("Gracefully exiting because framework checkpointing is NOT enabled")
+			log.Println("Gracefully exiting because framework checkpointing is not enabled")
 			return
 		}
 		if time.Now().Sub(disconnected) > e.config.RecoveryTimeout() {
 			log.Printf("Failed to re-establish subscription with agent within %v, aborting", e.config.RecoveryTimeout)
 			return
 		}
-		<-shouldReconnect // wait for some amount of time before retrying subscription
+
+		<-shouldReconnect // Wait for some amount of time before retrying subscription
 	}
 }
 
