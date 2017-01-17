@@ -20,11 +20,6 @@ import (
 	"time"
 )
 
-const (
-	apiPath     = "/api/v1/executor"
-	httpTimeout = 10 * time.Second
-)
-
 type executorState struct {
 	callOptions    executor.CallOptions
 	cli            *httpcli.Client

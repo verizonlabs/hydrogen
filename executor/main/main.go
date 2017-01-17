@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"sprint/executor"
-	"sprint/executor/config"
 )
 
 /*
@@ -15,7 +14,7 @@ func main() {
 	// Gather flags for any over-ridden configuration variables.
 	flags := flag.NewFlagSet("executor", flag.ExitOnError)
 
-	cfg := execConfig.Initialize(flags)
+	cfg := new(executor.Configuration).Initialize(flags)
 
 	log.Printf("configuration loaded: %+v", cfg)
 
