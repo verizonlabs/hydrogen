@@ -118,7 +118,7 @@ func TestSprintScheduler_Config(t *testing.T) {
 	s := NewScheduler(cfg, make(chan struct{}))
 
 	cfg := s.Config()
-	if reflect.TypeOf(cfg) != reflect.TypeOf(new(SprintConfiguration)) {
+	if reflect.TypeOf(cfg) != reflect.TypeOf(new(SchedulerConfiguration)) {
 		t.Fatal("Scheduler configuration is of the wrong type")
 	}
 	if !*cfg.Checkpointing() {
