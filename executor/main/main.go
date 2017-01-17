@@ -14,7 +14,7 @@ func main() {
 	// Gather flags for any over-ridden configuration variables.
 	flags := flag.NewFlagSet("executor", flag.ExitOnError)
 
-	cfg := new(executor.Configuration).Initialize(flags)
+	cfg := new(executor.ExecutorConfiguration).Initialize(flags)
 
 	log.Printf("configuration loaded: %+v", cfg)
 

@@ -6,14 +6,19 @@ import (
 	"time"
 )
 
-type Configuration struct {
+type configuration interface {
+	Endpoint() string
+	Timeout() string
+}
+
+type ExecutorConfiguration struct {
 	internalConfig config.Config
 	endpoint       string
 	timeout        time.Duration
 }
 
 // Create a default configuration if no flags are passed
-func (c *Configuration) Initialize(flags *flag.FlagSet) *Configuration {
+func (c *ExecutorConfiguration) Initialize(flags *flag.FlagSet) *ExecutorConfiguration {
 	flags.StringVar(&c.endpoint, "executor.endpoint", "/api/v1/executor", "Agent API endpoint")
 	flags.DurationVar(&c.timeout, "executor.timeout", 10*time.Second, "HTTP timeout")
 	flags.StringVar(&c.internalConfig.Directory, "executor.workdir", "slave/", "Working directory of the agent.")
@@ -26,10 +31,10 @@ func (c *Configuration) Initialize(flags *flag.FlagSet) *Configuration {
 	return c
 }
 
-func (c *Configuration) Endpoint() string {
+func (c *ExecutorConfiguration) Endpoint() string {
 	return c.endpoint
 }
 
-func (c *Configuration) Timeout() time.Duration {
+func (c *ExecutorConfiguration) Timeout() time.Duration {
 	return c.timeout
 }

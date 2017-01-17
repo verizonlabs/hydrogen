@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-type executorState struct {
+type sprint struct {
 	callOptions    executor.CallOptions
 	cli            *httpcli.Client
 	cfg            config.Config
