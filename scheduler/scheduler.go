@@ -1,7 +1,6 @@
 package scheduler
 
 import (
-	"fmt"
 	"mesos-sdk"
 	"mesos-sdk/backoff"
 	"mesos-sdk/encoding"
@@ -18,6 +17,7 @@ import (
 
 // Base implementation of a scheduler.
 type scheduler interface {
+	NewExecutor() *mesos.ExecutorInfo
 	Config() configuration
 	Run(c ctrl.Controller, config *ctrl.Config) error
 	State() *state
@@ -52,8 +52,9 @@ type sprintScheduler struct {
 
 // Returns a new scheduler using user-supplied configuration.
 func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
-	uuid := extras.Uuid()
-	id := fmt.Sprintf("%X-%X-%X-%X-%X", uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:])
+	// Ignore the error here since we know that we're generating a valid v4 UUID.
+	// Other people using their own UUIDs should probably check this.
+	uuid, _ := extras.UuidToString(extras.Uuid())
 	// TODO don't hardcode IP
 	executorUri := cfg.ExecutorSrvCfg().ExecutorSrvProtocol() + "://10.0.2.2:" + strconv.Itoa(cfg.ExecutorSrvCfg().ExecutorSrvPort()) + "/executor"
 
@@ -65,7 +66,7 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 			Checkpoint: cfg.Checkpointing(),
 		},
 		executor: &mesos.ExecutorInfo{
-			ExecutorID: mesos.ExecutorID{Value: id},
+			ExecutorID: mesos.ExecutorID{Value: uuid},
 			Name:       cfg.ExecutorName(),
 			Command: mesos.CommandInfo{
 				Value: cfg.ExecutorCmd(),
@@ -103,6 +104,22 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 			totalTasks:   5, // TODO For testing, we need to allow POST'ing of tasks to the framework.
 			reviveTokens: backoff.BurstNotifier(cfg.ReviveBurst(), cfg.ReviveWait(), cfg.ReviveWait(), nil),
 		},
+	}
+}
+
+// Returns a new ExecutorInfo with a new UUID.
+// Reuses existing data from the scheduler's original ExecutorInfo.
+func (s *sprintScheduler) NewExecutor() *mesos.ExecutorInfo {
+	// Ignore the error here since we know that we're generating a valid v4 UUID.
+	// Other people using their own UUIDs should probably check this.
+	uuid, _ := extras.UuidToString(extras.Uuid())
+
+	return &mesos.ExecutorInfo{
+		ExecutorID: mesos.ExecutorID{Value: uuid},
+		Name:       s.executor.Name,
+		Command:    s.executor.Command,
+		Resources:  s.executor.Resources,
+		Container:  s.executor.Container,
 	}
 }
 

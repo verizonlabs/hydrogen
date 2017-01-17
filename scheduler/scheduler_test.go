@@ -23,6 +23,10 @@ type mockScheduler struct {
 	http     calls.Caller
 }
 
+func (m *mockScheduler) NewExecutor() *mesos.ExecutorInfo {
+	return &mesos.ExecutorInfo{}
+}
+
 func (m *mockScheduler) Config() configuration {
 	return m.cfg
 }
@@ -108,6 +112,36 @@ func TestNewScheduler(t *testing.T) {
 func BenchmarkNewScheduler(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		NewScheduler(cfg, make(chan struct{}))
+	}
+}
+
+// Make sure we can create new executors correctly.
+func TestSprintScheduler_NewExecutor(t *testing.T) {
+	t.Parallel()
+
+	s := NewScheduler(cfg, make(chan struct{}))
+
+	executor := s.NewExecutor()
+	if executor.GetName() != s.ExecutorInfo().GetName() {
+		t.Fatal("Executor name does not match")
+	}
+	if !reflect.DeepEqual(executor.Command, s.ExecutorInfo().Command) {
+		t.Fatal("Executor command does not match")
+	}
+	if !reflect.DeepEqual(executor.Resources, s.ExecutorInfo().Resources) {
+		t.Fatal("Executor resources do not match")
+	}
+	if executor.GetContainer() != s.ExecutorInfo().GetContainer() {
+		t.Fatal("Executor container does not match")
+	}
+}
+
+// Measures performance of creating new executors.
+func BenchmarkSprintScheduler_NewExecutor(b *testing.B) {
+	s := NewScheduler(cfg, make(chan struct{}))
+
+	for n := 0; n < b.N; n++ {
+		s.NewExecutor()
 	}
 }
 

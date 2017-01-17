@@ -90,9 +90,8 @@ func (h *sprintHandlers) ResourceOffers(offers []mesos.Offer) error {
 				TaskID: mesos.TaskID{
 					Value: strconv.Itoa(taskId),
 				},
-				AgentID: offers[i].AgentID,
-				// TODO extend scheduler to provide creating a new executor info out of this one
-				Executor: h.sched.ExecutorInfo(),
+				AgentID:  offers[i].AgentID,
+				Executor: h.sched.NewExecutor(),
 				// TODO once the resource parameterization is in place reference state.taskResources again
 				// Right now state.taskResources is empty which will cause issues
 				Resources: remaining.Find(taskResources.Flatten(mesos.Role(state.role).Assign())),
