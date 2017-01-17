@@ -199,8 +199,7 @@ func (e *sprintExecutor) launch(task mesos.TaskInfo) {
 	e.unackedTasks[task.TaskID] = task
 
 	// send RUNNING
-	status := e.newStatus(task.TaskID)
-	status.State = mesos.TASK_RUNNING.Enum()
+	status := e.newStatus(task.TaskID, mesos.TASK_RUNNING)
 	err := e.update(status)
 	if err != nil {
 		log.Printf("failed to send TASK_RUNNING for task %s: %+v", task.TaskID.Value, err)
@@ -211,8 +210,7 @@ func (e *sprintExecutor) launch(task mesos.TaskInfo) {
 	}
 
 	// send FINISHED
-	status = e.newStatus(task.TaskID)
-	status.State = mesos.TASK_FINISHED.Enum()
+	status = e.newStatus(task.TaskID, mesos.TASK_FINISHED)
 	err = e.update(status)
 	if err != nil {
 		log.Printf("failed to send TASK_FINISHED for task %s: %+v", task.TaskID.Value, err)
@@ -236,11 +234,12 @@ func (e *sprintExecutor) update(status mesos.TaskStatus) error {
 	return err
 }
 
-func (e *sprintExecutor) newStatus(id mesos.TaskID) mesos.TaskStatus {
+func (e *sprintExecutor) newStatus(id mesos.TaskID, state mesos.TaskState) mesos.TaskStatus {
 	return mesos.TaskStatus{
 		TaskID:     id,
 		Source:     mesos.SOURCE_EXECUTOR.Enum(),
 		ExecutorID: &e.executor.ExecutorID,
 		UUID:       extras.Uuid(),
+		State:      state.Enum(),
 	}
 }
