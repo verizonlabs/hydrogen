@@ -23,12 +23,6 @@ import (
 const (
 	apiPath     = "/api/v1/executor"
 	httpTimeout = 10 * time.Second
-
-	// Fetcher for the executor
-	executorFetcherPath  = "/executor"
-	executorFetcherPort  = "8081"
-	executorFetcherHost  = "localhost"
-	executorFetcherProto = "http"
 )
 
 type executorState struct {
