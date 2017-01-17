@@ -2,106 +2,81 @@ package executor
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"mesos-sdk"
 	"mesos-sdk/backoff"
 	"mesos-sdk/encoding"
-	"mesos-sdk/executor"
+	exec "mesos-sdk/executor"
 	"mesos-sdk/executor/calls"
-	"mesos-sdk/executor/config"
 	"mesos-sdk/executor/events"
 	"mesos-sdk/extras"
 	"mesos-sdk/httpcli"
-	"net/url"
 	"os"
 	"sprint"
 	"time"
 )
 
-type sprint struct {
-	callOptions    executor.CallOptions
+// TODO test this stuff
+type executor interface {
+}
+
+type sprintExecutor struct {
+	callOptions    exec.CallOptions
 	cli            *httpcli.Client
-	cfg            config.Config
+	config         configuration
 	framework      mesos.FrameworkInfo
 	executor       mesos.ExecutorInfo
 	agent          mesos.AgentInfo
+	handler        events.Handler
 	unackedTasks   map[mesos.TaskID]mesos.TaskInfo
-	unackedUpdates map[string]executor.Call_Update
+	unackedUpdates map[string]exec.Call_Update
 	failedTasks    map[mesos.TaskID]mesos.TaskStatus
 	shouldQuit     bool
 }
 
-// TODO: uuid needs to be parsed into utf8. Mesos throws warnings.
-func NewExecutor(execInfo *mesos.ExecutorInfo) *mesos.ExecutorInfo {
-	uuid := extras.Uuid()
-	id := fmt.Sprintf("%X-%X-%X-%X-%X", uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:])
-
-	return &mesos.ExecutorInfo{
-		ExecutorID:  mesos.ExecutorID{Value: id},
-		FrameworkID: execInfo.FrameworkID,
-		Command:     execInfo.Command,
-		Container:   execInfo.Container,
-		Resources:   execInfo.Resources,
-		Name:        execInfo.Name,
-		Source:      execInfo.Source,
-		Data:        execInfo.Data,
-		Discovery:   execInfo.Discovery,
-	}
-}
-func NewExecutorState(cfg config.Config) *executorState {
-	var (
-		apiURL = url.URL{
-			Scheme: "http",
-			Host:   cfg.AgentEndpoint,
-			Path:   apiPath,
-		}
-	)
-	return &executorState{
-		cli: httpcli.New(
-			httpcli.Endpoint(apiURL.String()),
-			httpcli.Codec(&encoding.ProtobufCodec),
-			httpcli.Do(httpcli.With(httpcli.Timeout(httpTimeout))),
-		),
-		callOptions: executor.CallOptions{
+func NewExecutor(cfg configuration) *sprintExecutor {
+	executor := sprintExecutor{
+		callOptions: exec.CallOptions{
 			calls.Framework(os.Getenv("MESOS_FRAMEWORK_ID")),
 			calls.Executor(os.Getenv("MESOS_EXECUTOR_ID")),
 		},
+		cli: httpcli.New(
+			httpcli.Endpoint(cfg.Endpoint()),
+			httpcli.Codec(&encoding.ProtobufCodec),
+			httpcli.Do(httpcli.With(httpcli.Timeout(cfg.Timeout()))),
+		),
+		config:         cfg,
 		unackedTasks:   make(map[mesos.TaskID]mesos.TaskInfo),
-		unackedUpdates: make(map[string]executor.Call_Update),
+		unackedUpdates: make(map[string]exec.Call_Update),
 		failedTasks:    make(map[mesos.TaskID]mesos.TaskStatus),
 	}
+	executor.handler = executor.buildEventHandler()
+
+	return &executor
 }
 
-/*
-	Main function that starts the executor and goes into the event loop to handle events.
-*/
-func Run(cfg config.Config) {
-	// Create our initial state
-	execState := NewExecutorState(cfg)
-
+func (e *sprintExecutor) Run() {
 	// TODO make these configurable
 	var (
-		subscribe       = calls.Subscribe(nil, nil).With(execState.callOptions...)
-		shouldReconnect = backoff.Notifier(1*time.Second, cfg.SubscriptionBackoffMax*4/3, nil)
+		subscribe       = calls.Subscribe(nil, nil).With(e.callOptions...)
+		shouldReconnect = backoff.Notifier(1*time.Second, e.config.SubscriptionBackoffMax()*4/3, nil)
 		disconnected    = time.Now()
-		handler         = buildEventHandler(execState)
 	)
 
 	for {
 		subscribe = subscribe.With(
-			unacknowledgedTasks(execState),
-			unacknowledgedUpdates(execState),
+			e.unacknowledgedTasks(),
+			e.unacknowledgedUpdates(),
 		)
 		func() {
-			resp, err := execState.cli.Do(subscribe, httpcli.Close(true))
+			resp, err := e.cli.Do(subscribe, httpcli.Close(true))
 			if resp != nil {
 				defer resp.Close()
 			}
 			if err == nil {
 				// we're officially connected, start decoding events
-				err = eventLoop(execState, resp.Decoder(), handler)
+				err = e.eventLoop(resp.Decoder())
 				disconnected = time.Now()
 			}
 			// If the call/connection fails, we get here.
@@ -111,16 +86,16 @@ func Run(cfg config.Config) {
 				log.Println("disconnected")
 			}
 		}()
-		if execState.shouldQuit {
+		if e.shouldQuit {
 			log.Println("Gracefully shutting down")
 			return
 		}
-		if !cfg.Checkpoint {
+		if !e.config.Checkpoint() {
 			log.Println("Gracefully exiting because framework checkpointing is NOT enabled")
 			return
 		}
-		if time.Now().Sub(disconnected) > cfg.RecoveryTimeout {
-			log.Printf("Failed to re-establish subscription with agent within %v, aborting", cfg.RecoveryTimeout)
+		if time.Now().Sub(disconnected) > e.config.RecoveryTimeout() {
+			log.Printf("Failed to re-establish subscription with agent within %v, aborting", e.config.RecoveryTimeout)
 			return
 		}
 		<-shouldReconnect // wait for some amount of time before retrying subscription
@@ -129,12 +104,12 @@ func Run(cfg config.Config) {
 
 // unacknowledgedTasks is a functional option that sets the value of the UnacknowledgedTasks
 // field of a Subscribe call.
-func unacknowledgedTasks(state *executorState) executor.CallOpt {
-	return func(call *executor.Call) {
-		if n := len(state.unackedTasks); n > 0 {
+func (e *sprintExecutor) unacknowledgedTasks() exec.CallOpt {
+	return func(call *exec.Call) {
+		if n := len(e.unackedTasks); n > 0 {
 			unackedTasks := make([]mesos.TaskInfo, 0, n)
-			for k := range state.unackedTasks {
-				unackedTasks = append(unackedTasks, state.unackedTasks[k])
+			for k := range e.unackedTasks {
+				unackedTasks = append(unackedTasks, e.unackedTasks[k])
 			}
 			call.Subscribe.UnacknowledgedTasks = unackedTasks
 		} else {
@@ -145,12 +120,12 @@ func unacknowledgedTasks(state *executorState) executor.CallOpt {
 
 // unacknowledgedUpdates is a functional option that sets the value of the UnacknowledgedUpdates
 // field of a Subscribe call.
-func unacknowledgedUpdates(state *executorState) executor.CallOpt {
-	return func(call *executor.Call) {
-		if n := len(state.unackedUpdates); n > 0 {
-			unackedUpdates := make([]executor.Call_Update, 0, n)
-			for k := range state.unackedUpdates {
-				unackedUpdates = append(unackedUpdates, state.unackedUpdates[k])
+func (e *sprintExecutor) unacknowledgedUpdates() exec.CallOpt {
+	return func(call *exec.Call) {
+		if n := len(e.unackedUpdates); n > 0 {
+			unackedUpdates := make([]exec.Call_Update, 0, n)
+			for k := range e.unackedUpdates {
+				unackedUpdates = append(unackedUpdates, e.unackedUpdates[k])
 			}
 			call.Subscribe.UnacknowledgedUpdates = unackedUpdates
 		} else {
@@ -159,113 +134,113 @@ func unacknowledgedUpdates(state *executorState) executor.CallOpt {
 	}
 }
 
-func eventLoop(state *executorState, decoder encoding.Decoder, h events.Handler) (err error) {
-	for err == nil && !state.shouldQuit {
-		sendFailedTasks(state)
+func (e *sprintExecutor) eventLoop(decoder encoding.Decoder) (err error) {
+	for err == nil && !e.shouldQuit {
+		e.sendFailedTasks()
 
-		var e executor.Event
-		if err = decoder.Invoke(&e); err == nil {
-			err = h.HandleEvent(&e)
+		var event exec.Event
+		if err = decoder.Invoke(&event); err == nil {
+			err = e.handler.HandleEvent(&event)
 		}
 	}
 	return err
 }
 
-func buildEventHandler(state *executorState) events.Handler {
+func (e *sprintExecutor) buildEventHandler() events.Handler {
 	return events.NewMux(
-		events.Handle(executor.Event_SUBSCRIBED, events.HandlerFunc(func(e *executor.Event) error {
+		events.Handle(exec.Event_SUBSCRIBED, events.HandlerFunc(func(event *exec.Event) error {
 			log.Println("SUBSCRIBED")
-			state.framework = e.Subscribed.FrameworkInfo
-			state.executor = e.Subscribed.ExecutorInfo
-			state.agent = e.Subscribed.AgentInfo
+			e.framework = event.Subscribed.FrameworkInfo
+			e.executor = event.Subscribed.ExecutorInfo
+			e.agent = event.Subscribed.AgentInfo
 			return nil
 		})),
-		events.Handle(executor.Event_LAUNCH, events.HandlerFunc(func(e *executor.Event) error {
-			launch(state, e.Launch.Task)
+		events.Handle(exec.Event_LAUNCH, events.HandlerFunc(func(event *exec.Event) error {
+			e.launch(event.Launch.Task)
 			return nil
 		})),
-		events.Handle(executor.Event_KILL, events.HandlerFunc(func(e *executor.Event) error {
+		events.Handle(exec.Event_KILL, events.HandlerFunc(func(event *exec.Event) error {
 			log.Println("warning: KILL not implemented")
 			return nil
 		})),
-		events.Handle(executor.Event_ACKNOWLEDGED, events.HandlerFunc(func(e *executor.Event) error {
-			delete(state.unackedTasks, e.Acknowledged.TaskID)
-			delete(state.unackedUpdates, string(e.Acknowledged.UUID))
+		events.Handle(exec.Event_ACKNOWLEDGED, events.HandlerFunc(func(event *exec.Event) error {
+			delete(e.unackedTasks, event.Acknowledged.TaskID)
+			delete(e.unackedUpdates, string(event.Acknowledged.UUID))
 			return nil
 		})),
-		events.Handle(executor.Event_MESSAGE, events.HandlerFunc(func(e *executor.Event) error {
-			log.Printf("MESSAGE: received %d bytes of message data", len(e.Message.Data))
+		events.Handle(exec.Event_MESSAGE, events.HandlerFunc(func(event *exec.Event) error {
+			log.Printf("MESSAGE: received %d bytes of message data", len(event.Message.Data))
 			return nil
 		})),
-		events.Handle(executor.Event_SHUTDOWN, events.HandlerFunc(func(e *executor.Event) error {
+		events.Handle(exec.Event_SHUTDOWN, events.HandlerFunc(func(event *exec.Event) error {
 			log.Println("SHUTDOWN received")
-			state.shouldQuit = true
+			e.shouldQuit = true
 			return nil
 		})),
-		events.Handle(executor.Event_ERROR, events.HandlerFunc(func(e *executor.Event) error {
+		events.Handle(exec.Event_ERROR, events.HandlerFunc(func(event *exec.Event) error {
 			log.Println("ERROR received")
 			return errors.New("received abort signal from mesos, will attempt to re-subscribe")
 		})),
 	)
 }
 
-func sendFailedTasks(state *executorState) {
-	for taskID, status := range state.failedTasks {
-		updateErr := update(state, status)
+func (e *sprintExecutor) sendFailedTasks() {
+	for taskID, status := range e.failedTasks {
+		updateErr := e.update(status)
 		if updateErr != nil {
 			log.Printf("failed to send status update for task %s: %+v", taskID.Value, updateErr)
 		} else {
-			delete(state.failedTasks, taskID)
+			delete(e.failedTasks, taskID)
 		}
 	}
 }
 
-func launch(state *executorState, task mesos.TaskInfo) {
-	state.unackedTasks[task.TaskID] = task
+func (e *sprintExecutor) launch(task mesos.TaskInfo) {
+	e.unackedTasks[task.TaskID] = task
 
 	// send RUNNING
-	status := newStatus(state, task.TaskID)
+	status := e.newStatus(task.TaskID)
 	status.State = mesos.TASK_RUNNING.Enum()
-	err := update(state, status)
+	err := e.update(status)
 	if err != nil {
 		log.Printf("failed to send TASK_RUNNING for task %s: %+v", task.TaskID.Value, err)
 		status.State = mesos.TASK_FAILED.Enum()
 		status.Message = sprint.ProtoString(err.Error())
-		state.failedTasks[task.TaskID] = status
+		e.failedTasks[task.TaskID] = status
 		return
 	}
 
 	// send FINISHED
-	status = newStatus(state, task.TaskID)
+	status = e.newStatus(task.TaskID)
 	status.State = mesos.TASK_FINISHED.Enum()
-	err = update(state, status)
+	err = e.update(status)
 	if err != nil {
 		log.Printf("failed to send TASK_FINISHED for task %s: %+v", task.TaskID.Value, err)
 		status.State = mesos.TASK_FAILED.Enum()
 		status.Message = sprint.ProtoString(err.Error())
-		state.failedTasks[task.TaskID] = status
+		e.failedTasks[task.TaskID] = status
 	}
 }
 
-func update(state *executorState, status mesos.TaskStatus) error {
-	upd := calls.Update(status).With(state.callOptions...)
-	resp, err := state.cli.Do(upd)
+func (e *sprintExecutor) update(status mesos.TaskStatus) error {
+	upd := calls.Update(status).With(e.callOptions...)
+	resp, err := e.cli.Do(upd)
 	if resp != nil {
 		resp.Close()
 	}
 	if err != nil {
 		log.Printf("failed to send update: %+v", err)
 	} else {
-		state.unackedUpdates[string(status.UUID)] = *upd.Update
+		e.unackedUpdates[string(status.UUID)] = *upd.Update
 	}
 	return err
 }
 
-func newStatus(state *executorState, id mesos.TaskID) mesos.TaskStatus {
+func (e *sprintExecutor) newStatus(id mesos.TaskID) mesos.TaskStatus {
 	return mesos.TaskStatus{
 		TaskID:     id,
 		Source:     mesos.SOURCE_EXECUTOR.Enum(),
-		ExecutorID: &state.executor.ExecutorID,
+		ExecutorID: &e.executor.ExecutorID,
 		UUID:       extras.Uuid(),
 	}
 }

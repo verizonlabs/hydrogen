@@ -2,8 +2,6 @@ package main
 
 import (
 	"flag"
-	"log"
-	"os"
 	"sprint/executor"
 )
 
@@ -15,10 +13,5 @@ func main() {
 	flags := flag.NewFlagSet("executor", flag.ExitOnError)
 
 	cfg := new(executor.ExecutorConfiguration).Initialize(flags)
-
-	log.Printf("configuration loaded: %+v", cfg)
-
-	executor.Run(cfg)
-
-	os.Exit(0)
+	executor.NewExecutor(cfg).Run()
 }
