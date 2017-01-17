@@ -45,7 +45,11 @@ func NewExecutor(cfg configuration) *sprintExecutor {
 		cli: httpcli.New(
 			httpcli.Endpoint(cfg.Endpoint()),
 			httpcli.Codec(&encoding.ProtobufCodec),
-			httpcli.Do(httpcli.With(httpcli.Timeout(cfg.Timeout()))),
+			httpcli.Do(
+				httpcli.With(
+					httpcli.Timeout(cfg.Timeout()),
+				),
+			),
 		),
 		config:         cfg,
 		unackedTasks:   make(map[mesos.TaskID]mesos.TaskInfo),

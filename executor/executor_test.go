@@ -4,19 +4,20 @@ import (
 	"io/ioutil"
 	"log"
 	"mesos-sdk"
-	"mesos-sdk/executor/config"
 	"os"
 	"sprint"
 	"testing"
 )
 
-type mockExec struct {
-	execInfo mesos.ExecutorInfo
-	cfg      config.Config
+type mockExecutor struct {
+	config   configuration
+	executor mesos.ExecutorInfo
 }
 
-var exec = mockExec{
-	execInfo: mesos.ExecutorInfo{
+func (m *mockExecutor) Run() {}
+
+var e executor = &mockExecutor{
+	executor: mesos.ExecutorInfo{
 		ExecutorID: mesos.ExecutorID{Value: "Mock executor"},
 		Name:       sprint.ProtoString("Mocker"),
 		Resources: []mesos.Resource{
@@ -29,9 +30,8 @@ var exec = mockExec{
 	},
 }
 
-/*
-	Test our executor behavior here
-*/
+// ENTRY POINT FOR ALL TESTS IN THIS PACKAGE
+// Suppress our logging and start the tests.
 func TestMain(m *testing.M) {
 	log.SetOutput(ioutil.Discard)
 	log.SetFlags(0)
