@@ -26,6 +26,7 @@ type scheduler interface {
 	ExecutorInfo() *mesos.ExecutorInfo
 	SuppressOffers() error
 	ReviveOffers() error
+	Reconcile() (mesos.Response, error)
 }
 
 // Scheduler state.
@@ -170,7 +171,11 @@ func (s *sprintScheduler) SuppressOffers() error {
 
 // This call will perform reconciliation for our tasks.
 func (s *sprintScheduler) Reconcile() (mesos.Response, error) {
-	return calls.Caller(s.http).Call(calls.Reconcile(calls.ReconcileTasks(s.state.tasks)))
+	return calls.Caller(s.http).Call(
+		calls.Reconcile(
+			calls.ReconcileTasks(s.state.tasks),
+		),
+	)
 }
 
 // This call revives our offers received from Mesos.

@@ -59,6 +59,10 @@ func (m *mockScheduler) ReviveOffers() error {
 	return nil
 }
 
+func (m *mockScheduler) Reconcile() (mesos.Response, error) {
+	return nil, nil
+}
+
 // Mocked runner.
 // Used for testing the code to run the scheduler.
 type mockRunner struct{}
@@ -85,6 +89,7 @@ var s scheduler = &mockScheduler{
 	},
 	state: state{
 		totalTasks: 1,
+		tasks:      make(map[string]string),
 	},
 	http: new(mockCaller),
 }
@@ -417,5 +422,28 @@ func BenchmarkSprintScheduler_SuppressOffers(b *testing.B) {
 
 	for n := 0; n < b.N; n++ {
 		s.SuppressOffers()
+	}
+}
+
+// Tests reconciliation.
+func TestSprintScheduler_Reconcile(t *testing.T) {
+	t.Parallel()
+
+	s := NewScheduler(cfg, make(chan struct{}))
+	s.http = new(mockCaller)
+
+	_, err := s.Reconcile()
+	if err != nil {
+		t.Fatal("Failed to reconcile tasks")
+	}
+}
+
+// Measures performance of reconciling.
+func BenchmarkSprintScheduler_Reconcile(b *testing.B) {
+	s := NewScheduler(cfg, make(chan struct{}))
+	s.http = new(mockCaller)
+
+	for n := 0; n < b.N; n++ {
+		s.Reconcile()
 	}
 }
