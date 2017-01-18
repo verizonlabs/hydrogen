@@ -7,7 +7,6 @@ import (
 	sched "mesos-sdk/scheduler"
 	"mesos-sdk/scheduler/calls"
 	ev "mesos-sdk/scheduler/events"
-	"sprint/executor"
 	"strconv"
 	"time"
 )
@@ -91,9 +90,8 @@ func (h *sprintHandlers) ResourceOffers(offers []mesos.Offer) error {
 				TaskID: mesos.TaskID{
 					Value: strconv.Itoa(taskId),
 				},
-				AgentID: offers[i].AgentID,
-				// Create a new executor from the scheduler template.
-				Executor: executor.NewExecutor(h.sched.ExecutorInfo()),
+				AgentID:  offers[i].AgentID,
+				Executor: h.sched.NewExecutor(),
 				// TODO once the resource parameterization is in place reference state.taskResources again
 				// Right now state.taskResources is empty which will cause issues
 				Resources: remaining.Find(taskResources.Flatten(mesos.Role(state.role).Assign())),

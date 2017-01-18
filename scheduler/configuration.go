@@ -9,7 +9,7 @@ import (
 )
 
 type configuration interface {
-	Initialize() *SprintConfiguration
+	Initialize() *SchedulerConfiguration
 	Name() string
 	User() string
 	Checkpointing() *bool
@@ -21,14 +21,14 @@ type configuration interface {
 	ReviveBurst() int
 	ReviveWait() time.Duration
 	MaxRefuse() time.Duration
-	SetExecutorSrvCfg(server.Configuration) *SprintConfiguration
+	SetExecutorSrvCfg(server.Configuration) *SchedulerConfiguration
 	ExecutorSrvCfg() server.Configuration
 	ExecutorName() *string
 	ExecutorCmd() *string
 }
 
 // Configuration for the scheduler, populated by user-supplied flags.
-type SprintConfiguration struct {
+type SchedulerConfiguration struct {
 	endpoint       string
 	name           string
 	user           string
@@ -46,7 +46,7 @@ type SprintConfiguration struct {
 }
 
 // Applies values to the various configurations from user-supplied flags.
-func (c *SprintConfiguration) Initialize() *SprintConfiguration {
+func (c *SchedulerConfiguration) Initialize() *SchedulerConfiguration {
 	u, err := user.Current()
 	if err != nil {
 		panic("Unable to detect current user: " + err.Error())
@@ -68,64 +68,64 @@ func (c *SprintConfiguration) Initialize() *SprintConfiguration {
 	return c
 }
 
-func (c *SprintConfiguration) Name() string {
+func (c *SchedulerConfiguration) Name() string {
 	return c.name
 }
 
-func (c *SprintConfiguration) User() string {
+func (c *SchedulerConfiguration) User() string {
 	return c.user
 }
 
-func (c *SprintConfiguration) Checkpointing() *bool {
+func (c *SchedulerConfiguration) Checkpointing() *bool {
 	return &c.checkpointing
 }
 
-func (c *SprintConfiguration) Principal() string {
+func (c *SchedulerConfiguration) Principal() string {
 	return c.principal
 }
 
-func (c *SprintConfiguration) Command() *string {
+func (c *SchedulerConfiguration) Command() *string {
 	return &c.command
 }
 
-func (c *SprintConfiguration) Uris() []mesos.CommandInfo_URI {
+func (c *SchedulerConfiguration) Uris() []mesos.CommandInfo_URI {
 	return c.uris
 }
 
-func (c *SprintConfiguration) Timeout() time.Duration {
+func (c *SchedulerConfiguration) Timeout() time.Duration {
 	return c.timeout
 }
 
-func (c *SprintConfiguration) Endpoint() string {
+func (c *SchedulerConfiguration) Endpoint() string {
 	return c.endpoint
 }
 
-func (c *SprintConfiguration) ReviveBurst() int {
+func (c *SchedulerConfiguration) ReviveBurst() int {
 	return c.reviveBurst
 }
 
-func (c *SprintConfiguration) ReviveWait() time.Duration {
+func (c *SchedulerConfiguration) ReviveWait() time.Duration {
 	return c.reviveWait
 }
 
-func (c *SprintConfiguration) MaxRefuse() time.Duration {
+func (c *SchedulerConfiguration) MaxRefuse() time.Duration {
 	return c.maxRefuse
 }
 
-func (c *SprintConfiguration) SetExecutorSrvCfg(cfg server.Configuration) *SprintConfiguration {
+func (c *SchedulerConfiguration) SetExecutorSrvCfg(cfg server.Configuration) *SchedulerConfiguration {
 	c.executorSrvCfg = cfg
 
 	return c
 }
 
-func (c *SprintConfiguration) ExecutorSrvCfg() server.Configuration {
+func (c *SchedulerConfiguration) ExecutorSrvCfg() server.Configuration {
 	return c.executorSrvCfg
 }
 
-func (c *SprintConfiguration) ExecutorName() *string {
+func (c *SchedulerConfiguration) ExecutorName() *string {
 	return &c.executorName
 }
 
-func (c *SprintConfiguration) ExecutorCmd() *string {
+func (c *SchedulerConfiguration) ExecutorCmd() *string {
 	return &c.executorCmd
 }

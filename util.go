@@ -2,6 +2,8 @@ package sprint
 
 import "mesos-sdk"
 
+// TODO move these to the SDK
+
 // Returns a string reference.
 func ProtoString(s string) *string { return &s }
 
