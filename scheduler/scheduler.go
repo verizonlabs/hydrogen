@@ -30,9 +30,18 @@ type scheduler interface {
 
 // Scheduler state.
 type state struct {
-	frameworkId   string
-	tasksLaunched int
+	frameworkId string
+	// TODO this field will need to be reworked once our API is in place
+	// We might not need this since we are targeting long running jobs
+	// The API could pass data for how many jobs a user has sent and then we can compare that with a running count
 	tasksFinished int
+	// TODO think about changing the reconcile call in the SDK
+	// Currently a map[string]string is expected
+	// We may want to use this elsewhere in our scheduler which might require more data
+	// If that's the case the reconcile call should be changed to something like map[string]mesos.TaskInfo
+	// If more data is needed the key can also be changed to whatever type we need to pull from
+	tasks map[string]string
+	// TODO remove this once we've hooked up the API to accept jobs
 	totalTasks    int
 	taskResources mesos.Resources
 	role          string
@@ -79,8 +88,8 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 			},
 			// TODO parameterize this
 			Resources: []mesos.Resource{
-				sprint.Resource("cpus", 0.5),
-				sprint.Resource("mem", 1024.0),
+				sprint.Resource("cpus", 0.1),
+				sprint.Resource("mem", 128.0),
 			},
 			Container: &mesos.ContainerInfo{
 				Type: mesos.ContainerInfo_MESOS.Enum(),
@@ -101,6 +110,7 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 		)),
 		shutdown: shutdown,
 		state: state{
+			tasks:        make(map[string]string),
 			totalTasks:   5, // TODO For testing, we need to allow POST'ing of tasks to the framework.
 			reviveTokens: backoff.BurstNotifier(cfg.ReviveBurst(), cfg.ReviveWait(), cfg.ReviveWait(), nil),
 		},
@@ -156,6 +166,11 @@ func (s *sprintScheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
 // This call suppresses our offers received from Mesos.
 func (s *sprintScheduler) SuppressOffers() error {
 	return calls.CallNoData(s.http, calls.Suppress())
+}
+
+// This call will perform reconciliation for our tasks.
+func (s *sprintScheduler) Reconcile() (mesos.Response, error) {
+	return calls.Caller(s.http).Call(calls.Reconcile(calls.ReconcileTasks(s.state.tasks)))
 }
 
 // This call revives our offers received from Mesos.
