@@ -104,24 +104,29 @@ Deploy endpoint will parse given JSON and create a given TaskInfo for the schedu
 */
 func deploy(w http.ResponseWriter, r *http.Request) {
 	// We don't want to allow any other methods.
-	if r.Method == "POST" {
-		// Decode the body into slice of bytes, then parse into JSON.
-		dec, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			fmt.Fprintf(w, err.Error())
-			return
-		}
+	switch r.Method {
+	case "POST":
+		{
+			// Decode the body into slice of bytes, then parse into JSON.
+			dec, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				fmt.Fprintf(w, err.Error())
+				return
+			}
 
-		var m ApplicationJSON
-		err = json.Unmarshal(dec, &m)
-		if err != nil {
-			fmt.Fprintf(w, err.Error())
-			return
-		}
+			var m ApplicationJSON
+			err = json.Unmarshal(dec, &m)
+			if err != nil {
+				fmt.Fprintf(w, err.Error())
+				return
+			}
 
-		fmt.Fprintf(w, "%v", m) // This is where we would form our Task info.
-	} else {
-		fmt.Fprintf(w, r.Method+" is not allowed on this endpoint.")
+			fmt.Fprintf(w, "%v", m) // This is where we would form our Task info.
+		}
+	default:
+		{
+			fmt.Fprintf(w, r.Method+" is not allowed on this endpoint.")
+		}
 	}
 
 }
