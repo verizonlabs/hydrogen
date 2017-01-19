@@ -112,7 +112,7 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 		shutdown: shutdown,
 		state: state{
 			tasks:        make(map[string]string),
-			totalTasks:   5, // TODO For testing, we need to allow POST'ing of tasks to the framework.
+			totalTasks:   0, // TODO For testing, we need to allow POST'ing of tasks to the framework.
 			reviveTokens: backoff.BurstNotifier(cfg.ReviveBurst(), cfg.ReviveWait(), cfg.ReviveWait(), nil),
 		},
 	}

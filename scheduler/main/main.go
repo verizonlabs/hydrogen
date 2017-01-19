@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log"
 	"sprint/scheduler"
+	"sprint/scheduler/api"
 	"sprint/scheduler/server"
 )
 
@@ -16,6 +17,8 @@ func main() {
 	flag.Parse()
 
 	go server.NewExecutorServer(executorSrvConfig).Serve()
+
+	go api.RunAPI()
 
 	shutdown := make(chan struct{})
 	defer close(shutdown)
