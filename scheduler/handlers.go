@@ -3,11 +3,11 @@ package scheduler
 import (
 	"math/rand"
 	"mesos-sdk"
+	"mesos-sdk/extras"
 	ctrl "mesos-sdk/extras/scheduler/controller"
 	sched "mesos-sdk/scheduler"
 	"mesos-sdk/scheduler/calls"
 	ev "mesos-sdk/scheduler/events"
-	"strconv"
 	"time"
 )
 
@@ -82,13 +82,17 @@ func (h *sprintHandlers) ResourceOffers(offers []mesos.Offer) error {
 		// We also want to combine the task resources with the executor resources
 		taskResources := state.taskResources.Plus(executorResources...)
 
-		for state.tasksLaunched < state.totalTasks && flattened.ContainsAll(taskResources) {
-			state.tasksLaunched++
-			taskId := state.tasksLaunched
+		// TODO don't use the length of the map once we have our API
+		// Detect the number of jobs the user wants to launch instead
+		for len(state.tasks) < state.totalTasks && flattened.ContainsAll(taskResources) {
+			// Ignore the error here since we know that we're generating a valid v4 UUID.
+			// Other people using their own UUIDs should probably check this.
+			uuid, _ := extras.UuidToString(extras.Uuid())
 
 			task := mesos.TaskInfo{
 				TaskID: mesos.TaskID{
-					Value: strconv.Itoa(taskId),
+					// TaskID needs to be unique.
+					Value: uuid,
 				},
 				AgentID:  offers[i].AgentID,
 				Executor: h.sched.NewExecutor(),
@@ -96,10 +100,12 @@ func (h *sprintHandlers) ResourceOffers(offers []mesos.Offer) error {
 				// Right now state.taskResources is empty which will cause issues
 				Resources: remaining.Find(taskResources.Flatten(mesos.Role(state.role).Assign())),
 			}
-			task.Name = "task_" + task.TaskID.Value
+			task.Name = "sprinter_" + task.TaskID.Value
 
 			remaining.Subtract(task.Resources...)
+
 			tasks = append(tasks, task)
+			state.tasks[task.TaskID.Value] = task.AgentID.Value
 
 			flattened = remaining.Flatten()
 		}
@@ -124,8 +130,13 @@ func (h *sprintHandlers) StatusUpdates(s mesos.TaskStatus) {
 
 	switch st := s.GetState(); st {
 	case mesos.TASK_FINISHED:
+		// TODO we may not need this anymore once the API is complete
 		state.tasksFinished++
+		delete(state.tasks, s.GetTaskID().Value)
 
+		// TODO change and move this check elsewhere once we have the API hooked up
+		// We won't have to rely on these counters anymore and can just revive when a user submits a job
+		// Suppression can be done in another spot when we determine that all tasks are launched
 		if state.tasksFinished == state.totalTasks {
 			h.sched.SuppressOffers()
 		} else {
