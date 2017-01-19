@@ -82,7 +82,7 @@ func RunAPI() {
 	cfg := NewApiConfiguration()
 	// Iterate through all methods and setup endpoints.
 	for route, handle := range *cfg.handle {
-		setupHandle(route, handle)
+		http.HandleFunc(route, handle)
 	}
 
 	log.Fatal(http.ListenAndServe(":"+cfg.PortAsString(), nil))
@@ -93,17 +93,10 @@ Run function that takes a given ApiConfiguration to configure the API server.
 */
 func Run(cfg *ApiConfiguration) {
 	for route, handle := range *cfg.handle {
-		setupHandle(route, handle)
+		http.HandleFunc(route, handle)
 	}
 
 	log.Fatal(http.ListenAndServe(":"+cfg.PortAsString(), nil))
-}
-
-/*
-Functional way to add a handler.
-*/
-func setupHandle(route string, handle func(w http.ResponseWriter, r *http.Request)) {
-	http.HandleFunc(route, handle)
 }
 
 /*
