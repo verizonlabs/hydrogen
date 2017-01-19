@@ -5,7 +5,7 @@ import (
 	"log"
 	"sprint/scheduler"
 	"sprint/scheduler/server"
-	schedAPI "sprint/scheduler/server/api"
+	"sprint/scheduler/server/api"
 )
 
 // Entry point for the scheduler.
@@ -18,7 +18,7 @@ func main() {
 
 	go server.NewExecutorServer(executorSrvConfig).Serve()
 
-	go schedAPI.RunAPI()
+	go api.RunAPI()
 
 	shutdown := make(chan struct{})
 	defer close(shutdown)
