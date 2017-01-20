@@ -10,7 +10,6 @@ import (
 	"mesos-sdk/httpcli/httpsched"
 	"mesos-sdk/scheduler/calls"
 	"net/http"
-	"sprint"
 	"strconv"
 	"time"
 )
@@ -83,14 +82,14 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 				URIs: []mesos.CommandInfo_URI{
 					{
 						Value:      executorUri,
-						Executable: sprint.ProtoBool(true),
+						Executable: extras.ProtoBool(true),
 					},
 				},
 			},
 			// TODO parameterize this
 			Resources: []mesos.Resource{
-				sprint.Resource("cpus", 0.1),
-				sprint.Resource("mem", 128.0),
+				extras.Resource("cpus", 0.1),
+				extras.Resource("mem", 128.0),
 			},
 			Container: &mesos.ContainerInfo{
 				Type: mesos.ContainerInfo_MESOS.Enum(),

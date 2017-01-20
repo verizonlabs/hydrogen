@@ -4,8 +4,8 @@ import (
 	"io/ioutil"
 	"log"
 	"mesos-sdk"
+	"mesos-sdk/extras"
 	"os"
-	"sprint"
 	"testing"
 )
 
@@ -19,10 +19,10 @@ func (m *mockExecutor) Run() {}
 var e executor = &mockExecutor{
 	executor: mesos.ExecutorInfo{
 		ExecutorID: mesos.ExecutorID{Value: "Mock executor"},
-		Name:       sprint.ProtoString("Mocker"),
+		Name:       extras.ProtoString("Mocker"),
 		Resources: []mesos.Resource{
-			sprint.Resource("cpus", 0.5),
-			sprint.Resource("mem", 1024.0),
+			extras.Resource("cpus", 0.5),
+			extras.Resource("mem", 1024.0),
 		},
 		Container: &mesos.ContainerInfo{
 			Type: mesos.ContainerInfo_MESOS.Enum(),
