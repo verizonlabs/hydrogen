@@ -13,7 +13,6 @@ import (
 	"mesos-sdk/extras"
 	"mesos-sdk/httpcli"
 	"os"
-	"sprint"
 	"time"
 )
 
@@ -216,7 +215,7 @@ func (e *sprintExecutor) launch(task mesos.TaskInfo) {
 	if err != nil {
 		log.Printf("failed to send TASK_RUNNING for task %s: %+v", task.TaskID.Value, err)
 		status.State = mesos.TASK_FAILED.Enum()
-		status.Message = sprint.ProtoString(err.Error())
+		status.Message = extras.ProtoString(err.Error())
 		e.failedTasks[task.TaskID] = status
 		return
 	}
@@ -227,7 +226,7 @@ func (e *sprintExecutor) launch(task mesos.TaskInfo) {
 	if err != nil {
 		log.Printf("failed to send TASK_FINISHED for task %s: %+v", task.TaskID.Value, err)
 		status.State = mesos.TASK_FAILED.Enum()
-		status.Message = sprint.ProtoString(err.Error())
+		status.Message = extras.ProtoString(err.Error())
 		e.failedTasks[task.TaskID] = status
 	}
 }
