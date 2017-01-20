@@ -32,7 +32,7 @@ Configuration for our API
 */
 type ApiConfiguration struct {
 	port   int
-	handle *map[string]http.HandlerFunc // route -> handler func for that route
+	handle map[string]http.HandlerFunc // route -> handler func for that route
 }
 
 /*
@@ -52,7 +52,7 @@ func (a *ApiConfiguration) PortAsString() string {
 /*
 Getter to return our map of handles
 */
-func (a *ApiConfiguration) Handle() *map[string]http.HandlerFunc {
+func (a *ApiConfiguration) Handle() map[string]http.HandlerFunc {
 	return a.handle
 }
 
@@ -69,10 +69,10 @@ func NewApiConfiguration() *ApiConfiguration {
 /*
 Set our default API handler routes here.
 */
-func defautlHandleFunctions() *map[string]http.HandlerFunc {
+func defautlHandleFunctions() map[string]http.HandlerFunc {
 	handlers := make(map[string]http.HandlerFunc, 4)
 	handlers[baseUrl+deployEndpoint] = deploy
-	return &handlers
+	return handlers
 }
 
 /*
@@ -81,7 +81,7 @@ Default Run method with no config
 func RunAPI() {
 	cfg := NewApiConfiguration()
 	// Iterate through all methods and setup endpoints.
-	for route, handle := range *cfg.handle {
+	for route, handle := range cfg.handle {
 		http.HandleFunc(route, handle)
 	}
 
@@ -91,8 +91,8 @@ func RunAPI() {
 /*
 Run function that takes a given ApiConfiguration to configure the API server.
 */
-func Run(cfg *ApiConfiguration) {
-	for route, handle := range *cfg.handle {
+func Run(cfg ApiConfiguration) {
+	for route, handle := range cfg.handle {
 		http.HandleFunc(route, handle)
 	}
 
