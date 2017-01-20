@@ -80,7 +80,7 @@ func (m *mockCaller) Call(c *sched.Call) (mesos.Response, error) {
 	return *resp, nil
 }
 
-var s scheduler = &mockScheduler{
+var s Scheduler = &mockScheduler{
 	cfg: cfg,
 	executor: &mesos.ExecutorInfo{
 		ExecutorID: mesos.ExecutorID{
@@ -108,7 +108,7 @@ func TestNewScheduler(t *testing.T) {
 
 	s := NewScheduler(cfg, make(chan struct{}))
 
-	if reflect.TypeOf(s) != reflect.TypeOf(new(sprintScheduler)) {
+	if reflect.TypeOf(s) != reflect.TypeOf(new(SprintScheduler)) {
 		t.Fatal("Controller is not of the right type")
 	}
 }

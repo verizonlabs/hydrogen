@@ -35,7 +35,7 @@ func TestNewController(t *testing.T) {
 
 	c := NewController(s, make(<-chan struct{}))
 
-	if reflect.TypeOf(c) != reflect.TypeOf(new(sprintController)) {
+	if reflect.TypeOf(c) != reflect.TypeOf(new(SprintController)) {
 		t.Fatal("Controller is not of the right type")
 	}
 }

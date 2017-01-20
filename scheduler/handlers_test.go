@@ -10,7 +10,7 @@ import (
 
 // Mocked handlers.
 type mockHandlers struct {
-	sched scheduler
+	sched Scheduler
 	mux   *ev.Mux
 	ack   ev.Handler
 }

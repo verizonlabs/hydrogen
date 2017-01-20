@@ -18,14 +18,14 @@ func main() {
 
 	go server.NewExecutorServer(executorSrvConfig).Serve()
 
-	go api.RunAPI()
-
 	shutdown := make(chan struct{})
 	defer close(shutdown)
 
 	sched := scheduler.NewScheduler(schedulerConfig, shutdown)
 	controller := scheduler.NewController(sched, shutdown)
 	handlers := scheduler.NewHandlers(sched)
+
+	go api.RunAPI(sched)
 
 	log.Println("Starting framework scheduler")
 
