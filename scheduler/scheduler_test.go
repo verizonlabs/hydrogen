@@ -16,50 +16,50 @@ import (
 )
 
 // Mocked scheduler.
-type mockScheduler struct {
+type MockScheduler struct {
 	cfg      configuration
 	executor *mesos.ExecutorInfo
 	state    state
 	http     calls.Caller
 }
 
-func (m *mockScheduler) NewExecutor() *mesos.ExecutorInfo {
+func (m *MockScheduler) NewExecutor() *mesos.ExecutorInfo {
 	return &mesos.ExecutorInfo{}
 }
 
-func (m *mockScheduler) Config() configuration {
+func (m *MockScheduler) Config() configuration {
 	return m.cfg
 }
 
-func (m *mockScheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
+func (m *MockScheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
 	return nil
 }
 
-func (m *mockScheduler) State() *state {
+func (m *MockScheduler) State() *state {
 	return &m.state
 }
 
-func (m *mockScheduler) Caller() *calls.Caller {
+func (m *MockScheduler) Caller() *calls.Caller {
 	return &m.http
 }
 
-func (m *mockScheduler) ExecutorInfo() *mesos.ExecutorInfo {
+func (m *MockScheduler) ExecutorInfo() *mesos.ExecutorInfo {
 	return &mesos.ExecutorInfo{}
 }
 
-func (m *mockScheduler) FrameworkInfo() *mesos.FrameworkInfo {
+func (m *MockScheduler) FrameworkInfo() *mesos.FrameworkInfo {
 	return &mesos.FrameworkInfo{}
 }
 
-func (m *mockScheduler) SuppressOffers() error {
+func (m *MockScheduler) SuppressOffers() error {
 	return nil
 }
 
-func (m *mockScheduler) ReviveOffers() error {
+func (m *MockScheduler) ReviveOffers() error {
 	return nil
 }
 
-func (m *mockScheduler) Reconcile() (mesos.Response, error) {
+func (m *MockScheduler) Reconcile() (mesos.Response, error) {
 	return nil, nil
 }
 
@@ -73,14 +73,14 @@ func (m *mockRunner) Run(ctrl.Config) error {
 
 // Mocked caller.
 // Used for testing various things that try and call out to Mesos.
-type mockCaller struct{}
+type MockCaller struct{}
 
-func (m *mockCaller) Call(c *sched.Call) (mesos.Response, error) {
+func (m *MockCaller) Call(c *sched.Call) (mesos.Response, error) {
 	resp := new(mesos.Response)
 	return *resp, nil
 }
 
-var s scheduler = &mockScheduler{
+var s Scheduler = &MockScheduler{
 	cfg: cfg,
 	executor: &mesos.ExecutorInfo{
 		ExecutorID: mesos.ExecutorID{
@@ -91,7 +91,7 @@ var s scheduler = &mockScheduler{
 		totalTasks: 1,
 		tasks:      make(map[string]string),
 	},
-	http: new(mockCaller),
+	http: new(MockCaller),
 }
 
 // ENTRY POINT FOR ALL TESTS IN THIS PACKAGE
@@ -108,7 +108,7 @@ func TestNewScheduler(t *testing.T) {
 
 	s := NewScheduler(cfg, make(chan struct{}))
 
-	if reflect.TypeOf(s) != reflect.TypeOf(new(sprintScheduler)) {
+	if reflect.TypeOf(s) != reflect.TypeOf(new(SprintScheduler)) {
 		t.Fatal("Controller is not of the right type")
 	}
 }
@@ -378,7 +378,7 @@ func TestSprintScheduler_ReviveOffers(t *testing.T) {
 	t.Parallel()
 
 	s := NewScheduler(cfg, make(chan struct{}))
-	s.http = new(mockCaller)
+	s.http = new(MockCaller)
 
 	tokens := make(chan struct{}, 1)
 	tokens <- struct{}{}
@@ -392,7 +392,7 @@ func TestSprintScheduler_ReviveOffers(t *testing.T) {
 // Measures performance of reviving offers.
 func BenchmarkSprintScheduler_ReviveOffers(b *testing.B) {
 	s := NewScheduler(cfg, make(chan struct{}))
-	s.http = new(mockCaller)
+	s.http = new(MockCaller)
 
 	tokens := make(chan struct{}, 1)
 	s.state.reviveTokens = tokens
@@ -408,7 +408,7 @@ func TestSprintScheduler_SuppressOffers(t *testing.T) {
 	t.Parallel()
 
 	s := NewScheduler(cfg, make(chan struct{}))
-	s.http = new(mockCaller)
+	s.http = new(MockCaller)
 
 	if err := s.SuppressOffers(); err != nil {
 		t.Fatal("Failed to suppress offers: " + err.Error())
@@ -418,7 +418,7 @@ func TestSprintScheduler_SuppressOffers(t *testing.T) {
 // Measures performance of suppressing offers.
 func BenchmarkSprintScheduler_SuppressOffers(b *testing.B) {
 	s := NewScheduler(cfg, make(chan struct{}))
-	s.http = new(mockCaller)
+	s.http = new(MockCaller)
 
 	for n := 0; n < b.N; n++ {
 		s.SuppressOffers()
@@ -430,7 +430,7 @@ func TestSprintScheduler_Reconcile(t *testing.T) {
 	t.Parallel()
 
 	s := NewScheduler(cfg, make(chan struct{}))
-	s.http = new(mockCaller)
+	s.http = new(MockCaller)
 
 	_, err := s.Reconcile()
 	if err != nil {
@@ -441,7 +441,7 @@ func TestSprintScheduler_Reconcile(t *testing.T) {
 // Measures performance of reconciling.
 func BenchmarkSprintScheduler_Reconcile(b *testing.B) {
 	s := NewScheduler(cfg, make(chan struct{}))
-	s.http = new(mockCaller)
+	s.http = new(MockCaller)
 
 	for n := 0; n < b.N; n++ {
 		s.Reconcile()

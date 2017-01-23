@@ -5,6 +5,7 @@ import (
 	"log"
 	"sprint/scheduler"
 	"sprint/scheduler/server"
+	"sprint/scheduler/server/api"
 )
 
 // Entry point for the scheduler.
@@ -23,6 +24,8 @@ func main() {
 	sched := scheduler.NewScheduler(schedulerConfig, shutdown)
 	controller := scheduler.NewController(sched, shutdown)
 	handlers := scheduler.NewHandlers(sched)
+
+	go api.RunAPI(sched)
 
 	log.Println("Starting framework scheduler")
 

@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"errors"
 	"mesos-sdk"
 	"mesos-sdk/backoff"
 	"mesos-sdk/encoding"
@@ -15,7 +16,7 @@ import (
 )
 
 // Base implementation of a scheduler.
-type scheduler interface {
+type Scheduler interface {
 	NewExecutor() *mesos.ExecutorInfo
 	Config() configuration
 	Run(c ctrl.Controller, config *ctrl.Config) error
@@ -50,7 +51,7 @@ type state struct {
 }
 
 // Holds all necessary information for our scheduler to function.
-type sprintScheduler struct {
+type SprintScheduler struct {
 	config    configuration
 	framework *mesos.FrameworkInfo
 	executor  *mesos.ExecutorInfo
@@ -59,15 +60,29 @@ type sprintScheduler struct {
 	state     state
 }
 
+// Returns all tasks known to the scheduler
+func (s *state) Tasks() map[string]string {
+	return s.tasks
+}
+
+// Returns the taskID's if any match.
+func (s *state) TaskSearch(id string) (string, error) {
+	var taskID string
+	if taskID, ok := s.tasks[id]; ok {
+		return taskID, nil
+	}
+	return taskID, errors.New("No taskid found for: " + id)
+}
+
 // Returns a new scheduler using user-supplied configuration.
-func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
+func NewScheduler(cfg configuration, shutdown chan struct{}) *SprintScheduler {
 	// Ignore the error here since we know that we're generating a valid v4 UUID.
 	// Other people using their own UUIDs should probably check this.
 	uuid, _ := extras.UuidToString(extras.Uuid())
 	// TODO don't hardcode IP
 	executorUri := cfg.ExecutorSrvCfg().ExecutorSrvProtocol() + "://10.0.2.2:" + strconv.Itoa(cfg.ExecutorSrvCfg().ExecutorSrvPort()) + "/executor"
 
-	return &sprintScheduler{
+	return &SprintScheduler{
 		config: cfg,
 		framework: &mesos.FrameworkInfo{
 			User:       cfg.User(),
@@ -111,7 +126,7 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 		shutdown: shutdown,
 		state: state{
 			tasks:        make(map[string]string),
-			totalTasks:   5, // TODO For testing, we need to allow POST'ing of tasks to the framework.
+			totalTasks:   0, // TODO For testing, we need to allow POST'ing of tasks to the framework.
 			reviveTokens: backoff.BurstNotifier(cfg.ReviveBurst(), cfg.ReviveWait(), cfg.ReviveWait(), nil),
 		},
 	}
@@ -119,7 +134,7 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *sprintScheduler {
 
 // Returns a new ExecutorInfo with a new UUID.
 // Reuses existing data from the scheduler's original ExecutorInfo.
-func (s *sprintScheduler) NewExecutor() *mesos.ExecutorInfo {
+func (s *SprintScheduler) NewExecutor() *mesos.ExecutorInfo {
 	// Ignore the error here since we know that we're generating a valid v4 UUID.
 	// Other people using their own UUIDs should probably check this.
 	uuid, _ := extras.UuidToString(extras.Uuid())
@@ -134,42 +149,42 @@ func (s *sprintScheduler) NewExecutor() *mesos.ExecutorInfo {
 }
 
 // Returns the scheduler's configuration.
-func (s *sprintScheduler) Config() configuration {
+func (s *SprintScheduler) Config() configuration {
 	return s.config
 }
 
 // Returns the internal state of the scheduler
-func (s *sprintScheduler) State() *state {
+func (s *SprintScheduler) State() *state {
 	return &s.state
 }
 
 // Returns the caller that we use for communication.
-func (s *sprintScheduler) Caller() *calls.Caller {
+func (s *SprintScheduler) Caller() *calls.Caller {
 	return &s.http
 }
 
 // Returns the FrameworkInfo that is sent to Mesos.
-func (s *sprintScheduler) FrameworkInfo() *mesos.FrameworkInfo {
+func (s *SprintScheduler) FrameworkInfo() *mesos.FrameworkInfo {
 	return s.framework
 }
 
 // Returns the ExecutorInfo that's associated with the scheduler.
-func (s *sprintScheduler) ExecutorInfo() *mesos.ExecutorInfo {
+func (s *SprintScheduler) ExecutorInfo() *mesos.ExecutorInfo {
 	return s.executor
 }
 
 // Runs our scheduler with some applied configuration.
-func (s *sprintScheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
+func (s *SprintScheduler) Run(c ctrl.Controller, config *ctrl.Config) error {
 	return c.Run(*config)
 }
 
 // This call suppresses our offers received from Mesos.
-func (s *sprintScheduler) SuppressOffers() error {
+func (s *SprintScheduler) SuppressOffers() error {
 	return calls.CallNoData(s.http, calls.Suppress())
 }
 
 // This call will perform reconciliation for our tasks.
-func (s *sprintScheduler) Reconcile() (mesos.Response, error) {
+func (s *SprintScheduler) Reconcile() (mesos.Response, error) {
 	return calls.Caller(s.http).Call(
 		calls.Reconcile(
 			calls.ReconcileTasks(s.state.tasks),
@@ -178,7 +193,7 @@ func (s *sprintScheduler) Reconcile() (mesos.Response, error) {
 }
 
 // This call revives our offers received from Mesos.
-func (s *sprintScheduler) ReviveOffers() error {
+func (s *SprintScheduler) ReviveOffers() error {
 	select {
 	// Rate limit offer revivals.
 	case <-s.state.reviveTokens:

@@ -20,13 +20,13 @@ type handlers interface {
 
 // Holds context about our event multiplexer and acknowledge handler.
 type sprintHandlers struct {
-	sched scheduler
+	sched Scheduler
 	mux   *ev.Mux
 	ack   ev.Handler
 }
 
 // Sets up function handlers to process incoming events from Mesos.
-func NewHandlers(s scheduler) *sprintHandlers {
+func NewHandlers(s Scheduler) *sprintHandlers {
 	ack := ev.AcknowledgeUpdates(func() calls.Caller {
 		return *s.Caller()
 	})

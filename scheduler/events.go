@@ -19,13 +19,13 @@ type events interface {
 
 // Holds context about our scheduler and acknowledge handler.
 type sprintEvents struct {
-	sched    scheduler
+	sched    Scheduler
 	ack      ev.Handler
 	handlers handlers
 }
 
 // Applies the contextual information from the scheduler.
-func NewEvents(s scheduler, a ev.Handler, h handlers) *sprintEvents {
+func NewEvents(s Scheduler, a ev.Handler, h handlers) *sprintEvents {
 	return &sprintEvents{
 		sched:    s,
 		ack:      a,
