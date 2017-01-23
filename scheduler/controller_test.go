@@ -15,6 +15,10 @@ func (m *mockController) SchedulerCtrl() ctrl.Controller {
 	return ctrl.New()
 }
 
+func (m *mockController) Scheduler() *Scheduler {
+	return &SprintScheduler{}
+}
+
 func (m *mockController) BuildContext() *ctrl.ContextAdapter {
 	return new(ctrl.ContextAdapter)
 }
