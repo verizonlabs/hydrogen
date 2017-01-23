@@ -6,6 +6,7 @@ import (
 	"sprint/scheduler"
 	"sprint/scheduler/server"
 	"sprint/scheduler/server/api"
+	"sprint/scheduler/server/file"
 )
 
 // Entry point for the scheduler.
@@ -16,7 +17,7 @@ func main() {
 
 	flag.Parse()
 
-	go server.NewExecutorServer(executorSrvConfig).Serve()
+	go file.NewExecutorServer(executorSrvConfig).Serve()
 
 	shutdown := make(chan struct{})
 	defer close(shutdown)

@@ -4,35 +4,6 @@ import (
 	"testing"
 )
 
-// Mocked configuration
-type mockConfiguration struct {
-	cfg ServerConfiguration
-}
-
-func (m *mockConfiguration) Initialize() *ServerConfiguration {
-	m.cfg.executorSrvPath = "executor"
-	m.cfg.executorSrvPort = 8081
-
-	return &m.cfg
-}
-
-func (m *mockConfiguration) ExecutorSrvCert() string {
-	return m.cfg.executorSrvCert
-}
-
-func (m *mockConfiguration) ExecutorSrvKey() string {
-	return m.cfg.executorSrvKey
-}
-
-func (m *mockConfiguration) ExecutorSrvPath() string {
-	return m.cfg.executorSrvPath
-}
-
-func (m *mockConfiguration) ExecutorSrvPort() int {
-	return m.cfg.executorSrvPort
-}
-
-var cfg Configuration = new(mockConfiguration).Initialize()
 var serverCfg = new(ServerConfiguration).Initialize()
 
 // Make sure we get our TLS certificate properly.
@@ -57,7 +28,7 @@ func TestServerConfiguration_ExecutorSrvKey(t *testing.T) {
 func TestServerConfiguration_ExecutorSrvPath(t *testing.T) {
 	t.Parallel()
 
-	if serverCfg.ExecutorSrvPath() != "executor" {
+	if *serverCfg.ExecutorSrvPath() != "executor" {
 		t.Fatal("Executor binary path is wrong")
 	}
 }
@@ -66,7 +37,7 @@ func TestServerConfiguration_ExecutorSrvPath(t *testing.T) {
 func TestServerConfiguration_ExecutorSrvPort(t *testing.T) {
 	t.Parallel()
 
-	if serverCfg.ExecutorSrvPort() != 8081 {
+	if *serverCfg.ExecutorSrvPort() != 8081 {
 		t.Fatal("Executor server port is wrong")
 	}
 }

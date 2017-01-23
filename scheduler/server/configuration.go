@@ -8,8 +8,8 @@ type Configuration interface {
 	Initialize() *ServerConfiguration
 	ExecutorSrvCert() string
 	ExecutorSrvKey() string
-	ExecutorSrvPath() string
-	ExecutorSrvPort() int
+	ExecutorSrvPath() *string
+	ExecutorSrvPort() *int
 	ExecutorSrvProtocol() string
 }
 
@@ -39,12 +39,12 @@ func (c *ServerConfiguration) ExecutorSrvKey() string {
 	return c.executorSrvKey
 }
 
-func (c *ServerConfiguration) ExecutorSrvPath() string {
-	return c.executorSrvPath
+func (c *ServerConfiguration) ExecutorSrvPath() *string {
+	return &c.executorSrvPath
 }
 
-func (c *ServerConfiguration) ExecutorSrvPort() int {
-	return c.executorSrvPort
+func (c *ServerConfiguration) ExecutorSrvPort() *int {
+	return &c.executorSrvPort
 }
 
 func (c *ServerConfiguration) ExecutorSrvProtocol() string {

@@ -1,10 +1,11 @@
-package server
+package file
 
 import (
 	"crypto/tls"
 	"log"
 	"net/http"
 	"os"
+	"sprint/scheduler/server"
 	"strconv"
 )
 
@@ -18,11 +19,11 @@ type executorServer struct {
 }
 
 // Returns a new instance of our server.
-func NewExecutorServer(cfg Configuration) *executorServer {
+func NewExecutorServer(cfg server.Configuration) *executorServer {
 	return &executorServer{
 		mux:  http.NewServeMux(),
-		path: cfg.ExecutorSrvPath(),
-		port: cfg.ExecutorSrvPort(),
+		path: *cfg.ExecutorSrvPath(),
+		port: *cfg.ExecutorSrvPort(),
 		tls:  cfg.ExecutorSrvCert() != "" && cfg.ExecutorSrvKey() != "",
 		cert: cfg.ExecutorSrvCert(),
 		key:  cfg.ExecutorSrvKey(),
