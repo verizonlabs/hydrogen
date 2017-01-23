@@ -6,49 +6,49 @@ import (
 
 type Configuration interface {
 	Initialize() *ServerConfiguration
-	ExecutorSrvCert() string
-	ExecutorSrvKey() string
-	ExecutorSrvPath() *string
-	ExecutorSrvPort() *int
-	ExecutorSrvProtocol() string
+	Cert() string
+	Key() string
+	Path() *string
+	Port() *int
+	Protocol() string
 }
 
 // Configuration for the executor server.
 type ServerConfiguration struct {
-	executorSrvCert string
-	executorSrvKey  string
-	executorSrvPath string
-	executorSrvPort int
+	cert string
+	key  string
+	path string
+	port int
 }
 
 // Applies values to the various configurations from user-supplied flags.
 func (c *ServerConfiguration) Initialize() *ServerConfiguration {
-	flag.StringVar(&c.executorSrvCert, "server.executor.cert", "", "TLS certificate")
-	flag.StringVar(&c.executorSrvKey, "server.executor.key", "", "TLS key")
-	flag.StringVar(&c.executorSrvPath, "server.executor.path", "executor", "Path to the executor binary")
-	flag.IntVar(&c.executorSrvPort, "server.executor.port", 8081, "Executor server listen port")
+	flag.StringVar(&c.cert, "server.executor.cert", "", "TLS certificate")
+	flag.StringVar(&c.key, "server.executor.key", "", "TLS key")
+	flag.StringVar(&c.path, "server.executor.path", "executor", "Path to the executor binary")
+	flag.IntVar(&c.port, "server.executor.port", 8081, "Executor server listen port")
 
 	return c
 }
 
-func (c *ServerConfiguration) ExecutorSrvCert() string {
-	return c.executorSrvCert
+func (c *ServerConfiguration) Cert() string {
+	return c.cert
 }
 
-func (c *ServerConfiguration) ExecutorSrvKey() string {
-	return c.executorSrvKey
+func (c *ServerConfiguration) Key() string {
+	return c.key
 }
 
-func (c *ServerConfiguration) ExecutorSrvPath() *string {
-	return &c.executorSrvPath
+func (c *ServerConfiguration) Path() *string {
+	return &c.path
 }
 
-func (c *ServerConfiguration) ExecutorSrvPort() *int {
-	return &c.executorSrvPort
+func (c *ServerConfiguration) Port() *int {
+	return &c.port
 }
 
-func (c *ServerConfiguration) ExecutorSrvProtocol() string {
-	if c.executorSrvCert != "" && c.executorSrvKey != "" {
+func (c *ServerConfiguration) Protocol() string {
+	if c.cert != "" && c.key != "" {
 		return "https"
 	} else {
 		return "http"

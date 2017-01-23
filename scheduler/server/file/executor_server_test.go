@@ -12,26 +12,26 @@ type mockConfiguration struct {
 }
 
 func (m *mockConfiguration) Initialize() *server.ServerConfiguration {
-	*m.cfg.ExecutorSrvPath() = "executor"
-	*m.cfg.ExecutorSrvPort() = 8081
+	*m.cfg.Path() = "executor"
+	*m.cfg.Port() = 8081
 
 	return &m.cfg
 }
 
-func (m *mockConfiguration) ExecutorSrvCert() string {
-	return m.cfg.ExecutorSrvCert()
+func (m *mockConfiguration) Cert() string {
+	return m.cfg.Cert()
 }
 
-func (m *mockConfiguration) ExecutorSrvKey() string {
-	return m.cfg.ExecutorSrvKey()
+func (m *mockConfiguration) Key() string {
+	return m.cfg.Key()
 }
 
-func (m *mockConfiguration) ExecutorSrvPath() *string {
-	return m.cfg.ExecutorSrvPath()
+func (m *mockConfiguration) Path() *string {
+	return m.cfg.Path()
 }
 
-func (m *mockConfiguration) ExecutorSrvPort() *int {
-	return m.cfg.ExecutorSrvPort()
+func (m *mockConfiguration) Port() *int {
+	return m.cfg.Port()
 }
 
 var cfg server.Configuration = new(mockConfiguration).Initialize()

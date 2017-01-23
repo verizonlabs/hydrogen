@@ -10,7 +10,7 @@ var serverCfg = new(ServerConfiguration).Initialize()
 func TestServerConfiguration_ExecutorSrvCert(t *testing.T) {
 	t.Parallel()
 
-	if serverCfg.ExecutorSrvCert() != "" {
+	if serverCfg.Cert() != "" {
 		t.Fatal("TLS certificate is wrong")
 	}
 }
@@ -19,7 +19,7 @@ func TestServerConfiguration_ExecutorSrvCert(t *testing.T) {
 func TestServerConfiguration_ExecutorSrvKey(t *testing.T) {
 	t.Parallel()
 
-	if serverCfg.ExecutorSrvKey() != "" {
+	if serverCfg.Key() != "" {
 		t.Fatal("TLS key is wrong")
 	}
 }
@@ -28,7 +28,7 @@ func TestServerConfiguration_ExecutorSrvKey(t *testing.T) {
 func TestServerConfiguration_ExecutorSrvPath(t *testing.T) {
 	t.Parallel()
 
-	if *serverCfg.ExecutorSrvPath() != "executor" {
+	if *serverCfg.Path() != "executor" {
 		t.Fatal("Executor binary path is wrong")
 	}
 }
@@ -37,7 +37,7 @@ func TestServerConfiguration_ExecutorSrvPath(t *testing.T) {
 func TestServerConfiguration_ExecutorSrvPort(t *testing.T) {
 	t.Parallel()
 
-	if *serverCfg.ExecutorSrvPort() != 8081 {
+	if *serverCfg.Port() != 8081 {
 		t.Fatal("Executor server port is wrong")
 	}
 }
@@ -46,7 +46,7 @@ func TestServerConfiguration_ExecutorSrvPort(t *testing.T) {
 func TestServerConfiguration_ExecutorSrvProtocol(t *testing.T) {
 	t.Parallel()
 
-	if serverCfg.ExecutorSrvProtocol() != "http" {
+	if serverCfg.Protocol() != "http" {
 		t.Fatal("Executor server protocol is incorrect")
 	}
 }

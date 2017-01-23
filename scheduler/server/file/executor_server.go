@@ -22,11 +22,11 @@ type executorServer struct {
 func NewExecutorServer(cfg server.Configuration) *executorServer {
 	return &executorServer{
 		mux:  http.NewServeMux(),
-		path: *cfg.ExecutorSrvPath(),
-		port: *cfg.ExecutorSrvPort(),
-		tls:  cfg.ExecutorSrvCert() != "" && cfg.ExecutorSrvKey() != "",
-		cert: cfg.ExecutorSrvCert(),
-		key:  cfg.ExecutorSrvKey(),
+		path: *cfg.Path(),
+		port: *cfg.Port(),
+		tls:  cfg.Cert() != "" && cfg.Key() != "",
+		cert: cfg.Cert(),
+		key:  cfg.Key(),
 	}
 }
 
