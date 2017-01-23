@@ -15,8 +15,23 @@ func (m *mockController) SchedulerCtrl() ctrl.Controller {
 	return ctrl.New()
 }
 
-func (m *mockController) Scheduler() *Scheduler {
-	return &SprintScheduler{}
+func (m *mockController) Scheduler() Scheduler {
+	var cfg configuration = new(MockConfiguration).Initialize()
+
+	var s Scheduler = &MockScheduler{
+		cfg: cfg,
+		executor: &mesos.ExecutorInfo{
+			ExecutorID: mesos.ExecutorID{
+				Value: "",
+			},
+		},
+		state: state{
+			totalTasks: 1,
+			tasks:      make(map[string]string),
+		},
+		http: new(MockCaller),
+	}
+	return s
 }
 
 func (m *mockController) BuildContext() *ctrl.ContextAdapter {

@@ -19,7 +19,7 @@ var (
 // Base implementation of a controller
 type controller interface {
 	SchedulerCtrl() ctrl.Controller
-	Scheduler() *Scheduler
+	Scheduler() Scheduler
 	BuildContext() *ctrl.ContextAdapter
 	BuildFrameworkInfo(cfg configuration) *mesos.FrameworkInfo
 	BuildConfig(ctx *ctrl.ContextAdapter, http *calls.Caller, shutdown <-chan struct{}, h handlers) *ctrl.Config
@@ -49,8 +49,8 @@ func (c *sprintController) SchedulerCtrl() ctrl.Controller {
 }
 
 // Returns the internal scheduler
-func (c *sprintController) Scheduler() *Scheduler {
-	return &c.scheduler
+func (c *sprintController) Scheduler() Scheduler {
+	return c.scheduler
 }
 
 // Builds out context for us to use when managing state in the scheduler.

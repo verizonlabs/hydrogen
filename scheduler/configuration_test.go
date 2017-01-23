@@ -9,11 +9,11 @@ import (
 )
 
 // Mocked configuration
-type mockConfiguration struct {
+type MockConfiguration struct {
 	cfg SchedulerConfiguration
 }
 
-func (m *mockConfiguration) Initialize() *SchedulerConfiguration {
+func (m *MockConfiguration) Initialize() *SchedulerConfiguration {
 	m.cfg.name = "Sprint"
 	m.cfg.user = "root"
 	m.cfg.checkpointing = true
@@ -31,69 +31,69 @@ func (m *mockConfiguration) Initialize() *SchedulerConfiguration {
 	return &m.cfg
 }
 
-func (m *mockConfiguration) Name() string {
+func (m *MockConfiguration) Name() string {
 	return m.cfg.name
 }
 
-func (m *mockConfiguration) User() string {
+func (m *MockConfiguration) User() string {
 	return m.cfg.user
 }
 
-func (m *mockConfiguration) Checkpointing() *bool {
+func (m *MockConfiguration) Checkpointing() *bool {
 	return &m.cfg.checkpointing
 }
 
-func (m *mockConfiguration) Principal() string {
+func (m *MockConfiguration) Principal() string {
 	return m.cfg.principal
 }
 
-func (m *mockConfiguration) Command() *string {
+func (m *MockConfiguration) Command() *string {
 	return &m.cfg.command
 }
 
-func (m *mockConfiguration) Uris() []mesos.CommandInfo_URI {
+func (m *MockConfiguration) Uris() []mesos.CommandInfo_URI {
 	return m.cfg.uris
 }
 
-func (m *mockConfiguration) Timeout() time.Duration {
+func (m *MockConfiguration) Timeout() time.Duration {
 	return m.cfg.timeout
 }
 
-func (m *mockConfiguration) Endpoint() string {
+func (m *MockConfiguration) Endpoint() string {
 	return m.cfg.endpoint
 }
 
-func (m *mockConfiguration) ReviveBurst() int {
+func (m *MockConfiguration) ReviveBurst() int {
 	return m.cfg.reviveBurst
 }
 
-func (m *mockConfiguration) ReviveWait() time.Duration {
+func (m *MockConfiguration) ReviveWait() time.Duration {
 	return m.cfg.reviveWait
 }
 
-func (m *mockConfiguration) MaxRefuse() time.Duration {
+func (m *MockConfiguration) MaxRefuse() time.Duration {
 	return m.cfg.maxRefuse
 }
 
-func (m *mockConfiguration) SetExecutorSrvCfg(cfg server.Configuration) *SchedulerConfiguration {
+func (m *MockConfiguration) SetExecutorSrvCfg(cfg server.Configuration) *SchedulerConfiguration {
 	m.cfg.executorSrvCfg = cfg
 
 	return &m.cfg
 }
 
-func (m *mockConfiguration) ExecutorSrvCfg() server.Configuration {
+func (m *MockConfiguration) ExecutorSrvCfg() server.Configuration {
 	return m.cfg.executorSrvCfg
 }
 
-func (m *mockConfiguration) ExecutorName() *string {
+func (m *MockConfiguration) ExecutorName() *string {
 	return &m.cfg.executorName
 }
 
-func (m *mockConfiguration) ExecutorCmd() *string {
+func (m *MockConfiguration) ExecutorCmd() *string {
 	return &m.cfg.executorCmd
 }
 
-var cfg configuration = new(mockConfiguration).Initialize()
+var cfg configuration = new(MockConfiguration).Initialize()
 var sprintConfig = new(SchedulerConfiguration).Initialize()
 
 // Tests setting up default configuration values
