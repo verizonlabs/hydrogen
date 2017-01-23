@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"sprint/scheduler"
 	"strconv"
-	"strings"
 )
 
 const (
@@ -108,8 +107,6 @@ func (a *API) deploy(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			log.Printf("%v", m)
-
 		}
 	default:
 		{
@@ -125,17 +122,12 @@ func (a *API) status(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
 		{
-			var id string
-			endpoint := fmt.Sprintf("%v", r.URL)
-
-			if strings.Contains(endpoint, "?taskID=") {
-				id = strings.SplitAfter(endpoint, "?taskID=")[1]
-			}
+			id := r.URL.Query().Get("taskID")
 
 			// Get information about our task status.
 			task, err := a.sched.State().TaskSearch(id)
 			if err != nil {
-				log.Println(err.Error())
+				fmt.Fprintf(w, "%v", err.Error())
 				return
 			}
 			fmt.Fprintf(w, "%v", task)

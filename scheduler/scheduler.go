@@ -68,12 +68,11 @@ func (s *state) Tasks() map[string]string {
 
 // Returns the taskID's if any match.
 func (s *state) TaskSearch(id string) (string, error) {
-	for taskID, taskInfo := range s.tasks {
-		if id == taskID {
-			return taskInfo, nil
-		}
+	var taskID string
+	if taskID, ok := s.tasks[id]; ok {
+		return taskID, nil
 	}
-	return "", errors.New("No TaskInfo found with ID: " + id)
+	return taskID, errors.New("No taskid found for: " + id)
 }
 
 // Returns a new scheduler using user-supplied configuration.
