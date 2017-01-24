@@ -52,7 +52,7 @@ func (a *ApiConfiguration) Handle() map[string]http.HandlerFunc {
 //Return a default new ApiConfiguration.
 func NewApiConfiguration(ctrl *scheduler.SprintScheduler) ApiConfiguration {
 	return ApiConfiguration{
-		port: flag.Int("server.api.port", 8080, "API server listen port"),
+		port: *flag.Int("server.api.port", 8080, "API server listen port"),
 	}
 }
 
