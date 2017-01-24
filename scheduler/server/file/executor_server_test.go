@@ -1,6 +1,7 @@
 package file
 
 import (
+	"net/http"
 	"reflect"
 	"sprint/scheduler/server"
 	"testing"
@@ -25,6 +26,10 @@ func (m *mockConfiguration) Key() string {
 
 func (m *mockConfiguration) Protocol() string {
 	return m.cfg.Protocol()
+}
+
+func (m *mockConfiguration) Server() *http.Server {
+	return m.cfg.Server()
 }
 
 var cfg server.Configuration = new(mockConfiguration).Initialize()
