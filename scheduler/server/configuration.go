@@ -45,7 +45,6 @@ func (c *ServerConfiguration) Initialize() *ServerConfiguration {
 			},
 		},
 	}
-	c.tls = c.cert != "" && c.key != ""
 
 	return c
 }
@@ -76,5 +75,5 @@ func (c *ServerConfiguration) Server() *http.Server {
 
 // Returns true if TLS is enabled and false if TLS is disabled.
 func (c *ServerConfiguration) TLS() bool {
-	return c.tls
+	return c.cert != "" && c.key != ""
 }
