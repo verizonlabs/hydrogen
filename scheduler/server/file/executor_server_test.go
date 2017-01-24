@@ -12,7 +12,10 @@ type mockConfiguration struct {
 }
 
 func (m *mockConfiguration) Initialize() *server.ServerConfiguration {
-	return &m.cfg
+	cfg := m.cfg.Initialize()
+	*cfg.Port() = 8081
+
+	return cfg
 }
 
 func (m *mockConfiguration) Cert() string {
@@ -21,6 +24,14 @@ func (m *mockConfiguration) Cert() string {
 
 func (m *mockConfiguration) Key() string {
 	return m.cfg.Key()
+}
+
+func (m *mockConfiguration) Protocol() string {
+	return m.cfg.Protocol()
+}
+
+func (m *mockConfiguration) Port() *int {
+	return m.cfg.Port()
 }
 
 var cfg server.Configuration = new(mockConfiguration).Initialize()
@@ -39,16 +50,16 @@ func TestNewExecutorServer(t *testing.T) {
 		t.Fatal("Executor server is of the wrong type")
 	}
 
-	if srv.path != path {
+	if *srv.path != path {
 		t.Fatal("Executor server path was not set correctly")
 	}
-	if srv.port != port {
+	if *srv.cfg.Port() != port {
 		t.Fatal("Executor server port was not set correctly")
 	}
-	if srv.cert != cert {
+	if srv.cfg.Cert() != cert {
 		t.Fatal("Executor server certificate was not set correctly")
 	}
-	if srv.key != key {
+	if srv.cfg.Key() != key {
 		t.Fatal("Executor server key was not set correctly")
 	}
 }

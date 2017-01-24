@@ -26,7 +26,7 @@ func (c *ServerConfiguration) Initialize() *ServerConfiguration {
 
 	flag.StringVar(&c.cert, "server.cert", "", "TLS certificate")
 	flag.StringVar(&c.key, "server.key", "", "TLS key")
-	c.port = &port // Initialize this so we can use it right away in other packages.
+	c.port = &port // Initialize this so we can immediately dereference this for assignments in other packages.
 
 	return c
 }

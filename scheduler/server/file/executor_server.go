@@ -12,22 +12,20 @@ import (
 
 type executorServer struct {
 	mux  *http.ServeMux
-	path string
-	port int
+	cfg  server.Configuration
+	path *string
 	tls  bool
-	cert string
-	key  string
 }
 
 // Returns a new instance of our server.
 func NewExecutorServer(cfg server.Configuration) *executorServer {
+	*cfg.Port() = *flag.Int("server.executor.port", 8081, "Executor server listen port")
+
 	return &executorServer{
 		mux:  http.NewServeMux(),
-		path: *flag.String("server.executor.path", "executor", "Path to the executor binary"),
-		port: *flag.Int("server.executor.port", 8081, "Executor server listen port"),
+		cfg:  cfg,
+		path: flag.String("server.executor.path", "executor", "Path to the executor binary"),
 		tls:  cfg.Cert() != "" && cfg.Key() != "",
-		cert: cfg.Cert(),
-		key:  cfg.Key(),
 	}
 }
 
@@ -38,25 +36,25 @@ func (s *executorServer) executorHandlers(path string) {
 
 // Serve the executor binary.
 func (s *executorServer) executorBinary(w http.ResponseWriter, r *http.Request) {
-	_, err := os.Stat(s.path) // check if the file exists first.
+	_, err := os.Stat(*s.path) // check if the file exists first.
 	if err != nil {
-		log.Fatal(s.path + " does not exist. " + err.Error())
+		log.Fatal(*s.path + " does not exist. " + err.Error())
 	}
 
 	if s.tls {
 		// Don't allow fallbacks to HTTP.
 		w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 	}
-	http.ServeFile(w, r, s.path)
+	http.ServeFile(w, r, *s.path)
 }
 
 // Start the server with or without TLS.
 func (s *executorServer) Serve() {
-	s.executorHandlers(s.path)
+	s.executorHandlers(*s.path)
 
 	if s.tls {
 		srv := &http.Server{
-			Addr:    ":" + strconv.Itoa(s.port),
+			Addr:    ":" + strconv.Itoa(*s.cfg.Port()),
 			Handler: s.mux,
 			TLSConfig: &tls.Config{
 				// Use only the most secure protocol version.
@@ -75,8 +73,8 @@ func (s *executorServer) Serve() {
 			},
 		}
 
-		log.Fatal(srv.ListenAndServeTLS(s.cert, s.key))
+		log.Fatal(srv.ListenAndServeTLS(s.cfg.Cert(), s.cfg.Key()))
 	} else {
-		log.Fatal(http.ListenAndServe(":"+strconv.Itoa(s.port), s.mux))
+		log.Fatal(http.ListenAndServe(":"+strconv.Itoa(*s.cfg.Port()), s.mux))
 	}
 }
