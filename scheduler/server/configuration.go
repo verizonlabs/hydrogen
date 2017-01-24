@@ -62,7 +62,7 @@ func (c *ServerConfiguration) Key() string {
 
 // Determines the protocol to be used.
 func (c *ServerConfiguration) Protocol() string {
-	if c.cert != "" && c.key != "" {
+	if c.tls {
 		return "https"
 	} else {
 		return "http"
