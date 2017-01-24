@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -51,7 +52,7 @@ func (a *ApiConfiguration) Handle() map[string]http.HandlerFunc {
 //Return a default new ApiConfiguration.
 func NewApiConfiguration(ctrl *scheduler.SprintScheduler) ApiConfiguration {
 	return ApiConfiguration{
-		port: 8080,
+		port: flag.Int("server.api.port", 8080, "API server listen port"),
 	}
 }
 
