@@ -32,3 +32,12 @@ func TestServerConfiguration_Protocol(t *testing.T) {
 		t.Fatal("Server protocol is incorrect")
 	}
 }
+
+// Make sure TLS defaults to off.
+func TestServerConfiguration_TLS(t *testing.T) {
+	t.Parallel()
+
+	if serverCfg.TLS() {
+		t.Fatal("TLS has the wrong default setting")
+	}
+}

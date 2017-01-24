@@ -14,7 +14,6 @@ type executorServer struct {
 	cfg  server.Configuration
 	port *int
 	path *string
-	tls  bool
 }
 
 // Returns a new instance of our server.
@@ -24,7 +23,6 @@ func NewExecutorServer(cfg server.Configuration) *executorServer {
 		cfg:  cfg,
 		port: flag.Int("server.executor.port", 8081, "Executor server listen port"),
 		path: flag.String("server.executor.path", "executor", "Path to the executor binary"),
-		tls:  cfg.Cert() != "" && cfg.Key() != "",
 	}
 }
 
@@ -40,7 +38,7 @@ func (s *executorServer) executorBinary(w http.ResponseWriter, r *http.Request) 
 		log.Fatal(*s.path + " does not exist. " + err.Error())
 	}
 
-	if s.tls {
+	if s.cfg.TLS() {
 		// Don't allow fallbacks to HTTP.
 		w.Header().Add("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 	}
@@ -51,7 +49,7 @@ func (s *executorServer) executorBinary(w http.ResponseWriter, r *http.Request) 
 func (s *executorServer) Serve() {
 	s.executorHandlers()
 
-	if s.tls {
+	if s.cfg.TLS() {
 		s.cfg.Server().Handler = s.mux
 		s.cfg.Server().Addr = ":" + strconv.Itoa(*s.port)
 		log.Fatal(s.cfg.Server().ListenAndServeTLS(s.cfg.Cert(), s.cfg.Key()))

@@ -12,6 +12,7 @@ type Configuration interface {
 	Key() string
 	Protocol() string
 	Server() *http.Server
+	TLS() bool
 }
 
 // Configuration for the executor server.
@@ -20,6 +21,7 @@ type ServerConfiguration struct {
 	key    string
 	path   string
 	server *http.Server
+	tls    bool
 }
 
 // Applies values to the various configurations from user-supplied flags.
@@ -43,6 +45,7 @@ func (c *ServerConfiguration) Initialize() *ServerConfiguration {
 			},
 		},
 	}
+	c.tls = c.cert != "" && c.key != ""
 
 	return c
 }
@@ -69,4 +72,9 @@ func (c *ServerConfiguration) Protocol() string {
 // Returns the custom HTTP server with TLS configuration.
 func (c *ServerConfiguration) Server() *http.Server {
 	return c.server
+}
+
+// Returns true if TLS is enabled and false if TLS is disabled.
+func (c *ServerConfiguration) TLS() bool {
+	return c.tls
 }
