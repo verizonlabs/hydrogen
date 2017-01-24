@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"flag"
 	"io/ioutil"
 	"log"
 	"mesos-sdk"
@@ -99,6 +100,7 @@ var s Scheduler = &MockScheduler{
 func TestMain(m *testing.M) {
 	log.SetOutput(ioutil.Discard)
 	log.SetFlags(0)
+	flag.Int("server.executor.port", 0, "test") // Set this for testing purposes
 	os.Exit(m.Run())
 }
 

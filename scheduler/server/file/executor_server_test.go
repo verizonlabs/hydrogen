@@ -27,10 +27,6 @@ func (m *mockConfiguration) Protocol() string {
 	return m.cfg.Protocol()
 }
 
-func (m *mockConfiguration) Port() int {
-	return m.cfg.Port()
-}
-
 var cfg server.Configuration = new(mockConfiguration).Initialize()
 
 // Make sure we get the right type for our executor server.
@@ -38,7 +34,6 @@ func TestNewExecutorServer(t *testing.T) {
 	t.Parallel()
 
 	path := "executor"
-	port := 0
 	cert := ""
 	key := ""
 
@@ -49,9 +44,6 @@ func TestNewExecutorServer(t *testing.T) {
 
 	if *srv.path != path {
 		t.Fatal("Executor server path was not set correctly")
-	}
-	if srv.cfg.Port() != port {
-		t.Fatal("Executor server port was not set correctly")
 	}
 	if srv.cfg.Cert() != cert {
 		t.Fatal("Executor server certificate was not set correctly")

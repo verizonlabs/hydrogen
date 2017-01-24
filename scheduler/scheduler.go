@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"errors"
+	"flag"
 	"mesos-sdk"
 	"mesos-sdk/backoff"
 	"mesos-sdk/encoding"
@@ -11,7 +12,6 @@ import (
 	"mesos-sdk/httpcli/httpsched"
 	"mesos-sdk/scheduler/calls"
 	"net/http"
-	"strconv"
 	"time"
 )
 
@@ -79,8 +79,10 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *SprintScheduler {
 	// Ignore the error here since we know that we're generating a valid v4 UUID.
 	// Other people using their own UUIDs should probably check this.
 	uuid, _ := extras.UuidToString(extras.Uuid())
+	port := flag.Lookup("server.executor.port").Value.String()
+
 	// TODO don't hardcode IP
-	executorUri := cfg.ExecutorSrvCfg().Protocol() + "://10.0.2.2:" + strconv.Itoa(cfg.ExecutorSrvCfg().Port()) + "/executor"
+	executorUri := cfg.ExecutorSrvCfg().Protocol() + "://10.0.2.2:" + port + "/executor"
 
 	return &SprintScheduler{
 		config: cfg,

@@ -9,7 +9,6 @@ type Configuration interface {
 	Cert() string
 	Key() string
 	Protocol() string
-	Port() int
 }
 
 // Configuration for the executor server.
@@ -17,7 +16,6 @@ type ServerConfiguration struct {
 	cert string
 	key  string
 	path string
-	port int
 }
 
 // Applies values to the various configurations from user-supplied flags.
@@ -42,8 +40,4 @@ func (c *ServerConfiguration) Protocol() string {
 	} else {
 		return "http"
 	}
-}
-
-func (c *ServerConfiguration) Port() int {
-	return c.port
 }
