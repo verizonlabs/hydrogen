@@ -28,11 +28,12 @@ func main() {
 	controller := scheduler.NewController(sched, shutdown)
 	handlers := scheduler.NewHandlers(sched)
 
+	log.Println("Starting executor server...")
 	go executorSrv.Serve()
+	log.Println("Starting API server...")
 	go apiSrv.RunAPI()
 
-	log.Println("Starting framework scheduler")
-
+	log.Println("Starting framework scheduler...")
 	err := sched.Run(controller.SchedulerCtrl(), controller.BuildConfig(
 		controller.BuildContext(),
 		sched.Caller(),

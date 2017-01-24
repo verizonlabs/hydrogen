@@ -9,7 +9,7 @@ type Configuration interface {
 	Cert() string
 	Key() string
 	Protocol() string
-	Port() *int
+	Port() int
 }
 
 // Configuration for the executor server.
@@ -17,16 +17,13 @@ type ServerConfiguration struct {
 	cert string
 	key  string
 	path string
-	port *int
+	port int
 }
 
 // Applies values to the various configurations from user-supplied flags.
 func (c *ServerConfiguration) Initialize() *ServerConfiguration {
-	port := 0
-
 	flag.StringVar(&c.cert, "server.cert", "", "TLS certificate")
 	flag.StringVar(&c.key, "server.key", "", "TLS key")
-	c.port = &port // Initialize this so we can immediately dereference this for assignments in other packages.
 
 	return c
 }
@@ -47,6 +44,6 @@ func (c *ServerConfiguration) Protocol() string {
 	}
 }
 
-func (c *ServerConfiguration) Port() *int {
+func (c *ServerConfiguration) Port() int {
 	return c.port
 }
