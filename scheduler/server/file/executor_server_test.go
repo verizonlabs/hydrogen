@@ -12,7 +12,6 @@ type mockConfiguration struct {
 }
 
 func (m *mockConfiguration) Initialize() *server.ServerConfiguration {
-	*m.cfg.Path() = "executor"
 	*m.cfg.Port() = 8081
 
 	return &m.cfg
@@ -24,10 +23,6 @@ func (m *mockConfiguration) Cert() string {
 
 func (m *mockConfiguration) Key() string {
 	return m.cfg.Key()
-}
-
-func (m *mockConfiguration) Path() *string {
-	return m.cfg.Path()
 }
 
 func (m *mockConfiguration) Port() *int {

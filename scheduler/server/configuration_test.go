@@ -24,15 +24,6 @@ func TestServerConfiguration_ExecutorSrvKey(t *testing.T) {
 	}
 }
 
-// Make sure we get our executor path properly.
-func TestServerConfiguration_ExecutorSrvPath(t *testing.T) {
-	t.Parallel()
-
-	if *serverCfg.Path() != "executor" {
-		t.Fatal("Executor binary path is wrong")
-	}
-}
-
 // Make sure we get our executor port properly.
 func TestServerConfiguration_ExecutorSrvPort(t *testing.T) {
 	t.Parallel()
