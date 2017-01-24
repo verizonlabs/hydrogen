@@ -80,7 +80,7 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *SprintScheduler {
 	// Other people using their own UUIDs should probably check this.
 	uuid, _ := extras.UuidToString(extras.Uuid())
 	// TODO don't hardcode IP
-	executorUri := cfg.ExecutorSrvCfg().Protocol() + "://10.0.2.2:" + strconv.Itoa(cfg.ExecutorSrvCfg().Port()) + "/executor"
+	executorUri := cfg.ExecutorSrvCfg().Protocol() + "://10.0.2.2:" + strconv.Itoa(*cfg.ExecutorSrvCfg().Port()) + "/executor"
 
 	return &SprintScheduler{
 		config: cfg,
@@ -126,7 +126,7 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *SprintScheduler {
 		shutdown: shutdown,
 		state: state{
 			tasks:        make(map[string]string),
-			totalTasks:   0, // TODO For testing, we need to allow POST'ing of tasks to the framework.
+			totalTasks:   5, // TODO For testing, we need to allow POST'ing of tasks to the framework.
 			reviveTokens: backoff.BurstNotifier(cfg.ReviveBurst(), cfg.ReviveWait(), cfg.ReviveWait(), nil),
 		},
 	}

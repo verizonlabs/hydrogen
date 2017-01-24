@@ -12,12 +12,13 @@ import (
 // Entry point for the scheduler.
 // Parses configuration from user-supplied flags and prepares the scheduler for execution.
 func main() {
-	executorSrvConfig := new(server.ServerConfiguration).Initialize()
-	schedulerConfig := new(scheduler.SchedulerConfiguration).Initialize().SetExecutorSrvCfg(executorSrvConfig)
+	srvConfig := new(server.ServerConfiguration).Initialize()
+	schedulerConfig := new(scheduler.SchedulerConfiguration).Initialize().SetExecutorSrvCfg(srvConfig)
 
-	executorSrv := file.NewExecutorServer(executorSrvConfig)
+	executorSrv := file.NewExecutorServer(srvConfig)
+	apiSrv := api.NewApiServer(srvConfig)
 
-	// Parse here to catch flags defined in the server above.
+	// Parse here to catch flags defined in structures above.
 	flag.Parse()
 
 	shutdown := make(chan struct{})
@@ -28,7 +29,7 @@ func main() {
 	handlers := scheduler.NewHandlers(sched)
 
 	go executorSrv.Serve()
-	go api.RunAPI(sched)
+	go apiSrv.RunAPI()
 
 	log.Println("Starting framework scheduler")
 
