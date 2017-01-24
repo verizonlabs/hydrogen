@@ -30,7 +30,7 @@ func NewExecutorServer(cfg server.Configuration) *executorServer {
 }
 
 // Maps endpoints to handlers.
-func (s *executorServer) executorHandlers(path string) {
+func (s *executorServer) executorHandlers() {
 	s.mux.HandleFunc("/executor", s.executorBinary)
 }
 
@@ -50,7 +50,7 @@ func (s *executorServer) executorBinary(w http.ResponseWriter, r *http.Request) 
 
 // Start the server with or without TLS.
 func (s *executorServer) Serve() {
-	s.executorHandlers(*s.path)
+	s.executorHandlers()
 
 	if s.tls {
 		srv := &http.Server{
