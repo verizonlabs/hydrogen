@@ -80,7 +80,7 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *SprintScheduler {
 	// Other people using their own UUIDs should probably check this.
 	uuid, _ := extras.UuidToString(extras.Uuid())
 	// TODO don't hardcode IP
-	executorUri := cfg.ExecutorSrvCfg().Protocol() + "://10.0.2.2:" + strconv.Itoa(*cfg.ExecutorSrvCfg().Port()) + "/executor"
+	executorUri := cfg.ExecutorSrvCfg().Protocol() + "://10.0.2.2:" + strconv.Itoa(cfg.ExecutorSrvCfg().Port()) + "/executor"
 
 	return &SprintScheduler{
 		config: cfg,

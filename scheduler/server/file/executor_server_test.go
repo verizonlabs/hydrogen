@@ -12,8 +12,6 @@ type mockConfiguration struct {
 }
 
 func (m *mockConfiguration) Initialize() *server.ServerConfiguration {
-	*m.cfg.Port() = 8081
-
 	return &m.cfg
 }
 
@@ -23,10 +21,6 @@ func (m *mockConfiguration) Cert() string {
 
 func (m *mockConfiguration) Key() string {
 	return m.cfg.Key()
-}
-
-func (m *mockConfiguration) Port() *int {
-	return m.cfg.Port()
 }
 
 var cfg server.Configuration = new(mockConfiguration).Initialize()

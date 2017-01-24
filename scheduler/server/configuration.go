@@ -8,8 +8,8 @@ type Configuration interface {
 	Initialize() *ServerConfiguration
 	Cert() string
 	Key() string
-	Port() *int
 	Protocol() string
+	Port() int
 }
 
 // Configuration for the executor server.
@@ -24,7 +24,6 @@ type ServerConfiguration struct {
 func (c *ServerConfiguration) Initialize() *ServerConfiguration {
 	flag.StringVar(&c.cert, "server.executor.cert", "", "TLS certificate")
 	flag.StringVar(&c.key, "server.executor.key", "", "TLS key")
-	flag.IntVar(&c.port, "server.executor.port", 8081, "Executor server listen port")
 
 	return c
 }
@@ -37,14 +36,14 @@ func (c *ServerConfiguration) Key() string {
 	return c.key
 }
 
-func (c *ServerConfiguration) Port() *int {
-	return &c.port
-}
-
 func (c *ServerConfiguration) Protocol() string {
 	if c.cert != "" && c.key != "" {
 		return "https"
 	} else {
 		return "http"
 	}
+}
+
+func (c *ServerConfiguration) Port() int {
+	return c.port
 }

@@ -15,9 +15,10 @@ func main() {
 	executorSrvConfig := new(server.ServerConfiguration).Initialize()
 	schedulerConfig := new(scheduler.SchedulerConfiguration).Initialize().SetExecutorSrvCfg(executorSrvConfig)
 
-	flag.Parse()
+	executorSrv := file.NewExecutorServer(executorSrvConfig)
 
-	go file.NewExecutorServer(executorSrvConfig).Serve()
+	// Parse here to catch flags defined in the server above.
+	flag.Parse()
 
 	shutdown := make(chan struct{})
 	defer close(shutdown)
@@ -26,6 +27,7 @@ func main() {
 	controller := scheduler.NewController(sched, shutdown)
 	handlers := scheduler.NewHandlers(sched)
 
+	go executorSrv.Serve()
 	go api.RunAPI(sched)
 
 	log.Println("Starting framework scheduler")

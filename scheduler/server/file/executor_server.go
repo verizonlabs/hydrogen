@@ -2,6 +2,7 @@ package file
 
 import (
 	"crypto/tls"
+	"flag"
 	"log"
 	"net/http"
 	"os"
@@ -22,8 +23,8 @@ type executorServer struct {
 func NewExecutorServer(cfg server.Configuration) *executorServer {
 	return &executorServer{
 		mux:  http.NewServeMux(),
-		path: "executor",
-		port: *cfg.Port(),
+		path: *flag.String("server.executor.path", "executor", "Path to the executor binary"),
+		port: *flag.Int("server.executor.port", 8081, "Executor server listen port"),
 		tls:  cfg.Cert() != "" && cfg.Key() != "",
 		cert: cfg.Cert(),
 		key:  cfg.Key(),

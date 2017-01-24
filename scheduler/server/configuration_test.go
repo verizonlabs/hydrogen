@@ -7,7 +7,7 @@ import (
 var serverCfg = new(ServerConfiguration).Initialize()
 
 // Make sure we get our TLS certificate properly.
-func TestServerConfiguration_ExecutorSrvCert(t *testing.T) {
+func TestServerConfiguration_Cert(t *testing.T) {
 	t.Parallel()
 
 	if serverCfg.Cert() != "" {
@@ -16,7 +16,7 @@ func TestServerConfiguration_ExecutorSrvCert(t *testing.T) {
 }
 
 // Make sure we get our TLS key properly.
-func TestServerConfiguration_ExecutorSrvKey(t *testing.T) {
+func TestServerConfiguration_Key(t *testing.T) {
 	t.Parallel()
 
 	if serverCfg.Key() != "" {
@@ -24,20 +24,11 @@ func TestServerConfiguration_ExecutorSrvKey(t *testing.T) {
 	}
 }
 
-// Make sure we get our executor port properly.
-func TestServerConfiguration_ExecutorSrvPort(t *testing.T) {
-	t.Parallel()
-
-	if *serverCfg.Port() != 8081 {
-		t.Fatal("Executor server port is wrong")
-	}
-}
-
 // Make sure our protocol is set correctly.
-func TestServerConfiguration_ExecutorSrvProtocol(t *testing.T) {
+func TestServerConfiguration_Protocol(t *testing.T) {
 	t.Parallel()
 
 	if serverCfg.Protocol() != "http" {
-		t.Fatal("Executor server protocol is incorrect")
+		t.Fatal("Server protocol is incorrect")
 	}
 }
