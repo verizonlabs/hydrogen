@@ -34,14 +34,10 @@ func main() {
 	go apiSrv.RunAPI()
 
 	log.Println("Starting framework scheduler...")
-	err := sched.Run(controller.SchedulerCtrl(), controller.BuildConfig(
+	log.Fatal(sched.Run(controller.SchedulerCtrl(), controller.BuildConfig(
 		controller.BuildContext(),
 		sched.Caller(),
 		shutdown,
 		handlers,
-	))
-
-	if err != nil {
-		log.Fatal(err)
-	}
+	)))
 }
