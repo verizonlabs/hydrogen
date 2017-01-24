@@ -32,6 +32,7 @@ type ApplicationJSON struct {
 type ApiServer struct {
 	cfg     server.Configuration
 	port    *int
+	mux     *http.ServeMux
 	handle  map[string]http.HandlerFunc // route -> handler func for that route
 	sched   scheduler.SprintScheduler
 	version string
@@ -41,6 +42,7 @@ func NewApiServer(cfg server.Configuration) *ApiServer {
 	return &ApiServer{
 		cfg:     cfg,
 		port:    flag.Int("server.api.port", 8080, "API server listen port"),
+		mux:     http.NewServeMux(),
 		version: "v1",
 	}
 }
@@ -64,10 +66,16 @@ func (a *ApiServer) RunAPI() {
 
 	// Iterate through all methods and setup endpoints.
 	for route, handle := range a.handle {
-		http.HandleFunc(route, handle)
+		a.mux.HandleFunc(route, handle)
 	}
 
-	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(*a.port), nil))
+	if a.cfg.TLS() {
+		a.cfg.Server().Handler = a.mux
+		a.cfg.Server().Addr = ":" + strconv.Itoa(*a.port)
+		log.Fatal(a.cfg.Server().ListenAndServeTLS(a.cfg.Cert(), a.cfg.Key()))
+	} else {
+		log.Fatal(http.ListenAndServe(":"+strconv.Itoa(*a.port), a.mux))
+	}
 }
 
 //Deploy endpoint will parse given JSON and create a given TaskInfo for the scheduler to execute.
