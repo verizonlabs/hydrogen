@@ -54,8 +54,6 @@ var (
 
 // Makes sure we get the correct type back for the events.
 func TestNewEvents(t *testing.T) {
-	t.Parallel()
-
 	e := NewEvents(s, h.Ack(), h)
 	if reflect.TypeOf(e) != reflect.TypeOf(new(sprintEvents)) {
 		t.Fatal("Controller is not of the right type")
@@ -71,8 +69,6 @@ func BenchmarkNewEvents(b *testing.B) {
 
 // Checks the subscribed event handler.
 func TestSprintEvents_Subscribed(t *testing.T) {
-	t.Parallel()
-
 	e := NewEvents(s, h.Ack(), h)
 
 	if err := e.Subscribed(event); err != nil {
@@ -111,8 +107,6 @@ func BenchmarkSprintEvents_Offers(b *testing.B) {
 
 // Checks the update event handler.
 func TestSprintEvents_Update(t *testing.T) {
-	t.Parallel()
-
 	e := NewEvents(s, h.Ack(), h)
 
 	if err := e.Update(event); err != nil {
@@ -131,8 +125,6 @@ func BenchmarkSprintEvents_Update(b *testing.B) {
 
 // Checks the failure event handler
 func TestSprintEvents_Failure(t *testing.T) {
-	t.Parallel()
-
 	e := NewEvents(s, h.Ack(), h)
 
 	if err := e.Failure(event); err != nil {
