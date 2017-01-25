@@ -73,7 +73,7 @@ func (c *ServerConfiguration) Server() *http.Server {
 	return c.server
 }
 
-// Returns true if TLS is enabled and false if TLS is disabled.
+// If a TLS certificate and key have been provided then TLS is enabled.
 func (c *ServerConfiguration) TLS() bool {
 	return c.cert != "" && c.key != ""
 }

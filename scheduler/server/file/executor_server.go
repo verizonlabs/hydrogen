@@ -45,7 +45,7 @@ func (s *executorServer) executorBinary(w http.ResponseWriter, r *http.Request) 
 	http.ServeFile(w, r, *s.path)
 }
 
-// Start the server with or without TLS.
+// Start the server with or without TLS depending on our configuration.
 func (s *executorServer) Serve() {
 	s.executorHandlers()
 
