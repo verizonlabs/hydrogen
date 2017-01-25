@@ -1,56 +1,79 @@
 package server
 
 import (
+	"crypto/tls"
 	"flag"
+	"net/http"
 )
 
 type Configuration interface {
 	Initialize() *ServerConfiguration
-	ExecutorSrvCert() string
-	ExecutorSrvKey() string
-	ExecutorSrvPath() string
-	ExecutorSrvPort() int
-	ExecutorSrvProtocol() string
+	Cert() string
+	Key() string
+	Protocol() string
+	Server() *http.Server
+	TLS() bool
 }
 
 // Configuration for the executor server.
 type ServerConfiguration struct {
-	executorSrvCert string
-	executorSrvKey  string
-	executorSrvPath string
-	executorSrvPort int
+	cert   string
+	key    string
+	path   string
+	server *http.Server
+	tls    bool
 }
 
 // Applies values to the various configurations from user-supplied flags.
 func (c *ServerConfiguration) Initialize() *ServerConfiguration {
-	flag.StringVar(&c.executorSrvCert, "server.executor.cert", "", "TLS certificate")
-	flag.StringVar(&c.executorSrvKey, "server.executor.key", "", "TLS key")
-	flag.StringVar(&c.executorSrvPath, "server.executor.path", "executor", "Path to the executor binary")
-	flag.IntVar(&c.executorSrvPort, "server.executor.port", 8081, "Executor server listen port")
+	flag.StringVar(&c.cert, "server.cert", "", "TLS certificate")
+	flag.StringVar(&c.key, "server.key", "", "TLS key")
+	c.server = &http.Server{
+		TLSConfig: &tls.Config{
+			// Use only the most secure protocol version.
+			MinVersion: tls.VersionTLS12,
+			// Use very strong crypto curves.
+			CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
+			PreferServerCipherSuites: true,
+			// Use very strong cipher suites (order is important here!)
+			CipherSuites: []uint16{
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256, // Required for HTTP/2 support.
+				tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+				tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+			},
+		},
+	}
 
 	return c
 }
 
-func (c *ServerConfiguration) ExecutorSrvCert() string {
-	return c.executorSrvCert
+// Gets the path to the TLS certificate.
+func (c *ServerConfiguration) Cert() string {
+	return c.cert
 }
 
-func (c *ServerConfiguration) ExecutorSrvKey() string {
-	return c.executorSrvKey
+// Gets the path to the TLS key.
+func (c *ServerConfiguration) Key() string {
+	return c.key
 }
 
-func (c *ServerConfiguration) ExecutorSrvPath() string {
-	return c.executorSrvPath
-}
-
-func (c *ServerConfiguration) ExecutorSrvPort() int {
-	return c.executorSrvPort
-}
-
-func (c *ServerConfiguration) ExecutorSrvProtocol() string {
-	if c.executorSrvCert != "" && c.executorSrvKey != "" {
+// Determines the protocol to be used.
+func (c *ServerConfiguration) Protocol() string {
+	if c.tls {
 		return "https"
 	} else {
 		return "http"
 	}
+}
+
+// Returns the custom HTTP server with TLS configuration.
+func (c *ServerConfiguration) Server() *http.Server {
+	return c.server
+}
+
+// If a TLS certificate and key have been provided then TLS is enabled.
+func (c *ServerConfiguration) TLS() bool {
+	return c.cert != "" && c.key != ""
 }

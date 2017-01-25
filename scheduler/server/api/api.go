@@ -2,12 +2,14 @@ package api
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"mesos-sdk"
 	"net/http"
 	"sprint/scheduler"
+	"sprint/scheduler/server"
 	"strconv"
 )
 
@@ -27,68 +29,57 @@ type ApplicationJSON struct {
 	Labels      *mesos.Labels
 }
 
-//Configuration for our API
-type ApiConfiguration struct {
-	port   int
-	handle map[string]http.HandlerFunc // route -> handler func for that route
+type ApiServer struct {
+	cfg     server.Configuration
+	port    *int
+	mux     *http.ServeMux
+	handle  map[string]http.HandlerFunc // route -> handler func for that route
+	sched   scheduler.SprintScheduler
+	version string
 }
 
-//Getter to return our port as an int
-func (a *ApiConfiguration) Port() int {
-	return a.port
-}
-
-//Getter to return a string of our port.
-func (a *ApiConfiguration) PortAsString() string {
-	return strconv.Itoa(a.port)
+func NewApiServer(cfg server.Configuration) *ApiServer {
+	return &ApiServer{
+		cfg:     cfg,
+		port:    flag.Int("server.api.port", 8080, "API server listen port"),
+		mux:     http.NewServeMux(),
+		version: "v1",
+	}
 }
 
 //Getter to return our map of handles
-func (a *ApiConfiguration) Handle() map[string]http.HandlerFunc {
+func (a *ApiServer) Handle() map[string]http.HandlerFunc {
 	return a.handle
 }
 
-//Return a default new ApiConfiguration.
-func NewApiConfiguration(ctrl *scheduler.SprintScheduler) ApiConfiguration {
-	return ApiConfiguration{
-		port: 8080,
-	}
-}
-
-// API struct holds all information regarding the Schedulers API
-type API struct {
-	version string
-	config  ApiConfiguration
-	sched   scheduler.SprintScheduler
-}
-
 //Set our default API handler routes here.
-func (a *API) setDefaultHandlers() {
-	a.config.handle = make(map[string]http.HandlerFunc, 4)
-	a.config.handle[baseUrl+deployEndpoint] = a.deploy
-	a.config.handle[baseUrl+statusEndpoint] = a.status
+func (a *ApiServer) setDefaultHandlers() {
+	a.handle = make(map[string]http.HandlerFunc, 4)
+	a.handle[baseUrl+deployEndpoint] = a.deploy
+	a.handle[baseUrl+statusEndpoint] = a.status
 }
 
 // RunAPI takes the scheduler controller and sets up the configuration for the API.
-func RunAPI(schedInstance *scheduler.SprintScheduler) {
-	// Set our configuration first.
-	api := API{
-		version: "v1",
-		config:  NewApiConfiguration(schedInstance),
-	}
+func (a *ApiServer) RunAPI() {
 	// Set our default handlers here.
-	api.setDefaultHandlers()
+	a.setDefaultHandlers()
 
 	// Iterate through all methods and setup endpoints.
-	for route, handle := range api.config.handle {
-		http.HandleFunc(route, handle)
+	for route, handle := range a.handle {
+		a.mux.HandleFunc(route, handle)
 	}
 
-	log.Fatal(http.ListenAndServe(":"+api.config.PortAsString(), nil))
+	if a.cfg.TLS() {
+		a.cfg.Server().Handler = a.mux
+		a.cfg.Server().Addr = ":" + strconv.Itoa(*a.port)
+		log.Fatal(a.cfg.Server().ListenAndServeTLS(a.cfg.Cert(), a.cfg.Key()))
+	} else {
+		log.Fatal(http.ListenAndServe(":"+strconv.Itoa(*a.port), a.mux))
+	}
 }
 
 //Deploy endpoint will parse given JSON and create a given TaskInfo for the scheduler to execute.
-func (a *API) deploy(w http.ResponseWriter, r *http.Request) {
+func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 	// We don't want to allow any other methods.
 	switch r.Method {
 	case "POST":
@@ -117,7 +108,7 @@ func (a *API) deploy(w http.ResponseWriter, r *http.Request) {
 }
 
 // Status endpoint lets the end-user know about the TASK_STATUS of their task.
-func (a *API) status(w http.ResponseWriter, r *http.Request) {
+func (a *ApiServer) status(w http.ResponseWriter, r *http.Request) {
 	// We don't want to allow any other methods.
 	switch r.Method {
 	case "GET":

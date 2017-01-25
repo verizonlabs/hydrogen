@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"errors"
+	"flag"
 	"mesos-sdk"
 	"mesos-sdk/backoff"
 	"mesos-sdk/encoding"
@@ -11,7 +12,6 @@ import (
 	"mesos-sdk/httpcli/httpsched"
 	"mesos-sdk/scheduler/calls"
 	"net/http"
-	"strconv"
 	"time"
 )
 
@@ -79,8 +79,10 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *SprintScheduler {
 	// Ignore the error here since we know that we're generating a valid v4 UUID.
 	// Other people using their own UUIDs should probably check this.
 	uuid, _ := extras.UuidToString(extras.Uuid())
+	port := flag.Lookup("server.executor.port").Value.String()
+
 	// TODO don't hardcode IP
-	executorUri := cfg.ExecutorSrvCfg().ExecutorSrvProtocol() + "://10.0.2.2:" + strconv.Itoa(cfg.ExecutorSrvCfg().ExecutorSrvPort()) + "/executor"
+	executorUri := cfg.ExecutorSrvCfg().Protocol() + "://10.0.2.2:" + port + "/executor"
 
 	return &SprintScheduler{
 		config: cfg,
@@ -126,7 +128,7 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *SprintScheduler {
 		shutdown: shutdown,
 		state: state{
 			tasks:        make(map[string]string),
-			totalTasks:   0, // TODO For testing, we need to allow POST'ing of tasks to the framework.
+			totalTasks:   5, // TODO For testing, we need to allow POST'ing of tasks to the framework.
 			reviveTokens: backoff.BurstNotifier(cfg.ReviveBurst(), cfg.ReviveWait(), cfg.ReviveWait(), nil),
 		},
 	}

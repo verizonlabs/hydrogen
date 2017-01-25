@@ -6,17 +6,20 @@ import (
 	"sprint/scheduler"
 	"sprint/scheduler/server"
 	"sprint/scheduler/server/api"
+	"sprint/scheduler/server/file"
 )
 
 // Entry point for the scheduler.
 // Parses configuration from user-supplied flags and prepares the scheduler for execution.
 func main() {
-	executorSrvConfig := new(server.ServerConfiguration).Initialize()
-	schedulerConfig := new(scheduler.SchedulerConfiguration).Initialize().SetExecutorSrvCfg(executorSrvConfig)
+	srvConfig := new(server.ServerConfiguration).Initialize()
+	schedulerConfig := new(scheduler.SchedulerConfiguration).Initialize().SetExecutorSrvCfg(srvConfig)
 
+	executorSrv := file.NewExecutorServer(srvConfig)
+	apiSrv := api.NewApiServer(srvConfig)
+
+	// Parse here to catch flags defined in structures above.
 	flag.Parse()
-
-	go server.NewExecutorServer(executorSrvConfig).Serve()
 
 	shutdown := make(chan struct{})
 	defer close(shutdown)
@@ -25,18 +28,16 @@ func main() {
 	controller := scheduler.NewController(sched, shutdown)
 	handlers := scheduler.NewHandlers(sched)
 
-	go api.RunAPI(sched)
+	log.Println("Starting executor server...")
+	go executorSrv.Serve()
+	log.Println("Starting API server...")
+	go apiSrv.RunAPI()
 
-	log.Println("Starting framework scheduler")
-
-	err := sched.Run(controller.SchedulerCtrl(), controller.BuildConfig(
+	log.Println("Starting framework scheduler...")
+	log.Fatal(sched.Run(controller.SchedulerCtrl(), controller.BuildConfig(
 		controller.BuildContext(),
 		sched.Caller(),
 		shutdown,
 		handlers,
-	))
-
-	if err != nil {
-		log.Fatal(err)
-	}
+	)))
 }
