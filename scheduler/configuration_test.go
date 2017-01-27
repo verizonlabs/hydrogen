@@ -163,8 +163,6 @@ func TestSchedulerConfiguration_Principal(t *testing.T) {
 
 // Checks to see whether the command is set properly.
 func TestSchedulerConfiguration_Command(t *testing.T) {
-	t.Parallel()
-
 	if *sprintConfig.Command() != "" {
 		t.Fatal("Command is not set to the right value")
 	}
