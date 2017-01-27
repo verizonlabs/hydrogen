@@ -19,46 +19,47 @@ const (
 )
 
 //This struct represents the possible application configuration options for an end-user of sprint.
+//Standardized to lower case.
 type ApplicationJSON struct {
-	Name        string
-	Resources   *ResourceJSON
-	Command     *CommandJSON
-	Container   *ContainerJSON
-	HealthCheck *HealthCheckJSON
-	Labels      []map[string]string
+	Name        string              `json:"name"`
+	Resources   *ResourceJSON       `json:"resources"`
+	Command     *CommandJSON        `json:"command"`
+	Container   *ContainerJSON      `json:"container"`
+	HealthCheck *HealthCheckJSON    `json:"healthcheck"`
+	Labels      []map[string]string `json:"labels"`
 }
 
-// How do we want to define healthchecks?
+// How do we want to define health checks?
 // Scripts, api end points, timers...etc?
 type HealthCheckJSON struct {
-	endpoint string
+	Endpoint *string `json:"endpoint"`
 	// ?
 }
 
 //Struct to define our resources
 type ResourceJSON struct {
-	mem  uint32
-	cpu  uint32
-	disk uint32
+	Mem  float32 `json:"mem"`
+	Cpu  float32 `json:"cpu"`
+	Disk float32 `json:"disk"`
 }
 
 //Struct to define a command for our container.
 type CommandJSON struct {
-	cmd  string
-	uris []UriJSON
+	Cmd  *string   `json:"cmd"`
+	Uris []UriJSON `json:"uris"`
 }
 
 //Struct to define our container image and tag.
 type ContainerJSON struct {
-	imageName string
-	tag       string
+	ImageName *string `json:"image"`
+	Tag       *string `json:"tag"`
 }
 
 //Struct to define our URI resources
 type UriJSON struct {
-	uri     string
-	extract bool
-	execute bool
+	Uri     *string `json:"uri"`
+	Extract *bool   `json:"extract"`
+	Execute *bool   `json:"execute"`
 }
 
 type ApiServer struct {
@@ -130,7 +131,9 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			fmt.Fprintf(w, "%v", m)
+			fmt.Fprintf(w, "%v\n", *m.Container.ImageName)
+			fmt.Fprintf(w, "%v\n", m.Name)
+			fmt.Fprintf(w, "%v\n", m.Labels)
 
 		}
 	default:
