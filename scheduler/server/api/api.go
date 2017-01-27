@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"mesos-sdk"
 	"net/http"
 	"sprint/scheduler"
 	"sprint/scheduler/server"
@@ -22,11 +21,44 @@ const (
 //This struct represents the possible application configuration options for an end-user of sprint.
 type ApplicationJSON struct {
 	Name        string
-	Resources   []mesos.Resource
-	Command     *mesos.CommandInfo
-	Container   *mesos.ContainerInfo
-	HealthCheck *mesos.HealthCheck
-	Labels      *mesos.Labels
+	Resources   *ResourceJSON
+	Command     *CommandJSON
+	Container   *ContainerJSON
+	HealthCheck *HealthCheckJSON
+	Labels      []map[string]string
+}
+
+// How do we want to define healthchecks?
+// Scripts, api end points, timers...etc?
+type HealthCheckJSON struct {
+	endpoint string
+	// ?
+}
+
+//Struct to define our resources
+type ResourceJSON struct {
+	mem  uint32
+	cpu  uint32
+	disk uint32
+}
+
+//Struct to define a command for our container.
+type CommandJSON struct {
+	cmd  string
+	uris []UriJSON
+}
+
+//Struct to define our container image and tag.
+type ContainerJSON struct {
+	imageName string
+	tag       string
+}
+
+//Struct to define our URI resources
+type UriJSON struct {
+	uri     string
+	extract bool
+	execute bool
 }
 
 type ApiServer struct {
@@ -87,7 +119,7 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 			dec, err := ioutil.ReadAll(r.Body)
 			if err != nil {
 				fmt.Fprintf(w, err.Error())
-				dec = make([]byte, 0)
+				dec = make([]byte, 0) // is this necessary?
 				return
 			}
 
@@ -97,6 +129,8 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintf(w, err.Error())
 				return
 			}
+
+			fmt.Fprintf(w, "%v", m)
 
 		}
 	default:
