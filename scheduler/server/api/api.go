@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"mesos-sdk"
 	"net/http"
 	"sprint/scheduler"
 	"sprint/scheduler/server"
@@ -38,9 +39,9 @@ type HealthCheckJSON struct {
 
 //Struct to define our resources
 type ResourceJSON struct {
-	Mem  float32 `json:"mem"`
-	Cpu  float32 `json:"cpu"`
-	Disk float32 `json:"disk"`
+	Mem  float64 `json:"mem"`
+	Cpu  float64 `json:"cpu"`
+	Disk float64 `json:"disk"`
 }
 
 //Struct to define a command for our container.
@@ -117,6 +118,7 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
 		{
+			// Decode and unmarshal our JSON.
 			dec, err := ioutil.ReadAll(r.Body)
 			if err != nil {
 				fmt.Fprintf(w, err.Error())
@@ -131,10 +133,55 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			fmt.Fprintf(w, "%v\n", *m.Container.ImageName)
-			fmt.Fprintf(w, "%v\n", m.Name)
-			fmt.Fprintf(w, "%v\n", m.Labels)
+			// Allocate space for our resources.
+			var resources []mesos.Resource
+			var scalar = new(mesos.Value_Type)
+			*scalar = mesos.SCALAR
 
+			// Add our cpu resources
+			var cpu = mesos.Resource{
+				Name:   "cpu",
+				Type:   scalar,
+				Scalar: &mesos.Value_Scalar{Value: m.Resources.Cpu},
+			}
+
+			// Add our memory resources
+			var mem = mesos.Resource{
+				Name:   "mem",
+				Type:   scalar,
+				Scalar: &mesos.Value_Scalar{Value: m.Resources.Mem},
+			}
+
+			// append into our resources slice.
+			resources = append(resources, cpu)
+			resources = append(resources, mem)
+
+			// TODO: diskinfo resources + external disks.
+
+			var command = &mesos.CommandInfo{
+				Value: m.Command.Cmd,
+			}
+
+			// Setup our docker container from the API call
+			var docker = new(mesos.ContainerInfo_Type)
+			*docker = mesos.ContainerInfo_DOCKER
+			var container = &mesos.ContainerInfo{
+				Type: docker,
+				Docker: &mesos.ContainerInfo_DockerInfo{
+					Image: *m.Container.ImageName + ":" + *m.Container.Tag,
+				},
+			}
+
+			// Final constructed task info
+			var taskInfo = mesos.TaskInfo{
+				Name:      m.Name,
+				TaskID:    mesos.TaskID{},
+				Resources: resources,
+				Command:   command,
+				Container: container,
+			}
+			a.sched.State().AddTask(taskInfo) // Update our scheduler with the new task.
+			fmt.Fprintf(w, "%v", taskInfo.String())
 		}
 	default:
 		{

@@ -50,6 +50,14 @@ type state struct {
 	reviveTokens  <-chan struct{}
 }
 
+// Update internal scheduler state to add a new task.
+func (s *state) AddTask(task mesos.TaskInfo) {
+
+	// s.tasks[task.TaskID.Value] = task
+	// Update state to reflect a new task
+	// s.totalTasks += 1
+}
+
 // Holds all necessary information for our scheduler to function.
 type SprintScheduler struct {
 	config    configuration
@@ -128,7 +136,7 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *SprintScheduler {
 		shutdown: shutdown,
 		state: state{
 			tasks:        make(map[string]string),
-			totalTasks:   0, // TODO For testing, we need to allow POST'ing of tasks to the framework.
+			totalTasks:   5, // TODO For testing, we need to allow POST'ing of tasks to the framework.
 			reviveTokens: backoff.BurstNotifier(cfg.ReviveBurst(), cfg.ReviveWait(), cfg.ReviveWait(), nil),
 		},
 	}
