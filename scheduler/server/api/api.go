@@ -20,13 +20,47 @@ const (
 )
 
 //This struct represents the possible application configuration options for an end-user of sprint.
+//Standardized to lower case.
 type ApplicationJSON struct {
-	Name        string
-	Resources   []mesos.Resource
-	Command     *mesos.CommandInfo
-	Container   *mesos.ContainerInfo
-	HealthCheck *mesos.HealthCheck
-	Labels      *mesos.Labels
+	Name        string              `json:"name"`
+	Resources   *ResourceJSON       `json:"resources"`
+	Command     *CommandJSON        `json:"command"`
+	Container   *ContainerJSON      `json:"container"`
+	HealthCheck *HealthCheckJSON    `json:"healthcheck"`
+	Labels      []map[string]string `json:"labels"`
+}
+
+// How do we want to define health checks?
+// Scripts, api end points, timers...etc?
+type HealthCheckJSON struct {
+	Endpoint *string `json:"endpoint"`
+	// ?
+}
+
+//Struct to define our resources
+type ResourceJSON struct {
+	Mem  float64 `json:"mem"`
+	Cpu  float64 `json:"cpu"`
+	Disk float64 `json:"disk"`
+}
+
+//Struct to define a command for our container.
+type CommandJSON struct {
+	Cmd  *string   `json:"cmd"`
+	Uris []UriJSON `json:"uris"`
+}
+
+//Struct to define our container image and tag.
+type ContainerJSON struct {
+	ImageName *string `json:"image"`
+	Tag       *string `json:"tag"`
+}
+
+//Struct to define our URI resources
+type UriJSON struct {
+	Uri     *string `json:"uri"`
+	Extract *bool   `json:"extract"`
+	Execute *bool   `json:"execute"`
 }
 
 type ApiServer struct {
@@ -84,10 +118,11 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
 		{
+			// Decode and unmarshal our JSON.
 			dec, err := ioutil.ReadAll(r.Body)
 			if err != nil {
 				fmt.Fprintf(w, err.Error())
-				dec = make([]byte, 0)
+				dec = make([]byte, 0) // is this necessary?
 				return
 			}
 
@@ -98,6 +133,55 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			// Allocate space for our resources.
+			var resources []mesos.Resource
+			var scalar = new(mesos.Value_Type)
+			*scalar = mesos.SCALAR
+
+			// Add our cpu resources
+			var cpu = mesos.Resource{
+				Name:   "cpu",
+				Type:   scalar,
+				Scalar: &mesos.Value_Scalar{Value: m.Resources.Cpu},
+			}
+
+			// Add our memory resources
+			var mem = mesos.Resource{
+				Name:   "mem",
+				Type:   scalar,
+				Scalar: &mesos.Value_Scalar{Value: m.Resources.Mem},
+			}
+
+			// append into our resources slice.
+			resources = append(resources, cpu)
+			resources = append(resources, mem)
+
+			// TODO: diskinfo resources + external disks.
+
+			var command = &mesos.CommandInfo{
+				Value: m.Command.Cmd,
+			}
+
+			// Setup our docker container from the API call
+			var docker = new(mesos.ContainerInfo_Type)
+			*docker = mesos.ContainerInfo_DOCKER
+			var container = &mesos.ContainerInfo{
+				Type: docker,
+				Docker: &mesos.ContainerInfo_DockerInfo{
+					Image: *m.Container.ImageName + ":" + *m.Container.Tag,
+				},
+			}
+
+			// Final constructed task info
+			var taskInfo = mesos.TaskInfo{
+				Name:      m.Name,
+				TaskID:    mesos.TaskID{},
+				Resources: resources,
+				Command:   command,
+				Container: container,
+			}
+			a.sched.State().AddTask(taskInfo) // Update our scheduler with the new task.
+			fmt.Fprintf(w, "%v", taskInfo.String())
 		}
 	default:
 		{

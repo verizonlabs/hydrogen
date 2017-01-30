@@ -50,6 +50,14 @@ type state struct {
 	reviveTokens  <-chan struct{}
 }
 
+// Update internal scheduler state to add a new task.
+func (s *state) AddTask(task mesos.TaskInfo) {
+
+	// s.tasks[task.TaskID.Value] = task
+	// Update state to reflect a new task
+	// s.totalTasks += 1
+}
+
 // Holds all necessary information for our scheduler to function.
 type SprintScheduler struct {
 	config    configuration
