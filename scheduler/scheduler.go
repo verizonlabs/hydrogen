@@ -1,8 +1,6 @@
 package scheduler
 
 import (
-	"errors"
-	"flag"
 	"mesos-sdk"
 	"mesos-sdk/backoff"
 	"mesos-sdk/encoding"
@@ -13,6 +11,10 @@ import (
 	"mesos-sdk/scheduler/calls"
 	"net/http"
 	"time"
+
+	"mesos-sdk/taskmngr"
+	"github.com/orcaman/concurrent-map"
+	"sprint/scheduler/taskmanager"
 )
 
 // Base implementation of a scheduler.
@@ -32,30 +34,10 @@ type Scheduler interface {
 // Scheduler state.
 type state struct {
 	frameworkId string
-	// TODO this field will need to be reworked once our API is in place
-	// We might not need this since we are targeting long running jobs
-	// The API could pass data for how many jobs a user has sent and then we can compare that with a running count
-	tasksFinished int
-	// TODO think about changing the reconcile call in the SDK
-	// Currently a map[string]string is expected
-	// We may want to use this elsewhere in our scheduler which might require more data
-	// If that's the case the reconcile call should be changed to something like map[string]mesos.TaskInfo
-	// If more data is needed the key can also be changed to whatever type we need to pull from
-	tasks map[string]string
-	// TODO remove this once we've hooked up the API to accept jobs
-	totalTasks    int
 	taskResources mesos.Resources
 	role          string
 	done          bool
 	reviveTokens  <-chan struct{}
-}
-
-// Update internal scheduler state to add a new task.
-func (s *state) AddTask(task mesos.TaskInfo) {
-
-	// s.tasks[task.TaskID.Value] = task
-	// Update state to reflect a new task
-	// s.totalTasks += 1
 }
 
 // Holds all necessary information for our scheduler to function.
@@ -63,63 +45,49 @@ type SprintScheduler struct {
 	config    configuration
 	framework *mesos.FrameworkInfo
 	executor  *mesos.ExecutorInfo
+	taskmgr   *taskmanager.Manager
 	http      calls.Caller
 	shutdown  chan struct{}
 	state     state
 }
 
-// Returns all tasks known to the scheduler
-func (s *state) Tasks() map[string]string {
-	return s.tasks
-}
-
-// Returns the taskID's if any match.
-func (s *state) TaskSearch(id string) (string, error) {
-	var taskID string
-	if taskID, ok := s.tasks[id]; ok {
-		return taskID, nil
-	}
-	return taskID, errors.New("No taskid found for: " + id)
-}
 
 // Returns a new scheduler using user-supplied configuration.
 func NewScheduler(cfg configuration, shutdown chan struct{}) *SprintScheduler {
 	// Ignore the error here since we know that we're generating a valid v4 UUID.
 	// Other people using their own UUIDs should probably check this.
 	uuid, _ := extras.UuidToString(extras.Uuid())
-	port := flag.Lookup("server.executor.port").Value.String()
 
-	// TODO don't hardcode IP
-	executorUri := cfg.ExecutorSrvCfg().Protocol() + "://10.0.2.2:" + port + "/executor"
+	customExecutor := mesos.ExecutorInfo{
+		ExecutorID: mesos.ExecutorID{Value: uuid},
+		Name:       cfg.ExecutorName(),
+		Command: mesos.CommandInfo{
+			Value: cfg.ExecutorCmd(),
+			URIs: []mesos.CommandInfo_URI{
+				{
+					Value:      cfg.ExecutorSrvCfg().GetEndpoint() + "/executor",
+					Executable: extras.ProtoBool(true),
+				},
+			},
+		},
+		// TODO parameterize this
+		Resources: []mesos.Resource{
+			extras.Resource("cpus", 0.1),
+			extras.Resource("mem", 128.0),
+		},
+		Container: &mesos.ContainerInfo{
+			Type: mesos.ContainerInfo_MESOS.Enum(),
+		},
+	}
 
-	return &SprintScheduler{
+	scheduler := SprintScheduler{
 		config: cfg,
 		framework: &mesos.FrameworkInfo{
 			User:       cfg.User(),
 			Name:       cfg.Name(),
 			Checkpoint: cfg.Checkpointing(),
 		},
-		executor: &mesos.ExecutorInfo{
-			ExecutorID: mesos.ExecutorID{Value: uuid},
-			Name:       cfg.ExecutorName(),
-			Command: mesos.CommandInfo{
-				Value: cfg.ExecutorCmd(),
-				URIs: []mesos.CommandInfo_URI{
-					{
-						Value:      executorUri,
-						Executable: extras.ProtoBool(true),
-					},
-				},
-			},
-			// TODO parameterize this
-			Resources: []mesos.Resource{
-				extras.Resource("cpus", 0.1),
-				extras.Resource("mem", 128.0),
-			},
-			Container: &mesos.ContainerInfo{
-				Type: mesos.ContainerInfo_MESOS.Enum(),
-			},
-		},
+		executor: customExecutor,
 		http: httpsched.NewCaller(httpcli.New(
 			httpcli.Endpoint(cfg.Endpoint()),
 			httpcli.Codec(&encoding.ProtobufCodec),
@@ -134,12 +102,20 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *SprintScheduler {
 			),
 		)),
 		shutdown: shutdown,
+		taskmgr: taskmanager.NewManager(cmap.New()),
 		state: state{
 			tasks:        make(map[string]string),
-			totalTasks:   5, // TODO For testing, we need to allow POST'ing of tasks to the framework.
+			totalTasks:   0,
 			reviveTokens: backoff.BurstNotifier(cfg.ReviveBurst(), cfg.ReviveWait(), cfg.ReviveWait(), nil),
 		},
 	}
+
+	for i := 0; i < cfg.Executors(); i++ {
+		scheduler.taskmgr.Provision()
+	}
+
+	return scheduler
+
 }
 
 // Returns a new ExecutorInfo with a new UUID.
@@ -158,9 +134,15 @@ func (s *SprintScheduler) NewExecutor() *mesos.ExecutorInfo {
 	}
 }
 
+
 // Returns the scheduler's configuration.
 func (s *SprintScheduler) Config() configuration {
 	return s.config
+}
+
+// Returns the scheduler's configuration.
+func (s *SprintScheduler) TaskManager() *taskmanager.Manager {
+	return &s.taskmgr
 }
 
 // Returns the internal state of the scheduler

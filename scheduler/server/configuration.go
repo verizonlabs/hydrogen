@@ -8,15 +8,18 @@ import (
 
 type Configuration interface {
 	Initialize() *ServerConfiguration
+	IpAddress() string
 	Cert() string
 	Key() string
 	Protocol() string
 	Server() *http.Server
 	TLS() bool
+	GetEndpoint() string
 }
 
 // Configuration for the executor server.
 type ServerConfiguration struct {
+	ip     string
 	cert   string
 	key    string
 	path   string
@@ -24,10 +27,17 @@ type ServerConfiguration struct {
 	tls    bool
 }
 
+func (c *ServerConfiguration) GetEndpoint() string {
+	port := flag.Lookup("server.executor.port").Value.String()
+	return c.Protocol() + "://" + c.ip + ":" + port
+}
+
 // Applies values to the various configurations from user-supplied flags.
 func (c *ServerConfiguration) Initialize() *ServerConfiguration {
 	flag.StringVar(&c.cert, "server.cert", "", "TLS certificate")
 	flag.StringVar(&c.key, "server.key", "", "TLS key")
+	flag.StringVar(&c.ip, "server.key", "10.0.2.2", "IP address for the server to listen on.")
+
 	c.server = &http.Server{
 		TLSConfig: &tls.Config{
 			// Use only the most secure protocol version.

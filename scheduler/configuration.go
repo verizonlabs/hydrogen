@@ -25,6 +25,7 @@ type configuration interface {
 	ExecutorSrvCfg() server.Configuration
 	ExecutorName() *string
 	ExecutorCmd() *string
+	Executors() int
 }
 
 // Configuration for the scheduler, populated by user-supplied flags.
@@ -43,6 +44,7 @@ type SchedulerConfiguration struct {
 	executorSrvCfg server.Configuration
 	executorName   string
 	executorCmd    string
+	executors      int
 }
 
 // Applies values to the various configurations from user-supplied flags.
@@ -64,6 +66,7 @@ func (c *SchedulerConfiguration) Initialize() *SchedulerConfiguration {
 	flag.DurationVar(&c.maxRefuse, "maxRefuse", 5*time.Second, "Max length of time to refuse future offers")
 	flag.StringVar(&c.executorName, "executor.name", "Sprinter", "Name of the executor")
 	flag.StringVar(&c.executorCmd, "executor.command", "./executor", "Executor command")
+	flag.IntVar(&c.executors, "executor.count", 5, "Number of executors to run.")
 
 	return c
 }
@@ -128,4 +131,8 @@ func (c *SchedulerConfiguration) ExecutorName() *string {
 
 func (c *SchedulerConfiguration) ExecutorCmd() *string {
 	return &c.executorCmd
+}
+
+func (c *SchedulerConfiguration) Executors() int {
+	return c.executors
 }

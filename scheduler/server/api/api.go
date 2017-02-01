@@ -199,13 +199,14 @@ func (a *ApiServer) status(w http.ResponseWriter, r *http.Request) {
 		{
 			id := r.URL.Query().Get("taskID")
 
-			// Get information about our task status.
+			/* Get information about our task status.
 			task, err := a.sched.State().TaskSearch(id)
 			if err != nil {
 				fmt.Fprintf(w, "%v", err.Error())
 				return
 			}
 			fmt.Fprintf(w, "%v", task)
+			*/
 
 		}
 	default:

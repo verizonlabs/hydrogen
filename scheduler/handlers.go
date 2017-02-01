@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"github.com/orcaman/concurrent-map"
 	"math/rand"
 	"mesos-sdk"
 	"mesos-sdk/extras"
@@ -8,6 +9,7 @@ import (
 	sched "mesos-sdk/scheduler"
 	"mesos-sdk/scheduler/calls"
 	ev "mesos-sdk/scheduler/events"
+	"mesos-sdk/taskmngr"
 	"time"
 )
 
