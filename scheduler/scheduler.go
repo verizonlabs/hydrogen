@@ -11,10 +11,9 @@ import (
 	"mesos-sdk/scheduler/calls"
 	"net/http"
 	"time"
-
-	"mesos-sdk/taskmngr"
 	"github.com/orcaman/concurrent-map"
 	"sprint/scheduler/taskmanager"
+	"stash.verizon.com/dkt/mlog"
 )
 
 // Base implementation of a scheduler.
@@ -33,7 +32,7 @@ type Scheduler interface {
 
 // Scheduler state.
 type state struct {
-	frameworkId string
+	frameworkId   string
 	taskResources mesos.Resources
 	role          string
 	done          bool
@@ -87,7 +86,7 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *SprintScheduler {
 			Name:       cfg.Name(),
 			Checkpoint: cfg.Checkpointing(),
 		},
-		executor: customExecutor,
+		executor: &customExecutor,
 		http: httpsched.NewCaller(httpcli.New(
 			httpcli.Endpoint(cfg.Endpoint()),
 			httpcli.Codec(&encoding.ProtobufCodec),
@@ -104,11 +103,26 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *SprintScheduler {
 		shutdown: shutdown,
 		taskmgr: taskmanager.NewManager(cmap.New()),
 		state: state{
-			tasks:        make(map[string]string),
-			totalTasks:   0,
 			reviveTokens: backoff.BurstNotifier(cfg.ReviveBurst(), cfg.ReviveWait(), cfg.ReviveWait(), nil),
 		},
 	}
+
+	// Create new tasks and add them into the manager.
+
+	mesos.TaskInfo{
+		Executor: customExecutor,
+
+	}
+
+	uuid, _ = extras.UuidToString(extras.Uuid())
+
+	task := mesos.TaskInfo{
+		TaskID: mesos.TaskID{
+			Value: uuid,
+		},
+		Executor: customExecutor,
+	}
+	task.Name = "sprinter_" + task.TaskID.Value
 
 	for i := 0; i < cfg.Executors(); i++ {
 		scheduler.taskmgr.Provision()
@@ -177,9 +191,13 @@ func (s *SprintScheduler) SuppressOffers() error {
 
 // This call will perform reconciliation for our tasks.
 func (s *SprintScheduler) Reconcile() (mesos.Response, error) {
+	tasks, err := s.taskmgr.TaskIdAgentIdMap()
+	if err != nil{
+		mlog.Error(err)
+	}
 	return calls.Caller(s.http).Call(
 		calls.Reconcile(
-			calls.ReconcileTasks(s.state.tasks),
+			calls.ReconcileTasks(tasks),
 		),
 	)
 }

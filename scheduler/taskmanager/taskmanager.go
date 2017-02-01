@@ -31,8 +31,8 @@ func (t *TaskState) SetId(id int) error {
 	return nil
 }
 
-func (t *TaskState) Status() error {
-	return t.status
+func (t *TaskState) Status() (string, error) {
+	return t.status, nil
 }
 
 func (t *TaskState) SetStatus(status string) error {
@@ -54,38 +54,86 @@ func NewManager(conmap *cmap.ConcurrentMap) *Manager {
 
 // Provision a task
 func (m *Manager) Provision(task taskmngr.Task) error {
-	m.tasks.Set(task.Id(), task)
+	id, err := task.Id()
+	if err != nil {
+		mlog.Error(err.Error())
+		return err
+	}
+	m.tasks.Set(string(id), task)
 	return nil
 }
 
 // Delete a task
 func (m *Manager) Delete(task taskmngr.Task) error {
-	delete(m.tasks, task.Id())
+	id, err := task.Id()
+	if err != nil {
+		mlog.Error(err.Error())
+		return err
+	}
+	m.tasks.Remove(string(id))
 	return nil
 }
 
 // Set a task status
 func (m *Manager) SetTask(task taskmngr.Task, status string) error {
+	id, err := task.Id()
+	if err != nil {
+		mlog.Error(err.Error())
+		return err
+	}
 	task.SetStatus(status)
-	m.tasks.Set(task.Id(), task) // Overwrite the old value here.
+	m.tasks.Set(string(id), task) // Overwrite the old value here.
+	return nil
 }
 
 // Check if a task has a particular status.
-func (m *Manager) IsTask(task taskmngr.Task, status string) bool, error {
-	task, err := m.tasks.Get(task.Id())
-	if err != nil{
-		mlog.Error(err)
+func (m *Manager) IsTask(task taskmngr.Task, status string) (bool, error) {
+	id, err := task.Id()
+	if err != nil {
+		mlog.Error(err.Error())
 		return false, err
 	}
-	return task.(taskmngr.Task).Status() == status, nil
+	t, exists := m.tasks.Get(string(id))
+	if !exists {
+		return false, nil
+	}
+
+	currentStatus, err := t.(taskmngr.Task).Status()
+	if err != nil {
+		mlog.Error(err.Error())
+		return false, nil
+	}
+
+	return currentStatus == status, nil
 }
 
 // Check if the task is already in the task manager.
-func (m *Manager) HasTask(task taskmngr.Task) (bool, error){
-	return m.tasks.Has(task.Id()), nil
+func (m *Manager) HasTask(task taskmngr.Task) (bool, error) {
+	id, err := task.Id()
+	if err != nil {
+		mlog.Error(err.Error())
+		return false, err
+	}
+	return m.tasks.Has(string(id)), nil
 }
 
 // Check if we have tasks left to execute.
-func (m *Manager) HasQueuedTasked()(bool, error){
-	return !m.tasks.IsEmpty()
+func (m *Manager) HasQueuedTasked() (bool, error) {
+	return !m.tasks.IsEmpty(), nil
+}
+
+func (m *Manager) Tasks() *cmap.ConcurrentMap {
+	return m.tasks
+}
+
+// Create a map of taskid->agentid
+func (m *Manager) TaskIdAgentIdMap(task taskmngr.Task) (map[string]string, error) {
+	ret := make(map[string]string, m.Tasks().Count())
+	if ok, _ := m.HasQueuedTasked(); ok {
+		for task := range m.tasks.IterBuffered() {
+			t := task.Val.(mesos.TaskInfo)
+			ret[t.TaskID.Value] = t.AgentID.Value
+		}
+	}
+	return ret, nil
 }

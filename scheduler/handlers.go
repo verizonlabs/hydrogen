@@ -1,15 +1,14 @@
 package scheduler
 
 import (
-	"github.com/orcaman/concurrent-map"
 	"math/rand"
 	"mesos-sdk"
-	"mesos-sdk/extras"
 	ctrl "mesos-sdk/extras/scheduler/controller"
 	sched "mesos-sdk/scheduler"
 	"mesos-sdk/scheduler/calls"
 	ev "mesos-sdk/scheduler/events"
 	"mesos-sdk/taskmngr"
+	"stash.verizon.com/dkt/mlog"
 	"time"
 )
 
@@ -22,13 +21,13 @@ type handlers interface {
 
 // Holds context about our event multiplexer and acknowledge handler.
 type sprintHandlers struct {
-	sched Scheduler
+	sched SprintScheduler
 	mux   *ev.Mux
 	ack   ev.Handler
 }
 
 // Sets up function handlers to process incoming events from Mesos.
-func NewHandlers(s Scheduler) *sprintHandlers {
+func NewHandlers(s SprintScheduler) *sprintHandlers {
 	ack := ev.AcknowledgeUpdates(func() calls.Caller {
 		return *s.Caller()
 	})
@@ -65,6 +64,7 @@ func (h *sprintHandlers) ResourceOffers(offers []mesos.Offer) error {
 	jitter := rand.New(rand.NewSource(time.Now().Unix()))
 	callOption := calls.RefuseSecondsWithJitter(jitter, h.sched.Config().MaxRefuse())
 	state := h.sched.State()
+	manager := h.sched.TaskManager()
 
 	for i := range offers {
 		var (
@@ -78,38 +78,31 @@ func (h *sprintHandlers) ResourceOffers(offers []mesos.Offer) error {
 		}
 
 		flattened := remaining.Flatten()
-		// TODO build support for specifying resources
-		// This will be eventually hooked up to the API where users can submit tasks
-		// In this way we can parameterize the executor/task resources (per task too)
-		// We also want to combine the task resources with the executor resources
+
 		taskResources := state.taskResources.Plus(executorResources...)
 
-		// TODO don't use the length of the map once we have our API
-		// Detect the number of jobs the user wants to launch instead
-		for len(state.tasks) < state.totalTasks && flattened.ContainsAll(taskResources) {
-			// Ignore the error here since we know that we're generating a valid v4 UUID.
-			// Other people using their own UUIDs should probably check this.
-			uuid, _ := extras.UuidToString(extras.Uuid())
+		if ok, _ := manager.HasQueuedTasked(); ok {
+			for task := range manager.Tasks().IterBuffered() {
+				if flattened.ContainsAll(taskResources) {
+					t, err := task.Val.(taskmngr.Task).Info()
+					if err != nil {
+						mlog.Error(err.Error())
+					}
 
-			task := mesos.TaskInfo{
-				TaskID: mesos.TaskID{
-					// TaskID needs to be unique.
-					Value: uuid,
-				},
-				AgentID:  offers[i].AgentID,
-				Executor: h.sched.NewExecutor(),
-				// TODO once the resource parameterization is in place reference state.taskResources again
-				// Right now state.taskResources is empty which will cause issues
-				Resources: remaining.Find(taskResources.Flatten(mesos.Role(state.role).Assign())),
+					taskInfo := t.(mesos.TaskInfo)
+					taskInfo.AgentID = offers[i].AgentID
+					taskInfo.Executor = h.sched.NewExecutor()
+					taskInfo.Name = "sprint_" + taskInfo.TaskID.Value
+
+					// Add it to the list of tasks to send off.
+					tasks = append(tasks, taskInfo)
+					remaining.Subtract(taskInfo.Resources...)
+					flattened = remaining.Flatten()
+				} else {
+					break // No resources left, break out of the loop.
+				}
 			}
-			task.Name = "sprinter_" + task.TaskID.Value
 
-			remaining.Subtract(task.Resources...)
-
-			tasks = append(tasks, task)
-			state.tasks[task.TaskID.Value] = task.AgentID.Value
-
-			flattened = remaining.Flatten()
 		}
 
 		accept := calls.Accept(
@@ -128,18 +121,9 @@ func (h *sprintHandlers) ResourceOffers(offers []mesos.Offer) error {
 
 // Handler for status updates from Mesos.
 func (h *sprintHandlers) StatusUpdates(s mesos.TaskStatus) {
-	state := h.sched.State()
-
 	switch st := s.GetState(); st {
 	case mesos.TASK_FINISHED:
-		// TODO we may not need this anymore once the API is complete
-		state.tasksFinished++
-		delete(state.tasks, s.GetTaskID().Value)
-
-		// TODO change and move this check elsewhere once we have the API hooked up
-		// We won't have to rely on these counters anymore and can just revive when a user submits a job
-		// Suppression can be done in another spot when we determine that all tasks are launched
-		if state.tasksFinished == state.totalTasks {
+		if anyleft, _ := h.sched.taskmgr.HasQueuedTasked(); !anyleft {
 			h.sched.SuppressOffers()
 		} else {
 			h.sched.ReviveOffers()
