@@ -75,23 +75,20 @@ func (e *sprintExecutor) Run() {
 			e.unacknowledgedUpdates(),
 		)
 
-		func() {
-			resp, err := e.cli.Do(subscribe, httpcli.Close(true))
-			if resp != nil {
-				defer resp.Close()
-			}
-			if err == nil {
-				// we're officially connected, start decoding events
-				err = e.eventLoop(resp.Decoder())
-				disconnected = time.Now()
-			}
-			// If the call/connection fails, we get here.
-			if err != nil && err != io.EOF {
-				log.Println(err)
-			} else {
-				log.Println("Executor disconnected")
-			}
-		}()
+		resp, err := e.cli.Do(subscribe, httpcli.Close(true))
+		if err == nil {
+			// we're officially connected, start decoding events
+			err = e.eventLoop(resp.Decoder())
+			resp.Close()
+			disconnected = time.Now()
+		}
+		// If the call/connection fails, we get here.
+		if err != nil && err != io.EOF {
+			log.Println(err)
+		} else {
+			log.Println("Executor disconnected")
+		}
+
 		if e.shouldQuit {
 			log.Println("Gracefully shutting down...")
 			return
