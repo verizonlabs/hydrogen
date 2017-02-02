@@ -71,8 +71,6 @@ func BenchmarkNewEvents(b *testing.B) {
 
 // Checks the subscribed event handler.
 func TestSprintEvents_Subscribed(t *testing.T) {
-	t.Parallel()
-
 	e := NewEvents(s, h.Ack(), h)
 
 	if err := e.Subscribed(event); err != nil {

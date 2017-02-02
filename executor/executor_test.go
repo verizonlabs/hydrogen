@@ -4,24 +4,27 @@ import (
 	"io/ioutil"
 	"log"
 	"mesos-sdk"
-	"mesos-sdk/executor/config"
+	"mesos-sdk/extras"
 	"os"
-	"sprint"
+	"reflect"
 	"testing"
 )
 
-type mockExec struct {
-	execInfo mesos.ExecutorInfo
-	cfg      config.Config
+// Mocked executor.
+type mockExecutor struct {
+	config   configuration
+	executor mesos.ExecutorInfo
 }
 
-var exec = mockExec{
-	execInfo: mesos.ExecutorInfo{
+func (m *mockExecutor) Run() {}
+
+var e executor = &mockExecutor{
+	executor: mesos.ExecutorInfo{
 		ExecutorID: mesos.ExecutorID{Value: "Mock executor"},
-		Name:       sprint.ProtoString("Mocker"),
+		Name:       extras.ProtoString("Mocker"),
 		Resources: []mesos.Resource{
-			sprint.Resource("cpus", 0.5),
-			sprint.Resource("mem", 1024.0),
+			extras.Resource("cpus", 0.5),
+			extras.Resource("mem", 1024.0),
 		},
 		Container: &mesos.ContainerInfo{
 			Type: mesos.ContainerInfo_MESOS.Enum(),
@@ -29,11 +32,44 @@ var exec = mockExec{
 	},
 }
 
-/*
-	Test our executor behavior here
-*/
+// ENTRY POINT FOR ALL TESTS IN THIS PACKAGE
+// Suppress our logging and start the tests.
 func TestMain(m *testing.M) {
 	log.SetOutput(ioutil.Discard)
 	log.SetFlags(0)
 	os.Exit(m.Run())
+}
+
+// Make sure we initialize properly.
+func TestNewExecutor(t *testing.T) {
+	t.Parallel()
+
+	exec := NewExecutor(cfg)
+
+	if reflect.TypeOf(exec) != reflect.TypeOf(new(sprintExecutor)) {
+		t.Fatal("Executor is not of the right type")
+	}
+}
+
+// Measures performance of creating an executor.
+func BenchmarkNewExecutor(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		NewExecutor(cfg)
+	}
+}
+
+// Make sure we can actually run our executor.
+func TestSprintExecutor_Run(t *testing.T) {
+	t.Parallel()
+
+	exec := NewExecutor(cfg)
+	exec.Run()
+}
+
+// Measure performance of running our executor.
+func BenchmarkSprintExecutor_Run(b *testing.B) {
+	exec := NewExecutor(cfg)
+	for n := 0; n < b.N; n++ {
+		exec.Run()
+	}
 }

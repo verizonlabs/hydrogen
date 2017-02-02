@@ -9,11 +9,11 @@ import (
 )
 
 // Mocked configuration
-type mockConfiguration struct {
-	cfg SprintConfiguration
+type MockConfiguration struct {
+	cfg SchedulerConfiguration
 }
 
-func (m *mockConfiguration) Initialize() *SprintConfiguration {
+func (m *MockConfiguration) Initialize() *SchedulerConfiguration {
 	m.cfg.name = "Sprint"
 	m.cfg.user = "root"
 	m.cfg.checkpointing = true
@@ -31,73 +31,73 @@ func (m *mockConfiguration) Initialize() *SprintConfiguration {
 	return &m.cfg
 }
 
-func (m *mockConfiguration) Name() string {
+func (m *MockConfiguration) Name() string {
 	return m.cfg.name
 }
 
-func (m *mockConfiguration) User() string {
+func (m *MockConfiguration) User() string {
 	return m.cfg.user
 }
 
-func (m *mockConfiguration) Checkpointing() *bool {
+func (m *MockConfiguration) Checkpointing() *bool {
 	return &m.cfg.checkpointing
 }
 
-func (m *mockConfiguration) Principal() string {
+func (m *MockConfiguration) Principal() string {
 	return m.cfg.principal
 }
 
-func (m *mockConfiguration) Command() *string {
+func (m *MockConfiguration) Command() *string {
 	return &m.cfg.command
 }
 
-func (m *mockConfiguration) Uris() []mesos.CommandInfo_URI {
+func (m *MockConfiguration) Uris() []mesos.CommandInfo_URI {
 	return m.cfg.uris
 }
 
-func (m *mockConfiguration) Timeout() time.Duration {
+func (m *MockConfiguration) Timeout() time.Duration {
 	return m.cfg.timeout
 }
 
-func (m *mockConfiguration) Endpoint() string {
+func (m *MockConfiguration) Endpoint() string {
 	return m.cfg.endpoint
 }
 
-func (m *mockConfiguration) ReviveBurst() int {
+func (m *MockConfiguration) ReviveBurst() int {
 	return m.cfg.reviveBurst
 }
 
-func (m *mockConfiguration) ReviveWait() time.Duration {
+func (m *MockConfiguration) ReviveWait() time.Duration {
 	return m.cfg.reviveWait
 }
 
-func (m *mockConfiguration) MaxRefuse() time.Duration {
+func (m *MockConfiguration) MaxRefuse() time.Duration {
 	return m.cfg.maxRefuse
 }
 
-func (m *mockConfiguration) SetExecutorSrvCfg(cfg server.Configuration) *SprintConfiguration {
+func (m *MockConfiguration) SetExecutorSrvCfg(cfg server.Configuration) *SchedulerConfiguration {
 	m.cfg.executorSrvCfg = cfg
 
 	return &m.cfg
 }
 
-func (m *mockConfiguration) ExecutorSrvCfg() server.Configuration {
+func (m *MockConfiguration) ExecutorSrvCfg() server.Configuration {
 	return m.cfg.executorSrvCfg
 }
 
-func (m *mockConfiguration) ExecutorName() *string {
+func (m *MockConfiguration) ExecutorName() *string {
 	return &m.cfg.executorName
 }
 
-func (m *mockConfiguration) ExecutorCmd() *string {
+func (m *MockConfiguration) ExecutorCmd() *string {
 	return &m.cfg.executorCmd
 }
 
-var cfg configuration = new(mockConfiguration).Initialize()
-var sprintConfig = new(SprintConfiguration).Initialize()
+var cfg configuration = new(MockConfiguration).Initialize()
+var sprintConfig = new(SchedulerConfiguration).Initialize()
 
 // Tests setting up default configuration values
-func TestSprintConfiguration_Initialize(t *testing.T) {
+func TestSchedulerConfiguration_Initialize(t *testing.T) {
 	t.Parallel()
 
 	if sprintConfig.endpoint != cfg.Endpoint() {
@@ -127,7 +127,7 @@ func TestSprintConfiguration_Initialize(t *testing.T) {
 }
 
 // Make sure we return the right name.
-func TestSprintConfiguration_Name(t *testing.T) {
+func TestSchedulerConfiguration_Name(t *testing.T) {
 	t.Parallel()
 
 	if sprintConfig.Name() != "Sprint" {
@@ -136,7 +136,7 @@ func TestSprintConfiguration_Name(t *testing.T) {
 }
 
 // Ensures that we can detect the current user and pass it into the framework info.
-func TestSprintConfiguration_User(t *testing.T) {
+func TestSchedulerConfiguration_User(t *testing.T) {
 	t.Parallel()
 
 	u, err := user.Current()
@@ -150,7 +150,7 @@ func TestSprintConfiguration_User(t *testing.T) {
 }
 
 // Checks to see if our default value for checkpointing is right.
-func TestSprintConfiguration_Checkpointing(t *testing.T) {
+func TestSchedulerConfiguration_Checkpointing(t *testing.T) {
 	t.Parallel()
 
 	if !*sprintConfig.Checkpointing() {
@@ -159,7 +159,7 @@ func TestSprintConfiguration_Checkpointing(t *testing.T) {
 }
 
 // Make sure we have the right principal value.
-func TestSprintConfiguration_Principal(t *testing.T) {
+func TestSchedulerConfiguration_Principal(t *testing.T) {
 	t.Parallel()
 
 	if sprintConfig.Principal() != "Sprint" {
@@ -168,7 +168,7 @@ func TestSprintConfiguration_Principal(t *testing.T) {
 }
 
 // Checks to see whether the command is set properly.
-func TestSprintConfiguration_Command(t *testing.T) {
+func TestSchedulerConfiguration_Command(t *testing.T) {
 	t.Parallel()
 
 	if *sprintConfig.Command() != "" {
@@ -177,7 +177,7 @@ func TestSprintConfiguration_Command(t *testing.T) {
 }
 
 // Make sure the URIs are set correctly.
-func TestSprintConfiguration_Uris(t *testing.T) {
+func TestSchedulerConfiguration_Uris(t *testing.T) {
 	t.Parallel()
 
 	if len(sprintConfig.Uris()) != 0 {
@@ -186,7 +186,7 @@ func TestSprintConfiguration_Uris(t *testing.T) {
 }
 
 // Check our default timeout value.
-func TestSprintConfiguration_Timeout(t *testing.T) {
+func TestSchedulerConfiguration_Timeout(t *testing.T) {
 	t.Parallel()
 
 	if sprintConfig.Timeout() != 20*time.Second {
@@ -195,7 +195,7 @@ func TestSprintConfiguration_Timeout(t *testing.T) {
 }
 
 // Make sure we have the right default endpoint value.
-func TestSprintConfiguration_Endpoint(t *testing.T) {
+func TestSchedulerConfiguration_Endpoint(t *testing.T) {
 	t.Parallel()
 
 	if sprintConfig.Endpoint() != "http://127.0.0.1:5050/api/v1/scheduler" {
@@ -204,7 +204,7 @@ func TestSprintConfiguration_Endpoint(t *testing.T) {
 }
 
 // Ensure we have the right revive burst amount.
-func TestSprintConfiguration_ReviveBurst(t *testing.T) {
+func TestSchedulerConfiguration_ReviveBurst(t *testing.T) {
 	t.Parallel()
 
 	if sprintConfig.ReviveBurst() != 3 {
@@ -213,7 +213,7 @@ func TestSprintConfiguration_ReviveBurst(t *testing.T) {
 }
 
 // Ensure we have the right revive wait period.
-func TestSprintConfiguration_ReviveWait(t *testing.T) {
+func TestSchedulerConfiguration_ReviveWait(t *testing.T) {
 	t.Parallel()
 
 	if sprintConfig.ReviveWait() != 1*time.Second {
@@ -222,7 +222,7 @@ func TestSprintConfiguration_ReviveWait(t *testing.T) {
 }
 
 // Ensure we have the right maximum refusal time.
-func TestSprintConfiguration_MaxRefuse(t *testing.T) {
+func TestSchedulerConfiguration_MaxRefuse(t *testing.T) {
 	t.Parallel()
 
 	if sprintConfig.MaxRefuse() != 5*time.Second {
@@ -231,7 +231,7 @@ func TestSprintConfiguration_MaxRefuse(t *testing.T) {
 }
 
 // Make sure we get our executor name correctly.
-func TestSprintConfiguration_ExecutorName(t *testing.T) {
+func TestSchedulerConfiguration_ExecutorName(t *testing.T) {
 	t.Parallel()
 
 	if *sprintConfig.ExecutorName() != "Sprinter" {
@@ -240,7 +240,7 @@ func TestSprintConfiguration_ExecutorName(t *testing.T) {
 }
 
 // Make sure we get our executor command correctly.
-func TestSprintConfiguration_ExecutorCmd(t *testing.T) {
+func TestSchedulerConfiguration_ExecutorCmd(t *testing.T) {
 	t.Parallel()
 
 	if *sprintConfig.ExecutorCmd() != "./executor" {

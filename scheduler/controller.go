@@ -5,7 +5,7 @@ import (
 	"log"
 	"mesos-sdk"
 	"mesos-sdk/backoff"
-	ctrl "mesos-sdk/extras/scheduler/controller"
+	ctrl "mesos-sdk/extras/controller"
 	"mesos-sdk/scheduler/calls"
 	"time"
 )
@@ -19,6 +19,7 @@ var (
 // Base implementation of a controller
 type controller interface {
 	SchedulerCtrl() ctrl.Controller
+	Scheduler() Scheduler
 	BuildContext() *ctrl.ContextAdapter
 	BuildFrameworkInfo(cfg configuration) *mesos.FrameworkInfo
 	BuildConfig(ctx *ctrl.ContextAdapter, http *calls.Caller, shutdown <-chan struct{}, h handlers) *ctrl.Config
@@ -26,7 +27,7 @@ type controller interface {
 
 // Manages the context and configuration for our scheduler.
 type sprintController struct {
-	scheduler     scheduler
+	scheduler     Scheduler
 	schedulerCtrl ctrl.Controller
 	context       *ctrl.ContextAdapter
 	config        *ctrl.Config
@@ -34,7 +35,7 @@ type sprintController struct {
 }
 
 // Returns a new controller with some shared state applied from the scheduler.
-func NewController(s scheduler, shutdown <-chan struct{}) *sprintController {
+func NewController(s Scheduler, shutdown <-chan struct{}) *sprintController {
 	return &sprintController{
 		scheduler:     s,
 		schedulerCtrl: ctrl.New(),
@@ -45,6 +46,11 @@ func NewController(s scheduler, shutdown <-chan struct{}) *sprintController {
 // Returns the internal scheduler controller.
 func (c *sprintController) SchedulerCtrl() ctrl.Controller {
 	return c.schedulerCtrl
+}
+
+// Returns the internal scheduler
+func (c *sprintController) Scheduler() Scheduler {
+	return c.scheduler
 }
 
 // Builds out context for us to use when managing state in the scheduler.

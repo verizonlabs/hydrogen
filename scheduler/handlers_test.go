@@ -10,7 +10,7 @@ import (
 
 // Mocked handlers.
 type mockHandlers struct {
-	sched scheduler
+	sched Scheduler
 	mux   *ev.Mux
 	ack   ev.Handler
 }
@@ -137,8 +137,6 @@ func BenchmarkSprintHandlers_ResourceOffers(b *testing.B) {
 
 // Tests all of the possible status updates we could get from Mesos.
 func TestSprintHandlers_StatusUpdates(t *testing.T) {
-	t.Parallel()
-
 	h := NewHandlers(s)
 
 	for number := range mesos.TaskState_name {
