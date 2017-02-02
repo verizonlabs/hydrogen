@@ -7,7 +7,7 @@ import (
 	"mesos-sdk/backoff"
 	"mesos-sdk/encoding"
 	"mesos-sdk/extras"
-	ctrl "mesos-sdk/extras/scheduler/controller"
+	ctrl "mesos-sdk/extras/controller"
 	"mesos-sdk/httpcli"
 	"mesos-sdk/httpcli/httpsched"
 	"mesos-sdk/scheduler/calls"

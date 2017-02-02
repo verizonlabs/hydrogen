@@ -5,7 +5,7 @@ import (
 	"log"
 	"mesos-sdk"
 	"mesos-sdk/backoff"
-	ctrl "mesos-sdk/extras/scheduler/controller"
+	ctrl "mesos-sdk/extras/controller"
 	"mesos-sdk/scheduler/calls"
 	"time"
 )
