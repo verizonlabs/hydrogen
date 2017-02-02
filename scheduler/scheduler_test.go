@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"mesos-sdk"
-	ctrl "mesos-sdk/extras/scheduler/controller"
+	ctrl "mesos-sdk/extras/controller"
 	"mesos-sdk/httpcli"
 	"mesos-sdk/httpcli/httpsched"
 	sched "mesos-sdk/scheduler"

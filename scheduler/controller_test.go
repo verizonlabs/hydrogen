@@ -2,7 +2,7 @@ package scheduler
 
 import (
 	"mesos-sdk"
-	ctrl "mesos-sdk/extras/scheduler/controller"
+	ctrl "mesos-sdk/extras/controller"
 	"mesos-sdk/scheduler/calls"
 	"reflect"
 	"testing"
