@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-// TODO test this stuff
 type configuration interface {
 	Endpoint() string
 	Timeout() time.Duration
