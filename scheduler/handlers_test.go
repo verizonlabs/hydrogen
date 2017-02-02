@@ -40,6 +40,8 @@ var h handlers = &mockHandlers{
 
 // Makes sure we get our handlers back correctly.
 func TestNewHandlers(t *testing.T) {
+	t.Parallel()
+
 	h := NewHandlers(s)
 
 	if reflect.TypeOf(h) != reflect.TypeOf(new(sprintHandlers)) {
@@ -49,6 +51,8 @@ func TestNewHandlers(t *testing.T) {
 
 // Handler multiplexer tests.
 func TestSprintHandlers_Mux(t *testing.T) {
+	t.Parallel()
+
 	h := NewHandlers(s)
 
 	if reflect.TypeOf(h.Mux()) != reflect.TypeOf(new(ev.Mux)) {
@@ -58,6 +62,8 @@ func TestSprintHandlers_Mux(t *testing.T) {
 
 // Acknowledgement handler tests.
 func TestSprintHandlers_Ack(t *testing.T) {
+	t.Parallel()
+
 	h := NewHandlers(s)
 
 	if reflect.TypeOf(h.Ack()) != reflect.TypeOf(ev.AcknowledgeUpdates(nil)) {
@@ -67,6 +73,8 @@ func TestSprintHandlers_Ack(t *testing.T) {
 
 // Tests to make sure we can handle resource offers without error.
 func TestSprintHandlers_ResourceOffers(t *testing.T) {
+	t.Parallel()
+
 	h := NewHandlers(s)
 	offers := []mesos.Offer{
 		{

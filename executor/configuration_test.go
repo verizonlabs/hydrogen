@@ -39,6 +39,8 @@ var executorCfg *ExecutorConfiguration = new(ExecutorConfiguration).Initialize()
 
 // Make sure we can initialize our configuration with default values.
 func TestExecutorConfiguration_Initialize(t *testing.T) {
+	t.Parallel()
+
 	if reflect.TypeOf(executorCfg) != reflect.TypeOf(new(ExecutorConfiguration)) {
 		t.Fatal("Executor configuration is not of the right type")
 	}
@@ -46,6 +48,8 @@ func TestExecutorConfiguration_Initialize(t *testing.T) {
 
 // Ensure we get the checkpoint value correctly.
 func TestExecutorConfiguration_Checkpoint(t *testing.T) {
+	t.Parallel()
+
 	if reflect.TypeOf(executorCfg.Checkpoint()) != reflect.TypeOf(*new(bool)) {
 		t.Fatal("Checkpoint is of the wrong type")
 	}
@@ -63,6 +67,8 @@ func BenchmarkExecutorConfiguration_Checkpoint(b *testing.B) {
 
 // Ensure we get the endpoint correctly.
 func TestExecutorConfiguration_Endpoint(t *testing.T) {
+	t.Parallel()
+
 	if reflect.TypeOf(executorCfg.Endpoint()) != reflect.TypeOf(*new(string)) {
 		t.Fatal("Endpoint is of the wrong type")
 	}
@@ -80,6 +86,8 @@ func BenchmarkExecutorConfiguration_Endpoint(b *testing.B) {
 
 // Ensure we get the recovery timeout correctly.
 func TestExecutorConfiguration_RecoveryTimeout(t *testing.T) {
+	t.Parallel()
+
 	if reflect.TypeOf(executorCfg.RecoveryTimeout()) != reflect.TypeOf(*new(time.Duration)) {
 		t.Fatal("Recovery timeout is of the wrong type")
 	}
@@ -97,6 +105,8 @@ func BenchmarkExecutorConfiguration_RecoveryTimeout(b *testing.B) {
 
 // Ensure we get the timeout correctly.
 func TestExecutorConfiguration_Timeout(t *testing.T) {
+	t.Parallel()
+
 	if reflect.TypeOf(executorCfg.Timeout()) != reflect.TypeOf(*new(time.Duration)) {
 		t.Fatal("Timeout is of the wrong type")
 	}
@@ -114,6 +124,8 @@ func BenchmarkExecutorConfiguration_Timeout(b *testing.B) {
 
 // Ensure we get the subscription backoff correctly.
 func TestExecutorConfiguration_SubscriptionBackoffMax(t *testing.T) {
+	t.Parallel()
+
 	if reflect.TypeOf(executorCfg.SubscriptionBackoffMax()) != reflect.TypeOf(*new(time.Duration)) {
 		t.Fatal("Subscription backoff is of the wrong type")
 	}

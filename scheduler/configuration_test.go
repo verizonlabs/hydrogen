@@ -128,6 +128,8 @@ func TestSchedulerConfiguration_Initialize(t *testing.T) {
 
 // Make sure we return the right name.
 func TestSchedulerConfiguration_Name(t *testing.T) {
+	t.Parallel()
+
 	if sprintConfig.Name() != "Sprint" {
 		t.Fatal("Configuration has wrong name")
 	}
@@ -135,6 +137,8 @@ func TestSchedulerConfiguration_Name(t *testing.T) {
 
 // Ensures that we can detect the current user and pass it into the framework info.
 func TestSchedulerConfiguration_User(t *testing.T) {
+	t.Parallel()
+
 	u, err := user.Current()
 	if err != nil {
 		t.Fatal("Unable to detect current user: " + err.Error())
@@ -147,6 +151,8 @@ func TestSchedulerConfiguration_User(t *testing.T) {
 
 // Checks to see if our default value for checkpointing is right.
 func TestSchedulerConfiguration_Checkpointing(t *testing.T) {
+	t.Parallel()
+
 	if !*sprintConfig.Checkpointing() {
 		t.Fatal("Checkpointing is not set to the right value")
 	}
@@ -163,6 +169,8 @@ func TestSchedulerConfiguration_Principal(t *testing.T) {
 
 // Checks to see whether the command is set properly.
 func TestSchedulerConfiguration_Command(t *testing.T) {
+	t.Parallel()
+
 	if *sprintConfig.Command() != "" {
 		t.Fatal("Command is not set to the right value")
 	}
@@ -179,6 +187,8 @@ func TestSchedulerConfiguration_Uris(t *testing.T) {
 
 // Check our default timeout value.
 func TestSchedulerConfiguration_Timeout(t *testing.T) {
+	t.Parallel()
+
 	if sprintConfig.Timeout() != 20*time.Second {
 		t.Fatal("Timeout is not set to the right value")
 	}
@@ -186,6 +196,8 @@ func TestSchedulerConfiguration_Timeout(t *testing.T) {
 
 // Make sure we have the right default endpoint value.
 func TestSchedulerConfiguration_Endpoint(t *testing.T) {
+	t.Parallel()
+
 	if sprintConfig.Endpoint() != "http://127.0.0.1:5050/api/v1/scheduler" {
 		t.Fatal("Endpoint is not set to the right value")
 	}
@@ -193,6 +205,8 @@ func TestSchedulerConfiguration_Endpoint(t *testing.T) {
 
 // Ensure we have the right revive burst amount.
 func TestSchedulerConfiguration_ReviveBurst(t *testing.T) {
+	t.Parallel()
+
 	if sprintConfig.ReviveBurst() != 3 {
 		t.Fatal("Revive burst is not set to the right value")
 	}
@@ -200,6 +214,8 @@ func TestSchedulerConfiguration_ReviveBurst(t *testing.T) {
 
 // Ensure we have the right revive wait period.
 func TestSchedulerConfiguration_ReviveWait(t *testing.T) {
+	t.Parallel()
+
 	if sprintConfig.ReviveWait() != 1*time.Second {
 		t.Fatal("Revive wait period is not set to the right value")
 	}
@@ -207,6 +223,8 @@ func TestSchedulerConfiguration_ReviveWait(t *testing.T) {
 
 // Ensure we have the right maximum refusal time.
 func TestSchedulerConfiguration_MaxRefuse(t *testing.T) {
+	t.Parallel()
+
 	if sprintConfig.MaxRefuse() != 5*time.Second {
 		t.Fatal("Max refusal time is not set to the right value")
 	}
@@ -214,6 +232,8 @@ func TestSchedulerConfiguration_MaxRefuse(t *testing.T) {
 
 // Make sure we get our executor name correctly.
 func TestSchedulerConfiguration_ExecutorName(t *testing.T) {
+	t.Parallel()
+
 	if *sprintConfig.ExecutorName() != "Sprinter" {
 		t.Fatal("Executor name is wrong")
 	}
@@ -221,6 +241,8 @@ func TestSchedulerConfiguration_ExecutorName(t *testing.T) {
 
 // Make sure we get our executor command correctly.
 func TestSchedulerConfiguration_ExecutorCmd(t *testing.T) {
+	t.Parallel()
+
 	if *sprintConfig.ExecutorCmd() != "./executor" {
 		t.Fatal("Executor command is wrong")
 	}
