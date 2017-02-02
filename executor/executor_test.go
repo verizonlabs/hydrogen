@@ -6,9 +6,11 @@ import (
 	"mesos-sdk"
 	"mesos-sdk/extras"
 	"os"
+	"reflect"
 	"testing"
 )
 
+// Mocked executor.
 type mockExecutor struct {
 	config   configuration
 	executor mesos.ExecutorInfo
@@ -36,4 +38,38 @@ func TestMain(m *testing.M) {
 	log.SetOutput(ioutil.Discard)
 	log.SetFlags(0)
 	os.Exit(m.Run())
+}
+
+// Make sure we initialize properly.
+func TestNewExecutor(t *testing.T) {
+	t.Parallel()
+
+	exec := NewExecutor(cfg)
+
+	if reflect.TypeOf(exec) != reflect.TypeOf(new(sprintExecutor)) {
+		t.Fatal("Executor is not of the right type")
+	}
+}
+
+// Measures performance of creating an executor.
+func BenchmarkNewExecutor(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		NewExecutor(cfg)
+	}
+}
+
+// Make sure we can actually run our executor.
+func TestSprintExecutor_Run(t *testing.T) {
+	t.Parallel()
+
+	exec := NewExecutor(cfg)
+	exec.Run()
+}
+
+// Measure performance of running our executor.
+func BenchmarkSprintExecutor_Run(b *testing.B) {
+	exec := NewExecutor(cfg)
+	for n := 0; n < b.N; n++ {
+		exec.Run()
+	}
 }
