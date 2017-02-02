@@ -7,7 +7,7 @@ import (
 	sched "mesos-sdk/scheduler"
 	"mesos-sdk/scheduler/calls"
 	ev "mesos-sdk/scheduler/events"
-	"mesos-sdk/taskmngr"
+	//	"stash.verizon.com/dkt/mlog"
 	"stash.verizon.com/dkt/mlog"
 	"time"
 )
@@ -21,13 +21,13 @@ type handlers interface {
 
 // Holds context about our event multiplexer and acknowledge handler.
 type sprintHandlers struct {
-	sched SprintScheduler
+	sched Scheduler
 	mux   *ev.Mux
 	ack   ev.Handler
 }
 
 // Sets up function handlers to process incoming events from Mesos.
-func NewHandlers(s SprintScheduler) *sprintHandlers {
+func NewHandlers(s *SprintScheduler) *sprintHandlers {
 	ack := ev.AcknowledgeUpdates(func() calls.Caller {
 		return *s.Caller()
 	})
@@ -81,23 +81,21 @@ func (h *sprintHandlers) ResourceOffers(offers []mesos.Offer) error {
 
 		taskResources := state.taskResources.Plus(executorResources...)
 
-		if ok, _ := manager.HasQueuedTasked(); ok {
-			for task := range manager.Tasks().IterBuffered() {
+		if ok, _ := manager.HasQueuedTasks(); ok {
+			for id, v := range manager.Tasks() {
 				if flattened.ContainsAll(taskResources) {
-					t, err := task.Val.(taskmngr.Task).Info()
+					taskInfo, err := v.Info()
 					if err != nil {
 						mlog.Error(err.Error())
 					}
-
-					taskInfo := t.(mesos.TaskInfo)
 					taskInfo.AgentID = offers[i].AgentID
 					taskInfo.Executor = h.sched.NewExecutor()
-					taskInfo.Name = "sprint_" + taskInfo.TaskID.Value
 
 					// Add it to the list of tasks to send off.
 					tasks = append(tasks, taskInfo)
 					remaining.Subtract(taskInfo.Resources...)
 					flattened = remaining.Flatten()
+					manager.Delete(id)
 				} else {
 					break // No resources left, break out of the loop.
 				}
@@ -123,7 +121,7 @@ func (h *sprintHandlers) ResourceOffers(offers []mesos.Offer) error {
 func (h *sprintHandlers) StatusUpdates(s mesos.TaskStatus) {
 	switch st := s.GetState(); st {
 	case mesos.TASK_FINISHED:
-		if anyleft, _ := h.sched.taskmgr.HasQueuedTasked(); !anyleft {
+		if anyleft, _ := h.sched.TaskManager().HasQueuedTasks(); !anyleft {
 			h.sched.SuppressOffers()
 		} else {
 			h.sched.ReviveOffers()

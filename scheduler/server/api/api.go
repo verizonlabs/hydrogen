@@ -7,9 +7,12 @@ import (
 	"io/ioutil"
 	"log"
 	"mesos-sdk"
+	"mesos-sdk/extras"
+	"mesos-sdk/taskmngr"
 	"net/http"
 	"sprint/scheduler"
 	"sprint/scheduler/server"
+	"sprint/scheduler/taskmanager"
 	"strconv"
 )
 
@@ -68,7 +71,7 @@ type ApiServer struct {
 	port    *int
 	mux     *http.ServeMux
 	handle  map[string]http.HandlerFunc // route -> handler func for that route
-	sched   scheduler.SprintScheduler
+	sched   *scheduler.SprintScheduler
 	version string
 }
 
@@ -94,9 +97,11 @@ func (a *ApiServer) setDefaultHandlers() {
 }
 
 // RunAPI takes the scheduler controller and sets up the configuration for the API.
-func (a *ApiServer) RunAPI() {
+func (a *ApiServer) RunAPI(scheduler *scheduler.SprintScheduler) {
 	// Set our default handlers here.
 	a.setDefaultHandlers()
+
+	a.sched = scheduler
 
 	// Iterate through all methods and setup endpoints.
 	for route, handle := range a.handle {
@@ -122,7 +127,6 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 			dec, err := ioutil.ReadAll(r.Body)
 			if err != nil {
 				fmt.Fprintf(w, err.Error())
-				dec = make([]byte, 0) // is this necessary?
 				return
 			}
 
@@ -157,31 +161,70 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 			resources = append(resources, mem)
 
 			// TODO: diskinfo resources + external disks.
+			/*
+				var command = &mesos.CommandInfo{
+					Value: m.Command.Cmd,
+				}
 
-			var command = &mesos.CommandInfo{
-				Value: m.Command.Cmd,
-			}
+				// Setup our docker container from the API call
+				var docker = new(mesos.ContainerInfo_Type)
+				*docker = mesos.ContainerInfo_DOCKER
+				var container = &mesos.ContainerInfo{
+					Type: docker,
+					Docker: &mesos.ContainerInfo_DockerInfo{
+						Image: *m.Container.ImageName + ":" + *m.Container.Tag,
+					},
+				}
+			*/
+			// Final constructed task info
+			uuid, _ := extras.UuidToString(extras.Uuid())
+			/*
+				var taskInfo = mesos.TaskInfo{
+					Name:      m.Name,
+					TaskID:    mesos.TaskID{},
+					Resources: resources,
+					Command:   command,
+					Container: container,
+				}*/
 
-			// Setup our docker container from the API call
-			var docker = new(mesos.ContainerInfo_Type)
-			*docker = mesos.ContainerInfo_DOCKER
-			var container = &mesos.ContainerInfo{
-				Type: docker,
-				Docker: &mesos.ContainerInfo_DockerInfo{
-					Image: *m.Container.ImageName + ":" + *m.Container.Tag,
+			taskInfo := mesos.TaskInfo{
+				TaskID: mesos.TaskID{
+					Value: uuid,
+				},
+				Executor: &mesos.ExecutorInfo{
+					ExecutorID: mesos.ExecutorID{Value: uuid},
+					Name:       extras.ProtoString(m.Name),
+					Command: mesos.CommandInfo{
+						Value: extras.ProtoString("./executor"),
+						URIs: []mesos.CommandInfo_URI{
+							{
+								Value:      "http://10.0.2.2/executor",
+								Executable: extras.ProtoBool(true),
+							},
+						},
+					},
+					Resources: []mesos.Resource{
+						extras.Resource("cpus", 0.1),
+						extras.Resource("mem", 128.0),
+					},
+					Container: &mesos.ContainerInfo{
+						Type: mesos.ContainerInfo_MESOS.Enum(),
+					},
+				},
+				Resources: []mesos.Resource{
+					extras.Resource("cpus", 0.1),
+					extras.Resource("mem", 128.0),
 				},
 			}
 
-			// Final constructed task info
-			var taskInfo = mesos.TaskInfo{
-				Name:      m.Name,
-				TaskID:    mesos.TaskID{},
-				Resources: resources,
-				Command:   command,
-				Container: container,
-			}
-			a.sched.State().AddTask(taskInfo) // Update our scheduler with the new task.
-			fmt.Fprintf(w, "%v", taskInfo.String())
+			newTask := taskmanager.TaskState{}
+			newTask.SetId(taskInfo.TaskID.Value)
+			newTask.SetStatus(taskmngr.QUEUED)
+			newTask.SetInfo(taskInfo)
+			a.sched.ReviveOffers()
+			a.sched.TaskManager().Add(&newTask)
+
+			fmt.Fprintf(w, "%v", taskInfo)
 		}
 	default:
 		{
@@ -199,14 +242,14 @@ func (a *ApiServer) status(w http.ResponseWriter, r *http.Request) {
 		{
 			id := r.URL.Query().Get("taskID")
 
-			/* Get information about our task status.
-			task, err := a.sched.State().TaskSearch(id)
+			t := taskmanager.TaskState{}
+			t.SetId(id)
+			task, err := a.sched.TaskManager().HasTask(&t)
 			if err != nil {
 				fmt.Fprintf(w, "%v", err.Error())
 				return
 			}
 			fmt.Fprintf(w, "%v", task)
-			*/
 
 		}
 	default:

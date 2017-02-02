@@ -9,11 +9,11 @@ import (
 	"mesos-sdk/httpcli"
 	"mesos-sdk/httpcli/httpsched"
 	"mesos-sdk/scheduler/calls"
+	"mesos-sdk/taskmngr"
 	"net/http"
-	"time"
-	"github.com/orcaman/concurrent-map"
 	"sprint/scheduler/taskmanager"
 	"stash.verizon.com/dkt/mlog"
+	"time"
 )
 
 // Base implementation of a scheduler.
@@ -28,6 +28,7 @@ type Scheduler interface {
 	SuppressOffers() error
 	ReviveOffers() error
 	Reconcile() (mesos.Response, error)
+	TaskManager() *taskmanager.Manager
 }
 
 // Scheduler state.
@@ -50,34 +51,12 @@ type SprintScheduler struct {
 	state     state
 }
 
-
 // Returns a new scheduler using user-supplied configuration.
 func NewScheduler(cfg configuration, shutdown chan struct{}) *SprintScheduler {
 	// Ignore the error here since we know that we're generating a valid v4 UUID.
 	// Other people using their own UUIDs should probably check this.
 	uuid, _ := extras.UuidToString(extras.Uuid())
-
-	customExecutor := mesos.ExecutorInfo{
-		ExecutorID: mesos.ExecutorID{Value: uuid},
-		Name:       cfg.ExecutorName(),
-		Command: mesos.CommandInfo{
-			Value: cfg.ExecutorCmd(),
-			URIs: []mesos.CommandInfo_URI{
-				{
-					Value:      cfg.ExecutorSrvCfg().GetEndpoint() + "/executor",
-					Executable: extras.ProtoBool(true),
-				},
-			},
-		},
-		// TODO parameterize this
-		Resources: []mesos.Resource{
-			extras.Resource("cpus", 0.1),
-			extras.Resource("mem", 128.0),
-		},
-		Container: &mesos.ContainerInfo{
-			Type: mesos.ContainerInfo_MESOS.Enum(),
-		},
-	}
+	mlog.Info(cfg.ExecutorSrvCfg().GetEndpoint() + "/executor")
 
 	scheduler := SprintScheduler{
 		config: cfg,
@@ -86,7 +65,27 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *SprintScheduler {
 			Name:       cfg.Name(),
 			Checkpoint: cfg.Checkpointing(),
 		},
-		executor: &customExecutor,
+		executor: &mesos.ExecutorInfo{
+			ExecutorID: mesos.ExecutorID{Value: uuid},
+			Name:       cfg.ExecutorName(),
+			Command: mesos.CommandInfo{
+				Value: cfg.ExecutorCmd(),
+				URIs: []mesos.CommandInfo_URI{
+					{
+						Value:      cfg.ExecutorSrvCfg().GetEndpoint() + "/executor",
+						Executable: extras.ProtoBool(true),
+					},
+				},
+			},
+			// TODO parameterize this
+			Resources: []mesos.Resource{
+				extras.Resource("cpus", 0.1),
+				extras.Resource("mem", 128.0),
+			},
+			Container: &mesos.ContainerInfo{
+				Type: mesos.ContainerInfo_MESOS.Enum(),
+			},
+		},
 		http: httpsched.NewCaller(httpcli.New(
 			httpcli.Endpoint(cfg.Endpoint()),
 			httpcli.Codec(&encoding.ProtobufCodec),
@@ -101,42 +100,66 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *SprintScheduler {
 			),
 		)),
 		shutdown: shutdown,
-		taskmgr: taskmanager.NewManager(cmap.New()),
+		taskmgr:  taskmanager.NewManager(),
 		state: state{
 			reviveTokens: backoff.BurstNotifier(cfg.ReviveBurst(), cfg.ReviveWait(), cfg.ReviveWait(), nil),
 		},
 	}
 
-	// Create new tasks and add them into the manager.
-
-	mesos.TaskInfo{
-		Executor: customExecutor,
-
-	}
-
-	uuid, _ = extras.UuidToString(extras.Uuid())
-
-	task := mesos.TaskInfo{
-		TaskID: mesos.TaskID{
-			Value: uuid,
-		},
-		Executor: customExecutor,
-	}
-	task.Name = "sprinter_" + task.TaskID.Value
-
+	// Create the number of executors we want.
 	for i := 0; i < cfg.Executors(); i++ {
-		scheduler.taskmgr.Provision()
+		// Create new tasks and add them into the manager.
+		uuid, _ = extras.UuidToString(extras.Uuid())
+		name := "sprinter_" + string(i)
+
+		task := mesos.TaskInfo{
+			TaskID: mesos.TaskID{
+				Value: uuid,
+			},
+			Executor: &mesos.ExecutorInfo{
+				ExecutorID: mesos.ExecutorID{Value: uuid},
+				Name:       extras.ProtoString(name),
+				Command: mesos.CommandInfo{
+					Value: cfg.ExecutorCmd(),
+					URIs: []mesos.CommandInfo_URI{
+						{
+							Value:      cfg.ExecutorSrvCfg().GetEndpoint() + "/executor",
+							Executable: extras.ProtoBool(true),
+						},
+					},
+				},
+				Resources: []mesos.Resource{
+					extras.Resource("cpus", 0.1),
+					extras.Resource("mem", 128.0),
+				},
+				Container: &mesos.ContainerInfo{
+					Type: mesos.ContainerInfo_MESOS.Enum(),
+				},
+			},
+			Resources: []mesos.Resource{
+				extras.Resource("cpus", 0.1),
+				extras.Resource("mem", 128.0),
+			},
+		}
+
+		task.Name = "sprinter_" + task.TaskID.Value
+
+		newTask := taskmanager.TaskState{}
+		newTask.SetId(task.TaskID.Value)
+		newTask.SetInfo(task)
+		newTask.SetStatus(taskmngr.QUEUED)
+		a, _ := newTask.Info()
+		mlog.Info("testing...", a)
+		scheduler.TaskManager().Add(&newTask)
 	}
 
-	return scheduler
+	return &scheduler
 
 }
 
 // Returns a new ExecutorInfo with a new UUID.
 // Reuses existing data from the scheduler's original ExecutorInfo.
 func (s *SprintScheduler) NewExecutor() *mesos.ExecutorInfo {
-	// Ignore the error here since we know that we're generating a valid v4 UUID.
-	// Other people using their own UUIDs should probably check this.
 	uuid, _ := extras.UuidToString(extras.Uuid())
 
 	return &mesos.ExecutorInfo{
@@ -148,7 +171,6 @@ func (s *SprintScheduler) NewExecutor() *mesos.ExecutorInfo {
 	}
 }
 
-
 // Returns the scheduler's configuration.
 func (s *SprintScheduler) Config() configuration {
 	return s.config
@@ -156,7 +178,7 @@ func (s *SprintScheduler) Config() configuration {
 
 // Returns the scheduler's configuration.
 func (s *SprintScheduler) TaskManager() *taskmanager.Manager {
-	return &s.taskmgr
+	return s.taskmgr
 }
 
 // Returns the internal state of the scheduler
@@ -191,9 +213,9 @@ func (s *SprintScheduler) SuppressOffers() error {
 
 // This call will perform reconciliation for our tasks.
 func (s *SprintScheduler) Reconcile() (mesos.Response, error) {
-	tasks, err := s.taskmgr.TaskIdAgentIdMap()
-	if err != nil{
-		mlog.Error(err)
+	tasks, err := taskmanager.TaskIdAgentIdMap(s.taskmgr.Tasks())
+	if err != nil {
+		mlog.Error(err.Error())
 	}
 	return calls.Caller(s.http).Call(
 		calls.Reconcile(

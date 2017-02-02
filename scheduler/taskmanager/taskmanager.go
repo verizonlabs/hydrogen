@@ -1,7 +1,6 @@
 package taskmanager
 
 import (
-	"github.com/orcaman/concurrent-map"
 	"mesos-sdk"
 	"mesos-sdk/taskmngr"
 	"stash.verizon.com/dkt/mlog"
@@ -9,7 +8,7 @@ import (
 
 type TaskState struct {
 	taskinfo mesos.TaskInfo
-	id       int
+	id       string
 	status   string
 }
 
@@ -18,15 +17,16 @@ func (t *TaskState) Info() (mesos.TaskInfo, error) {
 	return t.taskinfo, nil
 }
 
-func (t *TaskState) SetInfo(taskinfo mesos.TaskInfo) {
+func (t *TaskState) SetInfo(taskinfo mesos.TaskInfo) error {
 	t.taskinfo = taskinfo
+	return nil
 }
 
-func (t *TaskState) Id() (int, error) {
+func (t *TaskState) Id() (string, error) {
 	return t.id, nil
 }
 
-func (t *TaskState) SetId(id int) error {
+func (t *TaskState) SetId(id string) error {
 	t.id = id
 	return nil
 }
@@ -43,35 +43,31 @@ func (t *TaskState) SetStatus(status string) error {
 type Manager struct {
 	frameworkId string
 	totalTasks  int
-	tasks       *cmap.ConcurrentMap
+	tasks       map[string]taskmngr.Task
 }
 
-func NewManager(conmap *cmap.ConcurrentMap) *Manager {
-	return &Manager{tasks: conmap}
+func NewManager() *Manager {
+	return &Manager{tasks: make(map[string]taskmngr.Task)}
 }
 
 // Satisfy the TaskManager interface
 
 // Provision a task
-func (m *Manager) Provision(task taskmngr.Task) error {
+func (m *Manager) Add(task taskmngr.Task) error {
 	id, err := task.Id()
 	if err != nil {
 		mlog.Error(err.Error())
 		return err
 	}
-	m.tasks.Set(string(id), task)
-	return nil
+
+	m.tasks[id] = task
+
+	return err
 }
 
 // Delete a task
-func (m *Manager) Delete(task taskmngr.Task) error {
-	id, err := task.Id()
-	if err != nil {
-		mlog.Error(err.Error())
-		return err
-	}
-	m.tasks.Remove(string(id))
-	return nil
+func (m *Manager) Delete(id string) {
+	delete(m.tasks, id)
 }
 
 // Set a task status
@@ -82,7 +78,7 @@ func (m *Manager) SetTask(task taskmngr.Task, status string) error {
 		return err
 	}
 	task.SetStatus(status)
-	m.tasks.Set(string(id), task) // Overwrite the old value here.
+	m.tasks[id] = task // Overwrite the old value here.
 	return nil
 }
 
@@ -93,12 +89,10 @@ func (m *Manager) IsTask(task taskmngr.Task, status string) (bool, error) {
 		mlog.Error(err.Error())
 		return false, err
 	}
-	t, exists := m.tasks.Get(string(id))
-	if !exists {
+	if _, ok := m.tasks[id]; !ok {
 		return false, nil
 	}
-
-	currentStatus, err := t.(taskmngr.Task).Status()
+	currentStatus, err := task.Status()
 	if err != nil {
 		mlog.Error(err.Error())
 		return false, nil
@@ -114,26 +108,32 @@ func (m *Manager) HasTask(task taskmngr.Task) (bool, error) {
 		mlog.Error(err.Error())
 		return false, err
 	}
-	return m.tasks.Has(string(id)), nil
+
+	if _, ok := m.tasks[id]; ok {
+		return false, nil
+	}
+	return true, nil
 }
 
 // Check if we have tasks left to execute.
-func (m *Manager) HasQueuedTasked() (bool, error) {
-	return !m.tasks.IsEmpty(), nil
+func (m *Manager) HasQueuedTasks() (bool, error) {
+	mlog.Error("has any tasks?", len(m.tasks))
+	return !(len(m.tasks) == 0), nil
 }
 
-func (m *Manager) Tasks() *cmap.ConcurrentMap {
+func (m *Manager) Tasks() map[string]taskmngr.Task {
 	return m.tasks
 }
 
 // Create a map of taskid->agentid
-func (m *Manager) TaskIdAgentIdMap(task taskmngr.Task) (map[string]string, error) {
-	ret := make(map[string]string, m.Tasks().Count())
-	if ok, _ := m.HasQueuedTasked(); ok {
-		for task := range m.tasks.IterBuffered() {
-			t := task.Val.(mesos.TaskInfo)
-			ret[t.TaskID.Value] = t.AgentID.Value
+func TaskIdAgentIdMap(m map[string]taskmngr.Task) (map[string]string, error) {
+	ret := make(map[string]string, len(m))
+	for k, v := range m {
+		taskInfo, err := v.Info()
+		if err == nil {
+			ret[k] = taskInfo.AgentID.Value
 		}
 	}
+
 	return ret, nil
 }

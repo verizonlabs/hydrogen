@@ -31,7 +31,7 @@ func main() {
 	log.Println("Starting executor server...")
 	go executorSrv.Serve()
 	log.Println("Starting API server...")
-	go apiSrv.RunAPI()
+	go apiSrv.RunAPI(sched)
 
 	log.Println("Starting framework scheduler...")
 	log.Fatal(sched.Run(controller.SchedulerCtrl(), controller.BuildConfig(

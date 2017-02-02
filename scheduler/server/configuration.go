@@ -36,7 +36,7 @@ func (c *ServerConfiguration) GetEndpoint() string {
 func (c *ServerConfiguration) Initialize() *ServerConfiguration {
 	flag.StringVar(&c.cert, "server.cert", "", "TLS certificate")
 	flag.StringVar(&c.key, "server.key", "", "TLS key")
-	flag.StringVar(&c.ip, "server.key", "10.0.2.2", "IP address for the server to listen on.")
+	flag.StringVar(&c.ip, "server.ip", "10.0.2.2", "IP address for the server to listen on.")
 
 	c.server = &http.Server{
 		TLSConfig: &tls.Config{
@@ -86,4 +86,9 @@ func (c *ServerConfiguration) Server() *http.Server {
 // If a TLS certificate and key have been provided then TLS is enabled.
 func (c *ServerConfiguration) TLS() bool {
 	return c.cert != "" && c.key != ""
+}
+
+// Return the IP address as a string.
+func (c *ServerConfiguration) IpAddress() string {
+	return c.ip
 }
