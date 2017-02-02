@@ -16,7 +16,6 @@ import (
 	"time"
 )
 
-// TODO test this stuff
 // Base implementation of an executor.
 type executor interface {
 	Run()

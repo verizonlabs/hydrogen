@@ -109,7 +109,7 @@ func TestNewScheduler(t *testing.T) {
 	s := NewScheduler(cfg, make(chan struct{}))
 
 	if reflect.TypeOf(s) != reflect.TypeOf(new(SprintScheduler)) {
-		t.Fatal("Controller is not of the right type")
+		t.Fatal("Scheduler is not of the right type")
 	}
 }
 
