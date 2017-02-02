@@ -106,6 +106,8 @@ func TestMain(m *testing.M) {
 
 // Ensures we get the correct type back for the scheduler.
 func TestNewScheduler(t *testing.T) {
+	t.Parallel()
+
 	s := NewScheduler(cfg, make(chan struct{}))
 
 	if reflect.TypeOf(s) != reflect.TypeOf(new(SprintScheduler)) {
@@ -122,6 +124,8 @@ func BenchmarkNewScheduler(b *testing.B) {
 
 // Make sure we can create new executors correctly.
 func TestSprintScheduler_NewExecutor(t *testing.T) {
+	t.Parallel()
+
 	s := NewScheduler(cfg, make(chan struct{}))
 
 	executor := s.NewExecutor()
@@ -150,6 +154,8 @@ func BenchmarkSprintScheduler_NewExecutor(b *testing.B) {
 
 // Checks the configuration stored inside of the scheduler.
 func TestSprintScheduler_Config(t *testing.T) {
+	t.Parallel()
+
 	s := NewScheduler(cfg, make(chan struct{}))
 
 	cfg := s.Config()
@@ -196,6 +202,8 @@ func BenchmarkSprintScheduler_Config(b *testing.B) {
 
 // Ensures the scheduler's state and contained information is correct.
 func TestSprintScheduler_State(t *testing.T) {
+	t.Parallel()
+
 	s := NewScheduler(cfg, make(chan struct{}))
 
 	st := s.State()
@@ -251,6 +259,8 @@ func BenchmarkSprintScheduler_State(b *testing.B) {
 
 // Tests to see if the scheduler has the right caller.
 func TestSprintScheduler_Caller(t *testing.T) {
+	t.Parallel()
+
 	s := NewScheduler(cfg, make(chan struct{}))
 
 	caller := s.Caller()
@@ -270,6 +280,8 @@ func BenchmarkSprintScheduler_Caller(b *testing.B) {
 
 // Ensures the scheduler's framework info checks out.
 func TestSprintScheduler_FrameworkInfo(t *testing.T) {
+	t.Parallel()
+
 	s := NewScheduler(cfg, make(chan struct{}))
 
 	info := s.FrameworkInfo()
@@ -298,6 +310,8 @@ func BenchmarkSprintScheduler_FrameworkInfo(b *testing.B) {
 
 // Ensures the scheduler's executor info is valid.
 func TestSprintScheduler_ExecutorInfo(t *testing.T) {
+	t.Parallel()
+
 	s := NewScheduler(cfg, make(chan struct{}))
 
 	info := s.ExecutorInfo()
@@ -338,6 +352,8 @@ func BenchmarkSprintScheduler_ExecutorInfo(b *testing.B) {
 
 // Tests the scheduler's ability to run.
 func TestSprintScheduler_Run(t *testing.T) {
+	t.Parallel()
+
 	s := NewScheduler(cfg, make(chan struct{}))
 
 	err := s.Run(new(mockRunner), c.BuildConfig(c.BuildContext(), s.Caller(), make(chan struct{}), h))
@@ -361,6 +377,8 @@ func BenchmarkSprintScheduler_Run(b *testing.B) {
 
 // Tests offer revival.
 func TestSprintScheduler_ReviveOffers(t *testing.T) {
+	t.Parallel()
+
 	s := NewScheduler(cfg, make(chan struct{}))
 	s.http = new(MockCaller)
 
@@ -389,6 +407,8 @@ func BenchmarkSprintScheduler_ReviveOffers(b *testing.B) {
 
 // Tests offer suppression.
 func TestSprintScheduler_SuppressOffers(t *testing.T) {
+	t.Parallel()
+
 	s := NewScheduler(cfg, make(chan struct{}))
 	s.http = new(MockCaller)
 
@@ -409,6 +429,8 @@ func BenchmarkSprintScheduler_SuppressOffers(b *testing.B) {
 
 // Tests reconciliation.
 func TestSprintScheduler_Reconcile(t *testing.T) {
+	t.Parallel()
+
 	s := NewScheduler(cfg, make(chan struct{}))
 	s.http = new(MockCaller)
 

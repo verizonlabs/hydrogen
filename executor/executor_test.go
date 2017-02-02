@@ -42,6 +42,8 @@ func TestMain(m *testing.M) {
 
 // Make sure we initialize properly.
 func TestNewExecutor(t *testing.T) {
+	t.Parallel()
+
 	exec := NewExecutor(cfg)
 
 	if reflect.TypeOf(exec) != reflect.TypeOf(new(sprintExecutor)) {
@@ -58,6 +60,8 @@ func BenchmarkNewExecutor(b *testing.B) {
 
 // Make sure we can actually run our executor.
 func TestSprintExecutor_Run(t *testing.T) {
+	t.Parallel()
+
 	exec := NewExecutor(cfg)
 	exec.Run()
 }
