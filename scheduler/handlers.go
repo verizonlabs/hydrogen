@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"mesos-sdk"
 	"mesos-sdk/extras"
-	ctrl "mesos-sdk/extras/scheduler/controller"
+	ctrl "mesos-sdk/extras/controller"
 	sched "mesos-sdk/scheduler"
 	"mesos-sdk/scheduler/calls"
 	ev "mesos-sdk/scheduler/events"
