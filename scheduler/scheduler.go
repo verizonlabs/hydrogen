@@ -149,7 +149,6 @@ func NewScheduler(cfg configuration, shutdown chan struct{}) *SprintScheduler {
 		newTask.SetInfo(task)
 		newTask.SetStatus(taskmngr.QUEUED)
 		a, _ := newTask.Info()
-		mlog.Info("testing...", a)
 		scheduler.TaskManager().Add(&newTask)
 	}
 

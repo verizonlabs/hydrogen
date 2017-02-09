@@ -2,22 +2,21 @@ package taskmanager
 
 import (
 	"mesos-sdk"
-	"mesos-sdk/taskmngr"
 	"stash.verizon.com/dkt/mlog"
 )
 
 type TaskState struct {
-	taskinfo mesos.TaskInfo
+	taskinfo mesos.Task
 	id       string
 	status   string
 }
 
 // Satisfy the Task interface
-func (t *TaskState) Info() (mesos.TaskInfo, error) {
+func (t *TaskState) Info() (mesos.Task, error) {
 	return t.taskinfo, nil
 }
 
-func (t *TaskState) SetInfo(taskinfo mesos.TaskInfo) error {
+func (t *TaskState) SetInfo(taskinfo mesos.Task) error {
 	t.taskinfo = taskinfo
 	return nil
 }
@@ -43,26 +42,20 @@ func (t *TaskState) SetStatus(status string) error {
 type Manager struct {
 	frameworkId string
 	totalTasks  int
-	tasks       map[string]taskmngr.Task
+	tasks       map[string]mesos.Task
 }
 
 func NewManager() *Manager {
-	return &Manager{tasks: make(map[string]taskmngr.Task)}
+	return &Manager{tasks: make(map[string]mesos.Task)}
 }
 
 // Satisfy the TaskManager interface
 
 // Provision a task
-func (m *Manager) Add(task taskmngr.Task) error {
-	id, err := task.Id()
-	if err != nil {
-		mlog.Error(err.Error())
-		return err
-	}
+func (m *Manager) Add(task mesos.Task) error {
+	m.tasks[task.GetTaskId().Value] = task
 
-	m.tasks[id] = task
-
-	return err
+	return nil
 }
 
 // Delete a task
@@ -71,45 +64,23 @@ func (m *Manager) Delete(id string) {
 }
 
 // Set a task status
-func (m *Manager) SetTask(task taskmngr.Task, status string) error {
-	id, err := task.Id()
-	if err != nil {
-		mlog.Error(err.Error())
-		return err
-	}
-	task.SetStatus(status)
-	m.tasks[id] = task // Overwrite the old value here.
+func (m *Manager) SetTask(task mesos.Task, status mesos.TaskState) error {
+	task.State = status
+	m.tasks[task.TaskId] = task // Overwrite the old value here.
 	return nil
 }
 
 // Check if a task has a particular status.
-func (m *Manager) IsTask(task taskmngr.Task, status string) (bool, error) {
-	id, err := task.Id()
-	if err != nil {
-		mlog.Error(err.Error())
-		return false, err
-	}
-	if _, ok := m.tasks[id]; !ok {
+func (m *Manager) IsTask(task mesos.Task, status string) (bool, error) {
+	if _, ok := m.tasks[task.GetTaskId().Value]; !ok {
 		return false, nil
 	}
-	currentStatus, err := task.Status()
-	if err != nil {
-		mlog.Error(err.Error())
-		return false, nil
-	}
-
-	return currentStatus == status, nil
+	return task.State == status, nil
 }
 
 // Check if the task is already in the task manager.
-func (m *Manager) HasTask(task taskmngr.Task) (bool, error) {
-	id, err := task.Id()
-	if err != nil {
-		mlog.Error(err.Error())
-		return false, err
-	}
-
-	if _, ok := m.tasks[id]; ok {
+func (m *Manager) HasTask(task mesos.Task) (bool, error) {
+	if _, ok := m.tasks[task.GetTaskId().GetValue()]; ok {
 		return false, nil
 	}
 	return true, nil
@@ -121,18 +92,16 @@ func (m *Manager) HasQueuedTasks() (bool, error) {
 	return !(len(m.tasks) == 0), nil
 }
 
-func (m *Manager) Tasks() map[string]taskmngr.Task {
+func (m *Manager) Tasks() map[string]mesos.Task {
 	return m.tasks
 }
 
 // Create a map of taskid->agentid
-func TaskIdAgentIdMap(m map[string]taskmngr.Task) (map[string]string, error) {
+func TaskIdAgentIdMap(m map[string]mesos.Task) (map[string]string, error) {
 	ret := make(map[string]string, len(m))
 	for k, v := range m {
-		taskInfo, err := v.Info()
-		if err == nil {
-			ret[k] = taskInfo.AgentID.Value
-		}
+		taskInfo := v.GetAgentId().Value
+		ret[k] = taskInfo
 	}
 
 	return ret, nil

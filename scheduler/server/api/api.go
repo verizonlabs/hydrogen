@@ -176,6 +176,7 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 					},
 				}
 			*/
+
 			// Final constructed task info
 			uuid, _ := extras.UuidToString(extras.Uuid())
 			/*
@@ -185,7 +186,8 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 					Resources: resources,
 					Command:   command,
 					Container: container,
-				}*/
+				}
+			*/
 
 			taskInfo := mesos.TaskInfo{
 				TaskID: mesos.TaskID{
