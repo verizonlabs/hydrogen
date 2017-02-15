@@ -1,13 +1,15 @@
 package scheduler
 
+/*
+Events handle all events that come through to the scheduler from the mesos-master.
+*/
+
 import (
 	"errors"
+	"fmt"
 	"log"
 	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/include/scheduler"
-	sched "mesos-sdk/scheduler"
-	"mesos-sdk/scheduler/calls"
-	ev "mesos-sdk/scheduler/events"
 	"strconv"
 )
 
@@ -16,8 +18,8 @@ type SprintEvents struct {
 }
 
 // Applies the contextual information from the scheduler.
-func NewEvents() {
-
+func NewEvents() *SprintEvents {
+	return &SprintEvents{}
 }
 
 // Handler for subscribed events.
@@ -39,15 +41,19 @@ func (e *SprintEvents) Rescind(*mesos_v1_scheduler.Event_Rescind) {
 
 }
 
-// Handler for offers events.
+// Offer event
 func (e *SprintEvents) Offers(eventOffers *mesos_v1_scheduler.Event_Offers) {
 	offers := eventOffers.GetOffers()
+	for k, v := range offers {
+		fmt.Printf("%v: %v", k, v)
+	}
 	//err := e.handlers.ResourceOffers(offers)
 }
 
 // Handler for update events.
 func (e *SprintEvents) Update(updateEvent *mesos_v1_scheduler.Event_Update) {
 	log.Println("Received update event")
+	fmt.Printf(updateEvent)
 	//e.handlers.StatusUpdates(updateEvent.GetStatus())
 }
 

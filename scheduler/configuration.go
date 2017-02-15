@@ -2,7 +2,7 @@ package scheduler
 
 import (
 	"flag"
-	"mesos-sdk"
+	"mesos-framework-sdk/include/mesos"
 	"os/user"
 	"sprint/scheduler/server"
 	"time"
@@ -15,7 +15,7 @@ type configuration interface {
 	Checkpointing() *bool
 	Principal() string
 	Command() *string
-	Uris() []mesos.CommandInfo_URI
+	Uris() []mesos_v1.CommandInfo_URI
 	Endpoint() string
 	Timeout() time.Duration
 	ReviveBurst() int
@@ -35,7 +35,7 @@ type SchedulerConfiguration struct {
 	user           string
 	checkpointing  bool
 	principal      string
-	uris           []mesos.CommandInfo_URI
+	uris           []mesos_v1.CommandInfo_URI
 	command        string
 	timeout        time.Duration
 	reviveBurst    int
@@ -91,7 +91,7 @@ func (c *SchedulerConfiguration) Command() *string {
 	return &c.command
 }
 
-func (c *SchedulerConfiguration) Uris() []mesos.CommandInfo_URI {
+func (c *SchedulerConfiguration) Uris() []mesos_v1.CommandInfo_URI {
 	return c.uris
 }
 

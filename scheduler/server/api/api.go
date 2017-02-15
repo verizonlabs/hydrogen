@@ -1,5 +1,6 @@
 package api
 
+// TODO this needs to be hooked into the newer framework sdk.
 import (
 	"encoding/json"
 	"flag"
@@ -37,7 +38,6 @@ type ApplicationJSON struct {
 // Scripts, api end points, timers...etc?
 type HealthCheckJSON struct {
 	Endpoint *string `json:"endpoint"`
-	// ?
 }
 
 //Struct to define our resources
