@@ -3,12 +3,10 @@ package scheduler
 import (
 	"math/rand"
 	"mesos-sdk"
-	ctrl "mesos-sdk/extras/scheduler/controller"
+	ctrl "mesos-sdk/extras/controller"
 	sched "mesos-sdk/scheduler"
 	"mesos-sdk/scheduler/calls"
 	ev "mesos-sdk/scheduler/events"
-	//	"stash.verizon.com/dkt/mlog"
-	"stash.verizon.com/dkt/mlog"
 	"time"
 )
 
@@ -82,25 +80,19 @@ func (h *sprintHandlers) ResourceOffers(offers []mesos.Offer) error {
 		taskResources := state.taskResources.Plus(executorResources...)
 
 		if ok, _ := manager.HasQueuedTasks(); ok {
-			for id, v := range manager.Tasks() {
+			for id, t := range manager.Tasks() {
 				if flattened.ContainsAll(taskResources) {
-					taskInfo, err := v.Info()
-					if err != nil {
-						mlog.Error(err.Error())
-					}
-					taskInfo.AgentID = offers[i].AgentID
-					taskInfo.Executor = h.sched.NewExecutor()
-
-					// Add it to the list of tasks to send off.
-					tasks = append(tasks, taskInfo)
-					remaining.Subtract(taskInfo.Resources...)
+					v := t.Info()
+					v.AgentID = offers[i].AgentID
+					v.Executor = h.sched.NewExecutor()
+					tasks = append(tasks, v)
+					remaining.Subtract(v.Resources...)
 					flattened = remaining.Flatten()
 					manager.Delete(id)
 				} else {
 					break // No resources left, break out of the loop.
 				}
 			}
-
 		}
 
 		accept := calls.Accept(

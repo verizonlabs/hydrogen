@@ -3,90 +3,81 @@ package scheduler
 import (
 	"errors"
 	"log"
+	"mesos-framework-sdk/include/mesos"
+	"mesos-framework-sdk/include/scheduler"
 	sched "mesos-sdk/scheduler"
 	"mesos-sdk/scheduler/calls"
 	ev "mesos-sdk/scheduler/events"
 	"strconv"
 )
 
-// Base implementation for Mesos event handlers.
-type events interface {
-	Subscribed(event *sched.Event) error
-	Offers(event *sched.Event) error
-	Update(event *sched.Event) error
-	Failure(event *sched.Event) error
-}
-
-// Holds context about our scheduler and acknowledge handler.
-type sprintEvents struct {
-	sched    Scheduler
-	ack      ev.Handler
-	handlers handlers
+type SprintEvents struct {
+	FrameworkId *mesos_v1.FrameworkID
 }
 
 // Applies the contextual information from the scheduler.
-func NewEvents(s Scheduler, a ev.Handler, h handlers) *sprintEvents {
-	return &sprintEvents{
-		sched:    s,
-		ack:      a,
-		handlers: h,
-	}
+func NewEvents() {
+
 }
 
 // Handler for subscribed events.
-func (e *sprintEvents) Subscribed(event *sched.Event) error {
+func (e *SprintEvents) Subscribe(subEvent *mesos_v1_scheduler.Event_Subscribed) {
 	log.Println("Received subscribe event")
-	if e.sched.State().frameworkId == "" {
-		e.sched.State().frameworkId = event.GetSubscribed().GetFrameworkID().GetValue()
-		if e.sched.State().frameworkId == "" {
+
+	if subEvent.GetFrameworkId() == "" {
+		e.FrameworkId = subEvent.GetFrameworkId()
+		if e.FrameworkId.GetValue() == "" {
 			return errors.New("mesos gave us an empty frameworkID")
 		} else {
-			log.Println("Scheduler's framework ID is " + e.sched.State().frameworkId)
-			*e.sched.Caller() = calls.FrameworkCaller(e.sched.State().frameworkId).Apply(*e.sched.Caller())
+			log.Println("Scheduler's framework ID is " + e.FrameworkId.GetValue())
 		}
 	}
-
 	return nil
+}
+
+func (e *SprintEvents) Rescind(*mesos_v1_scheduler.Event_Rescind) {
+
 }
 
 // Handler for offers events.
-func (e *sprintEvents) Offers(event *sched.Event) error {
-	offers := event.GetOffers().GetOffers()
-	err := e.handlers.ResourceOffers(offers)
-	if err != nil {
-		log.Println("Error handling resource offers: " + err.Error())
-	}
-
-	return err
+func (e *SprintEvents) Offers(eventOffers *mesos_v1_scheduler.Event_Offers) {
+	offers := eventOffers.GetOffers()
+	//err := e.handlers.ResourceOffers(offers)
 }
 
 // Handler for update events.
-func (e *sprintEvents) Update(event *sched.Event) error {
+func (e *SprintEvents) Update(updateEvent *mesos_v1_scheduler.Event_Update) {
 	log.Println("Received update event")
-	if err := e.ack.HandleEvent(event); err != nil {
-		log.Println("Failed to acknowledge status update for task: " + err.Error())
-	}
-	e.handlers.StatusUpdates(event.GetUpdate().GetStatus())
-
-	return nil
+	//e.handlers.StatusUpdates(updateEvent.GetStatus())
 }
 
 // Handler for failure events.
-func (e *sprintEvents) Failure(event *sched.Event) error {
+func (e *SprintEvents) Failure(failureEvent *mesos_v1_scheduler.Event_Failure) {
 	log.Println("Received failure event")
-	f := event.GetFailure()
-	if f.ExecutorID != nil {
-		msg := "Executor '" + f.ExecutorID.Value + "' terminated"
-		if f.AgentID != nil {
-			msg += " on agent '" + f.AgentID.Value + "'"
+
+	if failureEvent.GetExecutorId().GetValue() != nil {
+		msg := "Executor '" + failureEvent.GetExecutorId().GetValue() + "' terminated"
+		if failureEvent.GetAgentId().GetValue() != nil {
+			msg += " on agent '" + failureEvent.GetAgentId().GetValue() + "'"
 		}
-		if f.Status != nil {
-			msg += " with status=" + strconv.Itoa(int(*f.Status))
+		if failureEvent.GetStatus() != nil {
+			msg += " with status=" + strconv.Itoa(int(failureEvent.GetStatus()))
 		}
 		log.Println(msg)
-	} else if f.AgentID != nil {
-		log.Println("Agent '" + f.AgentID.Value + "' terminated")
+	} else if failureEvent.GetAgentId().GetValue() != nil {
+		log.Println("Agent '" + failureEvent.GetAgentId().GetValue() + "' terminated")
 	}
+}
 
-	return nil
+func (e *SprintEvents) InverseOffer(*mesos_v1_scheduler.Event_InverseOffers) {
+
+}
+func (e *SprintEvents) RescindInverseOffer(*mesos_v1_scheduler.Event_RescindInverseOffer) {
+
+}
+func (e *SprintEvents) Message(*mesos_v1_scheduler.Event_Message) {
+
+}
+func (e *SprintEvents) Error(*mesos_v1_scheduler.Event_Error) {
+
 }

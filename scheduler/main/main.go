@@ -2,11 +2,16 @@ package main
 
 import (
 	"flag"
+	"github.com/golang/protobuf/proto"
 	"log"
+	client "mesos-framework-sdk/client"
+	mesos "mesos-framework-sdk/include/mesos"
+	sched "mesos-framework-sdk/scheduler"
 	"sprint/scheduler"
 	"sprint/scheduler/server"
 	"sprint/scheduler/server/api"
 	"sprint/scheduler/server/file"
+	"time"
 )
 
 // Entry point for the scheduler.
@@ -21,23 +26,22 @@ func main() {
 	// Parse here to catch flags defined in structures above.
 	flag.Parse()
 
-	shutdown := make(chan struct{})
-	defer close(shutdown)
+	frameworkInfo := &mesos.FrameworkInfo{
+		User:            proto.String("root"),
+		Name:            proto.String("Sprint"),
+		FailoverTimeout: proto.Float64(5 * time.Second.Seconds()),
+		Checkpoint:      proto.Bool(true),
+		Role:            proto.String("*"),
+		Hostname:        proto.String(""),
+		Principal:       proto.String(""),
+	}
 
-	sched := scheduler.NewScheduler(schedulerConfig, shutdown)
-	controller := scheduler.NewController(sched, shutdown)
-	handlers := scheduler.NewHandlers(sched)
+	c := client.NewClient(schedulerConfig.Endpoint())
+	s := sched.NewScheduler(c, frameworkInfo)
 
 	log.Println("Starting executor server...")
 	go executorSrv.Serve()
 	log.Println("Starting API server...")
-	go apiSrv.RunAPI(sched)
+	go apiSrv.RunAPI()
 
-	log.Println("Starting framework scheduler...")
-	log.Fatal(sched.Run(controller.SchedulerCtrl(), controller.BuildConfig(
-		controller.BuildContext(),
-		sched.Caller(),
-		shutdown,
-		handlers,
-	)))
 }
