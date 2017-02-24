@@ -6,17 +6,24 @@ import (
 	"log"
 	client "mesos-framework-sdk/client"
 	mesos "mesos-framework-sdk/include/mesos"
+	"mesos-framework-sdk/include/scheduler"
 	sched "mesos-framework-sdk/scheduler"
+	"mesos-framework-sdk/scheduler/events/controller"
+	"mesos-framework-sdk/server"
+	"mesos-framework-sdk/server/file"
+	"mesos-framework-sdk/task_manager"
 	"sprint/scheduler"
-	"sprint/scheduler/server"
-	"sprint/scheduler/server/file"
 	"time"
 )
 
 // Entry point for the scheduler.
 // Parses configuration from user-supplied flags and prepares the scheduler for execution.
 func main() {
-	srvConfig := new(server.ServerConfiguration).Initialize()
+	cert := flag.String("server.cert", "", "TLS certificate")
+	key := flag.String("server.key", "", "TLS key")
+	path := flag.String("server.executor.path", "executor", "Path to the executor binary")
+	port := flag.Int("server.executor.port", 8081, "Executor server listen port")
+	srvConfig := server.NewConfiguration(cert, key, path, port)
 	schedulerConfig := new(scheduler.SchedulerConfiguration).Initialize().SetExecutorSrvCfg(srvConfig)
 
 	executorSrv := file.NewExecutorServer(srvConfig)
@@ -40,9 +47,10 @@ func main() {
 		Hostname:        proto.String(""),
 		Principal:       proto.String(""),
 	}
-	e := scheduler.NewEvents()
+	eventChan := make(chan *mesos_v1_scheduler.Event)
+	manager := task_manager.NewDefaultTaskManager()
 	c := client.NewClient(schedulerConfig.Endpoint())
-	s := sched.NewDefaultScheduler(c, frameworkInfo, e)
-	s.Run()
+	s := sched.NewDefaultScheduler(c, frameworkInfo)
+	e := controller.NewDefaultEventController(s, manager, eventChan)
 
 }
