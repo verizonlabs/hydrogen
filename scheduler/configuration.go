@@ -3,8 +3,8 @@ package scheduler
 import (
 	"flag"
 	"mesos-framework-sdk/include/mesos"
+	"mesos-framework-sdk/server"
 	"os/user"
-	"sprint/scheduler/server"
 	"time"
 )
 
