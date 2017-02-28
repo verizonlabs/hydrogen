@@ -5,7 +5,6 @@ Events handle all events that come through to the scheduler from the mesos-maste
 */
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"mesos-framework-sdk/include/mesos"
@@ -26,15 +25,14 @@ func NewEvents() *SprintEvents {
 func (e *SprintEvents) Subscribe(subEvent *mesos_v1_scheduler.Event_Subscribed) {
 	log.Println("Received subscribe event")
 
-	if subEvent.GetFrameworkId() == "" {
+	if subEvent.GetFrameworkId().GetValue() == "" {
 		e.FrameworkId = subEvent.GetFrameworkId()
 		if e.FrameworkId.GetValue() == "" {
-			return errors.New("mesos gave us an empty frameworkID")
+			log.Println("mesos gave us an empty frameworkID")
 		} else {
 			log.Println("Scheduler's framework ID is " + e.FrameworkId.GetValue())
 		}
 	}
-	return nil
 }
 
 func (e *SprintEvents) Rescind(*mesos_v1_scheduler.Event_Rescind) {
@@ -53,7 +51,7 @@ func (e *SprintEvents) Offers(eventOffers *mesos_v1_scheduler.Event_Offers) {
 // Handler for update events.
 func (e *SprintEvents) Update(updateEvent *mesos_v1_scheduler.Event_Update) {
 	log.Println("Received update event")
-	fmt.Printf(updateEvent)
+	fmt.Printf("%v", updateEvent)
 	//e.handlers.StatusUpdates(updateEvent.GetStatus())
 }
 
@@ -61,16 +59,16 @@ func (e *SprintEvents) Update(updateEvent *mesos_v1_scheduler.Event_Update) {
 func (e *SprintEvents) Failure(failureEvent *mesos_v1_scheduler.Event_Failure) {
 	log.Println("Received failure event")
 
-	if failureEvent.GetExecutorId().GetValue() != nil {
+	if failureEvent.GetExecutorId().GetValue() != "" {
 		msg := "Executor '" + failureEvent.GetExecutorId().GetValue() + "' terminated"
-		if failureEvent.GetAgentId().GetValue() != nil {
+		if failureEvent.GetAgentId().GetValue() != "" {
 			msg += " on agent '" + failureEvent.GetAgentId().GetValue() + "'"
 		}
-		if failureEvent.GetStatus() != nil {
+		if failureEvent.GetStatus() != 0 {
 			msg += " with status=" + strconv.Itoa(int(failureEvent.GetStatus()))
 		}
 		log.Println(msg)
-	} else if failureEvent.GetAgentId().GetValue() != nil {
+	} else if failureEvent.GetAgentId().GetValue() != "" {
 		log.Println("Agent '" + failureEvent.GetAgentId().GetValue() + "' terminated")
 	}
 }

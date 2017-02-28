@@ -23,7 +23,7 @@ func main() {
 	key := flag.String("server.key", "", "TLS key")
 	path := flag.String("server.executor.path", "executor", "Path to the executor binary")
 	port := flag.Int("server.executor.port", 8081, "Executor server listen port")
-	srvConfig := server.NewConfiguration(cert, key, path, port)
+	srvConfig := server.NewConfiguration(*cert, *key, *path, *port)
 	schedulerConfig := new(scheduler.SchedulerConfiguration).Initialize().SetExecutorSrvCfg(srvConfig)
 
 	executorSrv := file.NewExecutorServer(srvConfig)
@@ -52,5 +52,6 @@ func main() {
 	c := client.NewClient(schedulerConfig.Endpoint())
 	s := sched.NewDefaultScheduler(c, frameworkInfo)
 	e := controller.NewDefaultEventController(s, manager, eventChan)
+	e.Run()
 
 }
