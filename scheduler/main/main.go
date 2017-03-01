@@ -53,7 +53,7 @@ func main() {
 	c := client.NewClient(schedulerConfig.Endpoint())
 	s := sched.NewDefaultScheduler(c, frameworkInfo)
 	r := manager.NewDefaultResourceManager()
-	e := eventcontroller.NewSprintEventController(s, m, r, eventChan, 3)
+	e := eventcontroller.NewSprintEventController(s, m, r, eventChan, 1)
 
 	log.Println("Starting API server...")
 	go apiSrv.RunAPI(e)
