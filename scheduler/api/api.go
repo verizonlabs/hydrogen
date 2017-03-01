@@ -5,15 +5,14 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"io/ioutil"
 	"log"
-	"mesos-sdk"
-	"mesos-sdk/extras"
+	"mesos-framework-sdk/include/mesos"
+	"mesos-framework-sdk/server"
+	"mesos-framework-sdk/utils"
 	"net/http"
-	"northstar/mesos/taskmngr"
-	"sprint/scheduler"
-	"sprint/scheduler/server"
-	"sprint/scheduler/taskmanager"
+	"sprint/scheduler/eventcontroller"
 	"strconv"
 )
 
@@ -67,12 +66,12 @@ type UriJSON struct {
 }
 
 type ApiServer struct {
-	cfg     server.Configuration
-	port    *int
-	mux     *http.ServeMux
-	handle  map[string]http.HandlerFunc // route -> handler func for that route
-	sched   *scheduler.SprintScheduler
-	version string
+	cfg       server.Configuration
+	port      *int
+	mux       *http.ServeMux
+	handle    map[string]http.HandlerFunc // route -> handler func for that route
+	eventCtrl *eventcontroller.SprintEventController
+	version   string
 }
 
 func NewApiServer(cfg server.Configuration) *ApiServer {
@@ -93,15 +92,15 @@ func (a *ApiServer) Handle() map[string]http.HandlerFunc {
 func (a *ApiServer) setDefaultHandlers() {
 	a.handle = make(map[string]http.HandlerFunc, 4)
 	a.handle[baseUrl+deployEndpoint] = a.deploy
-	a.handle[baseUrl+statusEndpoint] = a.status
+	a.handle[baseUrl+statusEndpoint] = a.state
 }
 
 // RunAPI takes the scheduler controller and sets up the configuration for the API.
-func (a *ApiServer) RunAPI(scheduler *scheduler.SprintScheduler) {
+func (a *ApiServer) RunAPI(e *eventcontroller.SprintEventController) {
 	// Set our default handlers here.
 	a.setDefaultHandlers()
 
-	a.sched = scheduler
+	a.eventCtrl = e
 
 	// Iterate through all methods and setup endpoints.
 	for route, handle := range a.handle {
@@ -138,95 +137,50 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Allocate space for our resources.
-			var resources []mesos.Resource
-			var scalar = new(mesos.Value_Type)
-			*scalar = mesos.SCALAR
+			var resources []*mesos_v1.Resource
+			var scalar = new(mesos_v1.Value_Type)
+			*scalar = mesos_v1.Value_SCALAR
 
 			// Add our cpu resources
-			var cpu = mesos.Resource{
-				Name:   "cpu",
+			var cpu = &mesos_v1.Resource{
+				Name:   proto.String("cpu"),
 				Type:   scalar,
-				Scalar: &mesos.Value_Scalar{Value: m.Resources.Cpu},
+				Scalar: &mesos_v1.Value_Scalar{Value: proto.Float64(m.Resources.Cpu)},
 			}
 
 			// Add our memory resources
-			var mem = mesos.Resource{
-				Name:   "mem",
+			var mem = &mesos_v1.Resource{
+				Name:   proto.String("mem"),
 				Type:   scalar,
-				Scalar: &mesos.Value_Scalar{Value: m.Resources.Mem},
+				Scalar: &mesos_v1.Value_Scalar{Value: proto.Float64(m.Resources.Mem)},
 			}
 
 			// append into our resources slice.
 			resources = append(resources, cpu)
 			resources = append(resources, mem)
 
-			// TODO: diskinfo resources + external disks.
-			/*
-				var command = &mesos.CommandInfo{
-					Value: m.Command.Cmd,
-				}
+			uuid, err := utils.UuidToString(utils.Uuid())
+			if err != nil {
+				log.Println(err.Error())
+			}
 
-				// Setup our docker container from the API call
-				var docker = new(mesos.ContainerInfo_Type)
-				*docker = mesos.ContainerInfo_DOCKER
-				var container = &mesos.ContainerInfo{
-					Type: docker,
-					Docker: &mesos.ContainerInfo_DockerInfo{
-						Image: *m.Container.ImageName + ":" + *m.Container.Tag,
+			task := &mesos_v1.Task{
+				Name:      proto.String(m.Name),
+				TaskId:    &mesos_v1.TaskID{Value: proto.String(uuid)},
+				State:     mesos_v1.TaskState_TASK_STAGING.Enum(),
+				Resources: resources,
+				Container: &mesos_v1.ContainerInfo{
+					Type: mesos_v1.ContainerInfo_DOCKER.Enum(),
+					Docker: &mesos_v1.ContainerInfo_DockerInfo{
+						Image: m.Container.ImageName,
 					},
-				}
-			*/
-
-			// Final constructed task info
-			uuid, _ := extras.UuidToString(extras.Uuid())
-			/*
-				var taskInfo = mesos.TaskInfo{
-					Name:      m.Name,
-					TaskID:    mesos.TaskID{},
-					Resources: resources,
-					Command:   command,
-					Container: container,
-				}
-			*/
-
-			taskInfo := mesos.TaskInfo{
-				TaskID: mesos.TaskID{
-					Value: uuid,
-				},
-				Executor: &mesos.ExecutorInfo{
-					ExecutorID: mesos.ExecutorID{Value: uuid},
-					Name:       extras.ProtoString(m.Name),
-					Command: mesos.CommandInfo{
-						Value: extras.ProtoString("./executor"),
-						URIs: []mesos.CommandInfo_URI{
-							{
-								Value:      "http://10.0.2.2/executor",
-								Executable: extras.ProtoBool(true),
-							},
-						},
-					},
-					Resources: []mesos.Resource{
-						extras.Resource("cpus", 0.1),
-						extras.Resource("mem", 128.0),
-					},
-					Container: &mesos.ContainerInfo{
-						Type: mesos.ContainerInfo_MESOS.Enum(),
-					},
-				},
-				Resources: []mesos.Resource{
-					extras.Resource("cpus", 0.1),
-					extras.Resource("mem", 128.0),
 				},
 			}
 
-			newTask := taskmanager.TaskState{}
-			newTask.SetId(taskInfo.TaskID.Value)
-			newTask.SetStatus(taskmngr.QUEUED)
-			newTask.SetInfo(taskInfo)
-			a.sched.ReviveOffers()
-			a.sched.TaskManager().Add(&newTask)
+			a.eventCtrl.TaskManager().Add(task)
+			a.eventCtrl.Scheduler().Revive()
 
-			fmt.Fprintf(w, "%v", taskInfo)
+			fmt.Fprintf(w, "%v", task)
 		}
 	default:
 		{
@@ -237,21 +191,16 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 }
 
 // Status endpoint lets the end-user know about the TASK_STATUS of their task.
-func (a *ApiServer) status(w http.ResponseWriter, r *http.Request) {
+func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 	// We don't want to allow any other methods.
 	switch r.Method {
 	case "GET":
 		{
 			id := r.URL.Query().Get("taskID")
 
-			t := taskmanager.TaskState{}
-			t.SetId(id)
-			task, err := a.sched.TaskManager().HasTask(&t)
-			if err != nil {
-				fmt.Fprintf(w, "%v", err.Error())
-				return
-			}
-			fmt.Fprintf(w, "%v", task)
+			t := a.eventCtrl.TaskManager().Get(&mesos_v1.TaskID{Value: proto.String(id)})
+
+			fmt.Fprintf(w, "%v", t.GetState())
 
 		}
 	default:

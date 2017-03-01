@@ -7,12 +7,14 @@ import (
 	client "mesos-framework-sdk/client"
 	mesos "mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/include/scheduler"
+	"mesos-framework-sdk/resources/manager"
 	sched "mesos-framework-sdk/scheduler"
-	"mesos-framework-sdk/scheduler/events/controller"
 	"mesos-framework-sdk/server"
 	"mesos-framework-sdk/server/file"
 	"mesos-framework-sdk/task_manager"
 	"sprint/scheduler"
+	"sprint/scheduler/api"
+	"sprint/scheduler/eventcontroller"
 	"time"
 )
 
@@ -27,16 +29,13 @@ func main() {
 	schedulerConfig := new(scheduler.SchedulerConfiguration).Initialize().SetExecutorSrvCfg(srvConfig)
 
 	executorSrv := file.NewExecutorServer(srvConfig)
-	//apiSrv := api.NewApiServer(srvConfig)
+	apiSrv := api.NewApiServer(srvConfig)
 
 	// Parse here to catch flags defined in structures above.
 	flag.Parse()
 
 	log.Println("Starting executor server...")
 	go executorSrv.Serve()
-
-	//log.Println("Starting API server...")
-	//go apiSrv.RunAPI()
 
 	frameworkInfo := &mesos.FrameworkInfo{
 		User:            proto.String("root"),
@@ -47,11 +46,17 @@ func main() {
 		Hostname:        proto.String(""),
 		Principal:       proto.String(""),
 	}
+
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	manager := task_manager.NewDefaultTaskManager()
+
+	m := task_manager.NewDefaultTaskManager()
 	c := client.NewClient(schedulerConfig.Endpoint())
 	s := sched.NewDefaultScheduler(c, frameworkInfo)
-	e := controller.NewDefaultEventController(s, manager, eventChan)
+	r := manager.NewDefaultResourceManager()
+	e := eventcontroller.NewSprintEventController(s, m, r, eventChan, 3)
+
+	log.Println("Starting API server...")
+	go apiSrv.RunAPI(e)
 	e.Run()
 
 }
