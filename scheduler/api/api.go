@@ -164,15 +164,25 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 				log.Println(err.Error())
 			}
 
-			task := &mesos_v1.Task{
+			task := &mesos_v1.TaskInfo{
 				Name:      proto.String(m.Name),
 				TaskId:    &mesos_v1.TaskID{Value: proto.String(uuid)},
-				State:     mesos_v1.TaskState_TASK_STAGING.Enum(),
+				Command:   &mesos_v1.CommandInfo{Value: m.Command.Cmd},
 				Resources: resources,
 				Container: &mesos_v1.ContainerInfo{
 					Type: mesos_v1.ContainerInfo_DOCKER.Enum(),
 					Docker: &mesos_v1.ContainerInfo_DockerInfo{
 						Image: m.Container.ImageName,
+					},
+					NetworkInfos: []*mesos_v1.NetworkInfo{
+						{
+							IpAddresses: []*mesos_v1.NetworkInfo_IPAddress{
+								{
+									Protocol:  mesos_v1.NetworkInfo_IPv6.Enum(),
+									IpAddress: proto.String("fe80::3"),
+								},
+							},
+						},
 					},
 				},
 			}
@@ -199,8 +209,14 @@ func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 			id := r.URL.Query().Get("taskID")
 
 			t := a.eventCtrl.TaskManager().Get(&mesos_v1.TaskID{Value: proto.String(id)})
-
-			fmt.Fprintf(w, "%v", t.GetState())
+			queued := a.eventCtrl.TaskManager().QueuedTasks()
+			var status string
+			if _, ok := queued[t.GetTaskId().GetValue()]; ok {
+				status = "task " + t.GetTaskId().GetValue() + " is queued."
+			} else {
+				status = "task " + t.GetTaskId().GetValue() + " is launched."
+			}
+			fmt.Fprintf(w, "%v", status)
 
 		}
 	default:

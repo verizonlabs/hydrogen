@@ -77,14 +77,14 @@ func (s *SprintEventController) launchExecutors(num int) {
 	for i := 0; i < num; i++ {
 		id, _ := utils.UuidToString(utils.Uuid())
 		// Add tasks to task manager
-		task := &mesos_v1.Task{
-			Name:   proto.String("Sprint_" + id),
-			TaskId: &mesos_v1.TaskID{Value: proto.String(id)},
+		task := &mesos_v1.TaskInfo{
+			Name:    proto.String("Sprint_" + id),
+			TaskId:  &mesos_v1.TaskID{Value: proto.String(id)},
+			Command: &mesos_v1.CommandInfo{Value: proto.String("/bin/sleep 10")},
 			Resources: []*mesos_v1.Resource{
 				resources.CreateCpu(0.1, "*"),
 				resources.CreateMem(128.0, "*"),
 			},
-			State: mesos_v1.TaskState_TASK_STAGING.Enum(),
 		}
 		s.taskmanager.Add(task)
 	}
@@ -141,22 +141,13 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 	if s.taskmanager.HasQueuedTasks() {
 		// Update our resources in the manager
 		s.resourcemanager.AddOffers(offerEvent.GetOffers())
-		tasksToLaunch := []*mesos_v1.Task{}
 
-		// See which tasks still need to be launched.
-		for item := range s.taskmanager.Tasks().Iterate() {
-			t := item.Value.(mesos_v1.Task)
-			if t.GetState() == mesos_v1.TaskState_TASK_STAGING {
-				tasksToLaunch = append(tasksToLaunch, &t)
-			}
-		}
-
-		for _, item := range tasksToLaunch {
+		for _, mesosTask := range s.taskmanager.QueuedTasks() {
 			// See if we have resources.
 			if s.resourcemanager.HasResources() {
+
 				taskList := []*mesos_v1.TaskInfo{} // Clear it out every time.
 				operations := []*mesos_v1.Offer_Operation{}
-				mesosTask := item
 
 				offer, err := s.resourcemanager.Assign(mesosTask)
 				if err != nil {
@@ -165,25 +156,21 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 				}
 
 				t := &mesos_v1.TaskInfo{
-					Name:    mesosTask.Name,
-					TaskId:  mesosTask.TaskId,
-					AgentId: offer.AgentId,
-					Command: &mesos_v1.CommandInfo{
-						User:  proto.String("root"),
-						Value: proto.String("/bin/sleep 10"),
-					},
-					Resources: []*mesos_v1.Resource{
-						resources.CreateCpu(0.1, ""),
-						resources.CreateMem(64.0, ""),
-					},
+					Name:      mesosTask.Name,
+					TaskId:    mesosTask.GetTaskId(),
+					AgentId:   offer.GetAgentId(),
+					Command:   mesosTask.GetCommand(),
+					Container: mesosTask.GetContainer(),
+					Resources: mesosTask.GetResources(),
 				}
-
+				s.TaskManager().SetTaskLaunched(t)
 				taskList = append(taskList, t)
 
 				operations = append(operations, resources.LaunchOfferOperation(taskList))
 
 				log.Printf("Launching task %v\n", taskList)
 				s.scheduler.Accept(offerIDs, operations, nil)
+
 			}
 		}
 	} else {
@@ -205,10 +192,16 @@ func (s *SprintEventController) Rescind(rescindEvent *sched.Event_Rescind) {
 
 func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 	fmt.Printf("Update recieved for: %v\n", *updateEvent.GetStatus())
+	fmt.Printf("Network Info: %v\n", updateEvent.GetStatus().GetContainerStatus().GetNetworkInfos())
 
-	id := s.taskmanager.Get(updateEvent.GetStatus().GetTaskId())
-	s.taskmanager.SetTaskState(id, updateEvent.GetStatus().State)
-
+	task := s.taskmanager.Get(updateEvent.GetStatus().GetTaskId())
+	// TODO: Handle more states in regard to tasks.
+	if updateEvent.GetStatus().GetState() != mesos_v1.TaskState_TASK_FAILED {
+		// Only set the task to "launched" if it didn't fail.
+		s.taskmanager.SetTaskLaunched(task)
+	} else {
+		s.taskmanager.Delete(task)
+	}
 	status := updateEvent.GetStatus()
 	s.scheduler.Acknowledge(status.GetAgentId(), status.GetTaskId(), status.GetUuid())
 }
