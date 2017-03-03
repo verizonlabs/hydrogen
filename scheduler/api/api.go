@@ -58,8 +58,9 @@ type CommandJSON struct {
 
 //Struct to define our container image and tag.
 type ContainerJSON struct {
-	ImageName *string `json:"image"`
-	Tag       *string `json:"tag"`
+	ImageName *string                 `json:"image"`
+	Tag       *string                 `json:"tag"`
+	Network   []*mesos_v1.NetworkInfo `json:"network"`
 }
 
 //Struct to define our URI resources
