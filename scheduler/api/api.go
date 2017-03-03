@@ -20,6 +20,7 @@ const (
 	baseUrl        = "/v1/api"
 	deployEndpoint = "/deploy"
 	statusEndpoint = "/status"
+	killEndpoint   = "/kill"
 )
 
 //This struct represents the possible application configuration options for an end-user of sprint.
@@ -93,6 +94,7 @@ func (a *ApiServer) setDefaultHandlers() {
 	a.handle = make(map[string]http.HandlerFunc, 4)
 	a.handle[baseUrl+deployEndpoint] = a.deploy
 	a.handle[baseUrl+statusEndpoint] = a.state
+	a.handle[baseUrl+killEndpoint] = a.kill
 }
 
 // RunAPI takes the scheduler controller and sets up the configuration for the API.
@@ -197,6 +199,10 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, r.Method+" is not allowed on this endpoint.")
 		}
 	}
+
+}
+
+func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 
 }
 

@@ -80,7 +80,7 @@ func (s *SprintEventController) launchExecutors(num int) {
 		task := &mesos_v1.TaskInfo{
 			Name:    proto.String("Sprint_" + id),
 			TaskId:  &mesos_v1.TaskID{Value: proto.String(id)},
-			Command: &mesos_v1.CommandInfo{Value: proto.String("/bin/sleep 10")},
+			Command: &mesos_v1.CommandInfo{Value: proto.String("/bin/sleep 40000")},
 			Resources: []*mesos_v1.Resource{
 				resources.CreateCpu(0.1, "*"),
 				resources.CreateMem(128.0, "*"),
@@ -130,13 +130,6 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 	var reconcileTasks []*mesos_v1.Task
 	s.scheduler.Reconcile(reconcileTasks)
 
-	var offerIDs []*mesos_v1.OfferID
-
-	for num, offer := range offerEvent.GetOffers() {
-		fmt.Printf("Offer number: %v, Offer info: %v\n", num, offer)
-		offerIDs = append(offerIDs, offer.GetId())
-	}
-
 	// Check task manager for any active tasks.
 	if s.taskmanager.HasQueuedTasks() {
 		// Update our resources in the manager
@@ -145,7 +138,7 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 		for _, mesosTask := range s.taskmanager.QueuedTasks() {
 			// See if we have resources.
 			if s.resourcemanager.HasResources() {
-
+				offerIDs := []*mesos_v1.OfferID{}
 				taskList := []*mesos_v1.TaskInfo{} // Clear it out every time.
 				operations := []*mesos_v1.Offer_Operation{}
 
@@ -164,8 +157,9 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 					Resources: mesosTask.GetResources(),
 				}
 				s.TaskManager().SetTaskLaunched(t)
-				taskList = append(taskList, t)
 
+				taskList = append(taskList, t)
+				offerIDs = append(offerIDs, offer.Id)
 				operations = append(operations, resources.LaunchOfferOperation(taskList))
 
 				log.Printf("Launching task %v\n", taskList)
