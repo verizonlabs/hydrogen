@@ -1,6 +1,5 @@
 package api
 
-// TODO this needs to be hooked into the newer framework sdk.
 import (
 	"encoding/json"
 	"flag"
@@ -38,6 +37,10 @@ type ApplicationJSON struct {
 // Scripts, api end points, timers...etc?
 type HealthCheckJSON struct {
 	Endpoint *string `json:"endpoint"`
+}
+
+type KillJson struct {
+	TaskID *string `json:"taskid"`
 }
 
 //Struct to define our resources
@@ -203,6 +206,37 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "POST":
+		{
+			// Decode and unmarshal our JSON.
+			dec, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				return
+			}
+
+			var m KillJson
+			err = json.Unmarshal(dec, &m)
+			if err != nil {
+				return
+			}
+
+			var status string
+			if m.TaskID != nil {
+				t := a.eventCtrl.TaskManager().Get(&mesos_v1.TaskID{Value: m.TaskID})
+				a.eventCtrl.TaskManager().Delete(t)
+				a.eventCtrl.Scheduler().Kill(t.GetTaskId(), t.GetAgentId())
+				status = "Task " + t.GetTaskId().GetValue() + " killed."
+			} else {
+				status = "Task not found"
+			}
+			fmt.Fprintf(w, "%v", status)
+		}
+	default:
+		{
+			fmt.Fprintf(w, r.Method+" is not allowed on this endpoint.")
+		}
+	}
 
 }
 
