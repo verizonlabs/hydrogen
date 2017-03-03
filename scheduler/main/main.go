@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"github.com/golang/protobuf/proto"
 	"log"
 	"mesos-framework-sdk/client"
 	"mesos-framework-sdk/include/mesos"
@@ -17,7 +16,6 @@ import (
 	"sprint/scheduler/api"
 	"sprint/scheduler/eventcontroller"
 	"strings"
-	"time"
 )
 
 // Entry point for the scheduler.
@@ -31,7 +29,7 @@ func main() {
 	port := flag.Int("server.executor.port", 8081, "Executor server listen port")
 
 	srvConfig := server.NewConfiguration(*cert, *key, *path, *port)
-	schedulerConfig := new(scheduler.SchedulerConfiguration).Initialize().SetExecutorSrvCfg(srvConfig)
+	schedulerConfig := new(scheduler.SchedulerConfiguration).Initialize()
 	executorSrv := file.NewExecutorServer(srvConfig)
 	apiSrv := api.NewApiServer(srvConfig)
 
@@ -42,20 +40,20 @@ func main() {
 	go executorSrv.Serve()
 
 	frameworkInfo := &mesos_v1.FrameworkInfo{
-		User:            proto.String("root"),
-		Name:            proto.String("Sprint"),
-		FailoverTimeout: proto.Float64(5 * time.Second.Seconds()),
-		Checkpoint:      proto.Bool(true),
-		Role:            proto.String("*"),
-		Hostname:        proto.String(""),
-		Principal:       proto.String(""),
+		User:            &schedulerConfig.User,
+		Name:            &schedulerConfig.Name,
+		FailoverTimeout: &schedulerConfig.Failover,
+		Checkpoint:      &schedulerConfig.Checkpointing,
+		Role:            &schedulerConfig.Role,
+		Hostname:        &schedulerConfig.Hostname,
+		Principal:       &schedulerConfig.Principal,
 	}
 
 	eventChan := make(chan *mesos_v1_scheduler.Event)
 
-	kv := etcd.NewClient(strings.Split(schedulerConfig.PersistenceEndpoints(), ","), schedulerConfig.PersistenceTimeout())
+	kv := etcd.NewClient(strings.Split(schedulerConfig.StorageEndpoints, ","), schedulerConfig.StorageTimeout)
 	m := task_manager.NewDefaultTaskManager()
-	c := client.NewClient(schedulerConfig.Endpoint())
+	c := client.NewClient(schedulerConfig.MesosEndpoint)
 	s := sched.NewDefaultScheduler(c, frameworkInfo)
 	r := manager.NewDefaultResourceManager()
 	e := eventcontroller.NewSprintEventController(s, m, r, eventChan, kv)
