@@ -2,9 +2,9 @@ package scheduler
 
 import (
 	"flag"
-	"mesos-sdk"
+	"mesos-framework-sdk/include/mesos"
+	"mesos-framework-sdk/server"
 	"os/user"
-	"sprint/scheduler/server"
 	"time"
 )
 
@@ -15,7 +15,7 @@ type configuration interface {
 	Checkpointing() *bool
 	Principal() string
 	Command() *string
-	Uris() []mesos.CommandInfo_URI
+	Uris() []mesos_v1.CommandInfo_URI
 	Endpoint() string
 	Timeout() time.Duration
 	ReviveBurst() int
@@ -25,6 +25,7 @@ type configuration interface {
 	ExecutorSrvCfg() server.Configuration
 	ExecutorName() *string
 	ExecutorCmd() *string
+	Executors() int
 }
 
 // Configuration for the scheduler, populated by user-supplied flags.
@@ -34,7 +35,7 @@ type SchedulerConfiguration struct {
 	user           string
 	checkpointing  bool
 	principal      string
-	uris           []mesos.CommandInfo_URI
+	uris           []mesos_v1.CommandInfo_URI
 	command        string
 	timeout        time.Duration
 	reviveBurst    int
@@ -43,6 +44,7 @@ type SchedulerConfiguration struct {
 	executorSrvCfg server.Configuration
 	executorName   string
 	executorCmd    string
+	executors      int
 }
 
 // Applies values to the various configurations from user-supplied flags.
@@ -64,6 +66,7 @@ func (c *SchedulerConfiguration) Initialize() *SchedulerConfiguration {
 	flag.DurationVar(&c.maxRefuse, "maxRefuse", 5*time.Second, "Max length of time to refuse future offers")
 	flag.StringVar(&c.executorName, "executor.name", "Sprinter", "Name of the executor")
 	flag.StringVar(&c.executorCmd, "executor.command", "./executor", "Executor command")
+	flag.IntVar(&c.executors, "executor.count", 5, "Number of executors to run.")
 
 	return c
 }
@@ -88,7 +91,7 @@ func (c *SchedulerConfiguration) Command() *string {
 	return &c.command
 }
 
-func (c *SchedulerConfiguration) Uris() []mesos.CommandInfo_URI {
+func (c *SchedulerConfiguration) Uris() []mesos_v1.CommandInfo_URI {
 	return c.uris
 }
 
@@ -128,4 +131,8 @@ func (c *SchedulerConfiguration) ExecutorName() *string {
 
 func (c *SchedulerConfiguration) ExecutorCmd() *string {
 	return &c.executorCmd
+}
+
+func (c *SchedulerConfiguration) Executors() int {
+	return c.executors
 }
