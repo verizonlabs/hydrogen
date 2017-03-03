@@ -1,6 +1,5 @@
 package api
 
-// TODO this needs to be hooked into the newer framework sdk.
 import (
 	"encoding/json"
 	"flag"
@@ -20,6 +19,7 @@ const (
 	baseUrl        = "/v1/api"
 	deployEndpoint = "/deploy"
 	statusEndpoint = "/status"
+	killEndpoint   = "/kill"
 )
 
 //This struct represents the possible application configuration options for an end-user of sprint.
@@ -37,6 +37,10 @@ type ApplicationJSON struct {
 // Scripts, api end points, timers...etc?
 type HealthCheckJSON struct {
 	Endpoint *string `json:"endpoint"`
+}
+
+type KillJson struct {
+	TaskID *string `json:"taskid"`
 }
 
 //Struct to define our resources
@@ -93,6 +97,7 @@ func (a *ApiServer) setDefaultHandlers() {
 	a.handle = make(map[string]http.HandlerFunc, 4)
 	a.handle[baseUrl+deployEndpoint] = a.deploy
 	a.handle[baseUrl+statusEndpoint] = a.state
+	a.handle[baseUrl+killEndpoint] = a.kill
 }
 
 // RunAPI takes the scheduler controller and sets up the configuration for the API.
@@ -164,15 +169,25 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 				log.Println(err.Error())
 			}
 
-			task := &mesos_v1.Task{
+			task := &mesos_v1.TaskInfo{
 				Name:      proto.String(m.Name),
 				TaskId:    &mesos_v1.TaskID{Value: proto.String(uuid)},
-				State:     mesos_v1.TaskState_TASK_STAGING.Enum(),
+				Command:   &mesos_v1.CommandInfo{Value: m.Command.Cmd},
 				Resources: resources,
 				Container: &mesos_v1.ContainerInfo{
 					Type: mesos_v1.ContainerInfo_DOCKER.Enum(),
 					Docker: &mesos_v1.ContainerInfo_DockerInfo{
 						Image: m.Container.ImageName,
+					},
+					NetworkInfos: []*mesos_v1.NetworkInfo{
+						{
+							IpAddresses: []*mesos_v1.NetworkInfo_IPAddress{
+								{
+									Protocol:  mesos_v1.NetworkInfo_IPv6.Enum(),
+									IpAddress: proto.String("fe80::3"),
+								},
+							},
+						},
 					},
 				},
 			}
@@ -181,6 +196,41 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 			a.eventCtrl.Scheduler().Revive()
 
 			fmt.Fprintf(w, "%v", task)
+		}
+	default:
+		{
+			fmt.Fprintf(w, r.Method+" is not allowed on this endpoint.")
+		}
+	}
+
+}
+
+func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "POST":
+		{
+			// Decode and unmarshal our JSON.
+			dec, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				return
+			}
+
+			var m KillJson
+			err = json.Unmarshal(dec, &m)
+			if err != nil {
+				return
+			}
+
+			var status string
+			if m.TaskID != nil {
+				t := a.eventCtrl.TaskManager().Get(&mesos_v1.TaskID{Value: m.TaskID})
+				a.eventCtrl.TaskManager().Delete(t)
+				a.eventCtrl.Scheduler().Kill(t.GetTaskId(), t.GetAgentId())
+				status = "Task " + t.GetTaskId().GetValue() + " killed."
+			} else {
+				status = "Task not found"
+			}
+			fmt.Fprintf(w, "%v", status)
 		}
 	default:
 		{
@@ -199,8 +249,14 @@ func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 			id := r.URL.Query().Get("taskID")
 
 			t := a.eventCtrl.TaskManager().Get(&mesos_v1.TaskID{Value: proto.String(id)})
-
-			fmt.Fprintf(w, "%v", t.GetState())
+			queued := a.eventCtrl.TaskManager().QueuedTasks()
+			var status string
+			if _, ok := queued[t.GetTaskId().GetValue()]; ok {
+				status = "task " + t.GetTaskId().GetValue() + " is queued."
+			} else {
+				status = "task " + t.GetTaskId().GetValue() + " is launched."
+			}
+			fmt.Fprintf(w, "%v", status)
 
 		}
 	default:
