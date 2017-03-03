@@ -39,7 +39,7 @@ func (c *SchedulerConfiguration) Initialize() *SchedulerConfiguration {
 	flag.StringVar(&c.Principal, "principal", "Sprint", "Framework principal")
 	flag.StringVar(&c.StorageEndpoints, "persistence.endpoints", "http://127.0.0.1:2379", "Comma-separated list of storage endpoints")
 	flag.DurationVar(&c.StorageTimeout, "persistence.timeout", time.Second, "Storage request timeout")
-	flag.Float64Var(&c.Failover, "failover", 5*time.Second.Seconds(), "Framework failover timeout")
+	flag.Float64Var(&c.Failover, "failover", time.Minute.Minutes(), "Framework failover timeout")
 	flag.StringVar(&c.Hostname, "hostname", "", "The framework's hostname")
 
 	return c
