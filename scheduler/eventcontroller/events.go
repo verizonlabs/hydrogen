@@ -174,7 +174,7 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 		}
 		// decline offers.
 		fmt.Println("Declining offers.")
-		s.scheduler.Decline(ids, nil)
+		s.scheduler.Decline(ids, nil) // We want to make sure all offers are declined.
 		s.scheduler.Suppress()
 	}
 }

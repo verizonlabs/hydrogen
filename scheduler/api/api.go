@@ -218,6 +218,8 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 			var m KillJson
 			err = json.Unmarshal(dec, &m)
 			if err != nil {
+				// Improper json formatting.
+				fmt.Fprintf(w, "%v", err.Error())
 				return
 			}
 
@@ -228,7 +230,7 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 				a.eventCtrl.Scheduler().Kill(t.GetTaskId(), t.GetAgentId())
 				status = "Task " + t.GetTaskId().GetValue() + " killed."
 			} else {
-				status = "Task not found"
+				status = "Task not found."
 			}
 			fmt.Fprintf(w, "%v", status)
 		}
