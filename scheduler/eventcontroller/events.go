@@ -51,21 +51,28 @@ func (s *SprintEventController) ResourceManager() *manager.DefaultResourceManage
 
 func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	id := subEvent.GetFrameworkId()
+	idVal := id.GetValue()
 	s.scheduler.Info.Id = id
-	log.Printf("Subscribed with an ID of %s", id.GetValue())
+	s.kv.Create("/frameworkId", idVal)
+	log.Printf("Subscribed with an ID of %s", idVal)
 }
 
 func (s *SprintEventController) Run() {
-	if s.scheduler.FrameworkInfo().GetId() == nil {
-		err := s.scheduler.Subscribe(s.events)
-		if err != nil {
-			log.Printf("Error: %v", err.Error())
-		}
+	id, err := s.kv.Read("/frameworkId")
+	if err == nil {
+		s.scheduler.Info.Id = &mesos_v1.FrameworkID{Value: &id}
+	}
 
-		select {
-		case e := <-s.events:
-			s.Subscribe(e.GetSubscribed())
-		}
+	// TODO err is always nil here because of how Subscribe() is implemented
+	err = s.scheduler.Subscribe(s.events)
+	if err != nil {
+		log.Printf("Failed to subscribe: %s", err.Error())
+		return // TODO retry instead of returning
+	}
+
+	select {
+	case e := <-s.events:
+		s.Subscribe(e.GetSubscribed())
 	}
 	s.Listen()
 }
