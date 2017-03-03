@@ -9,6 +9,7 @@ import (
 	"log"
 	"mesos-framework-sdk/include/mesos"
 	sched "mesos-framework-sdk/include/scheduler"
+	"mesos-framework-sdk/persistence"
 	"mesos-framework-sdk/resources"
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
@@ -22,16 +23,16 @@ type SprintEventController struct {
 	taskmanager     *task_manager.DefaultTaskManager
 	resourcemanager *manager.DefaultResourceManager
 	events          chan *sched.Event
-	numOfExecutors  int
+	kv              persistence.KVStorage
 }
 
-func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *task_manager.DefaultTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, e int) *SprintEventController {
+func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *task_manager.DefaultTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, kv persistence.KVStorage) *SprintEventController {
 	return &SprintEventController{
 		taskmanager:     manager,
 		scheduler:       scheduler,
 		events:          eventChan,
 		resourcemanager: resourceManager,
-		numOfExecutors:  e,
+		kv:              kv,
 	}
 }
 
@@ -67,7 +68,7 @@ func (s *SprintEventController) Run() {
 			s.scheduler.Info.Id = id
 			log.Printf("Subscribed with an ID of %s", id.GetValue())
 		}
-		s.launchExecutors(s.numOfExecutors)
+		s.launchExecutors(1)
 	}
 	s.Listen()
 }

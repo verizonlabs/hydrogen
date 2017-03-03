@@ -17,7 +17,6 @@ type configuration interface {
 	Command() *string
 	Uris() []mesos_v1.CommandInfo_URI
 	Endpoint() string
-	Timeout() time.Duration
 	ReviveBurst() int
 	ReviveWait() time.Duration
 	MaxRefuse() time.Duration
@@ -26,6 +25,8 @@ type configuration interface {
 	ExecutorName() *string
 	ExecutorCmd() *string
 	Executors() int
+	PersistenceTimeout() time.Duration
+	PersistenceEndpoints() string
 }
 
 // Configuration for the scheduler, populated by user-supplied flags.
@@ -37,7 +38,6 @@ type SchedulerConfiguration struct {
 	principal      string
 	uris           []mesos_v1.CommandInfo_URI
 	command        string
-	timeout        time.Duration
 	reviveBurst    int
 	reviveWait     time.Duration
 	maxRefuse      time.Duration
@@ -45,6 +45,8 @@ type SchedulerConfiguration struct {
 	executorName   string
 	executorCmd    string
 	executors      int
+	endpoints      string
+	timeout        time.Duration
 }
 
 // Applies values to the various configurations from user-supplied flags.
@@ -60,13 +62,14 @@ func (c *SchedulerConfiguration) Initialize() *SchedulerConfiguration {
 	flag.BoolVar(&c.checkpointing, "checkpointing", true, "Enable or disable checkpointing")
 	flag.StringVar(&c.principal, "principal", "Sprint", "Framework principal")
 	flag.StringVar(&c.command, "command", "", "Executor command")
-	flag.DurationVar(&c.timeout, "timeout", 20*time.Second, "Mesos connection timeout")
 	flag.IntVar(&c.reviveBurst, "revive.burst", 3, "Number of revive messages that may be sent in a burst within revive-wait period")
 	flag.DurationVar(&c.reviveWait, "revive.wait", 1*time.Second, "Wait this long to fully recharge revive-burst quota")
 	flag.DurationVar(&c.maxRefuse, "maxRefuse", 5*time.Second, "Max length of time to refuse future offers")
 	flag.StringVar(&c.executorName, "executor.name", "Sprinter", "Name of the executor")
 	flag.StringVar(&c.executorCmd, "executor.command", "./executor", "Executor command")
 	flag.IntVar(&c.executors, "executor.count", 5, "Number of executors to run.")
+	flag.StringVar(&c.endpoints, "persistence.endpoints", "http://127.0.0.1:2379", "Comma-separated list of storage endpoints")
+	flag.DurationVar(&c.timeout, "persistence.timeout", time.Second, "Storage request timeout")
 
 	return c
 }
@@ -93,10 +96,6 @@ func (c *SchedulerConfiguration) Command() *string {
 
 func (c *SchedulerConfiguration) Uris() []mesos_v1.CommandInfo_URI {
 	return c.uris
-}
-
-func (c *SchedulerConfiguration) Timeout() time.Duration {
-	return c.timeout
 }
 
 func (c *SchedulerConfiguration) Endpoint() string {
@@ -135,4 +134,12 @@ func (c *SchedulerConfiguration) ExecutorCmd() *string {
 
 func (c *SchedulerConfiguration) Executors() int {
 	return c.executors
+}
+
+func (c *SchedulerConfiguration) PersistenceTimeout() time.Duration {
+	return c.timeout
+}
+
+func (c *SchedulerConfiguration) PersistenceEndpoints() string {
+	return c.endpoints
 }

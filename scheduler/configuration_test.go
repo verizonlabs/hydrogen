@@ -22,7 +22,7 @@ func (m *MockConfiguration) Initialize() *SchedulerConfiguration {
 	m.cfg.principal = "Sprint"
 	m.cfg.reviveBurst = 3
 	m.cfg.reviveWait = 1 * time.Second
-	m.cfg.timeout = 20 * time.Second
+	m.cfg.timeout = time.Second
 	m.cfg.maxRefuse = 5 * time.Second
 	m.cfg.executorSrvCfg = *new(server.Configuration)
 	m.cfg.executorName = "Sprinter"
@@ -55,8 +55,12 @@ func (m *MockConfiguration) Uris() []mesos_v1.CommandInfo_URI {
 	return m.cfg.uris
 }
 
-func (m *MockConfiguration) Timeout() time.Duration {
+func (m *MockConfiguration) PersistenceTimeout() time.Duration {
 	return m.cfg.timeout
+}
+
+func (m *MockConfiguration) PersistenceEndpoints() string {
+	return m.cfg.endpoints
 }
 
 func (m *MockConfiguration) Endpoint() string {
@@ -115,7 +119,7 @@ func TestSchedulerConfiguration_Initialize(t *testing.T) {
 	if sprintConfig.principal != cfg.Principal() {
 		t.Fatal("Invalid framework principal")
 	}
-	if sprintConfig.timeout != cfg.Timeout() {
+	if sprintConfig.timeout != cfg.PersistenceTimeout() {
 		t.Fatal("Timeout value is not consistent")
 	}
 	if sprintConfig.reviveBurst != cfg.ReviveBurst() {
@@ -189,7 +193,7 @@ func TestSchedulerConfiguration_Uris(t *testing.T) {
 func TestSchedulerConfiguration_Timeout(t *testing.T) {
 	t.Parallel()
 
-	if sprintConfig.Timeout() != 20*time.Second {
+	if sprintConfig.PersistenceTimeout() != time.Second {
 		t.Fatal("Timeout is not set to the right value")
 	}
 }
