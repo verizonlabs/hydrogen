@@ -53,8 +53,12 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	id := subEvent.GetFrameworkId()
 	idVal := id.GetValue()
 	s.scheduler.Info.Id = id
-	s.kv.Create("/frameworkId", idVal)
 	log.Printf("Subscribed with an ID of %s", idVal)
+
+	s.kv.Create("/frameworkId", idVal)
+
+	// Create this here to avoid checking if we need to create/update in other areas.
+	s.kv.Create("/tasks", "")
 }
 
 func (s *SprintEventController) Run() {
@@ -92,7 +96,6 @@ func (s *SprintEventController) Listen() {
 			case sched.Event_MESSAGE:
 				go s.Message(t.GetMessage())
 			case sched.Event_OFFERS:
-				log.Println("Offers...")
 				go s.Offers(t.GetOffers())
 			case sched.Event_RESCIND:
 				go s.Rescind(t.GetRescind())
@@ -147,9 +150,9 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 				offerIDs = append(offerIDs, offer.Id)
 				operations = append(operations, resources.LaunchOfferOperation(taskList))
 
+				s.kv.Update("/tasks", t.String())
 				log.Printf("Launching task %v\n", taskList)
 				s.scheduler.Accept(offerIDs, operations, nil)
-
 			}
 		}
 	} else {

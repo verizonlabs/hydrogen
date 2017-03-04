@@ -22,7 +22,7 @@ import (
 // Parses configuration from user-supplied flags and prepares the scheduler for execution.
 func main() {
 
-	// Executor server configuration.
+	// Executor/API server configuration.
 	cert := flag.String("server.cert", "", "TLS certificate")
 	key := flag.String("server.key", "", "TLS key")
 	path := flag.String("server.executor.path", "executor", "Path to the executor binary")
