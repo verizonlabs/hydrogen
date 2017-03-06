@@ -113,10 +113,6 @@ func (s *SprintEventController) Listen() {
 }
 
 func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
-	fmt.Println("Offers event recieved.")
-	//Reconcile any tasks.
-	var reconcileTasks []*mesos_v1.Task
-	s.scheduler.Reconcile(reconcileTasks) // TODO this currently fails with "Failed to validate scheduler::Call: Expecting 'reconcile' to be present"
 
 	// Check task manager for any active tasks.
 	if s.taskmanager.HasQueuedTasks() {
