@@ -105,7 +105,6 @@ func (s *SprintEventController) Listen() {
 			case sched.Event_UPDATE:
 				go s.Update(t.GetUpdate())
 			case sched.Event_HEARTBEAT:
-				fmt.Println("Heart beat.")
 			case sched.Event_UNKNOWN:
 				fmt.Println("Unknown event recieved.")
 			}
