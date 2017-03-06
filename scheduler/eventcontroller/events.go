@@ -5,6 +5,7 @@ Adapted from mesos-framework-sdk
 */
 import (
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"log"
 	"mesos-framework-sdk/include/mesos"
 	sched "mesos-framework-sdk/include/scheduler"
@@ -146,7 +147,8 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 				offerIDs = append(offerIDs, offer.Id)
 				operations = append(operations, resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
 
-				s.kv.Update("/tasks", t.String())
+				data := proto.MarshalTextString(t)
+				s.kv.Create("/task/"+t.TaskId.GetValue(), data)
 			}
 		}
 		s.scheduler.Accept(offerIDs, operations, nil)
