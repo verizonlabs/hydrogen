@@ -175,9 +175,14 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 				Command:   &mesos_v1.CommandInfo{Value: m.Command.Cmd},
 				Resources: resources,
 				Container: &mesos_v1.ContainerInfo{
-					Type: mesos_v1.ContainerInfo_DOCKER.Enum(),
-					Docker: &mesos_v1.ContainerInfo_DockerInfo{
-						Image: m.Container.ImageName,
+					Type: mesos_v1.ContainerInfo_MESOS.Enum(),
+					Mesos: &mesos_v1.ContainerInfo_MesosInfo{
+						Image: &mesos_v1.Image{
+							Docker: &mesos_v1.Image_Docker{
+								Name: m.Container.ImageName,
+							},
+							Type: mesos_v1.Image_DOCKER.Enum(),
+						},
 					},
 					NetworkInfos: []*mesos_v1.NetworkInfo{
 						{
