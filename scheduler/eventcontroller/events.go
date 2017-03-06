@@ -185,16 +185,13 @@ func (s *SprintEventController) Rescind(rescindEvent *sched.Event_Rescind) {
 }
 
 func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
-	fmt.Printf("Update recieved for: %v\n", *updateEvent.GetStatus())
-	fmt.Printf("Network Info: %v\n", updateEvent.GetStatus().GetContainerStatus().GetNetworkInfos())
-
-	task := s.taskmanager.Get(updateEvent.GetStatus().GetTaskId())
-	// TODO: Handle more states in regard to tasks.
-	if updateEvent.GetStatus().GetState() != mesos_v1.TaskState_TASK_FAILED {
-		// Only set the task to "launched" if it didn't fail.
-		s.taskmanager.SetTaskLaunched(task)
-	} else {
-		s.taskmanager.Delete(task)
+	task := s.taskmanager.GetById(updateEvent.GetStatus().GetTaskId())
+	if task != nil {
+		if updateEvent.GetStatus().GetState() != mesos_v1.TaskState_TASK_FAILED {
+			s.taskmanager.SetTaskLaunched(task)
+		} else {
+			s.taskmanager.Delete(task)
+		}
 	}
 	status := updateEvent.GetStatus()
 	s.scheduler.Acknowledge(status.GetAgentId(), status.GetTaskId(), status.GetUuid())
