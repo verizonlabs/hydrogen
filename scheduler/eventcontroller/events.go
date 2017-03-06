@@ -56,10 +56,7 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	s.scheduler.Info.Id = id
 	log.Printf("Subscribed with an ID of %s", idVal)
 
-	s.kv.Create("/frameworkId", idVal)
-
-	// Create this here to avoid checking if we need to create/update in other areas.
-	s.kv.Create("/tasks", "")
+	s.kv.Update("/frameworkId", idVal)
 }
 
 func (s *SprintEventController) Run() {
