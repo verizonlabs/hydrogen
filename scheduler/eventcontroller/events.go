@@ -123,12 +123,12 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 		// Update our resources in the manager
 		s.resourcemanager.AddOffers(offerEvent.GetOffers())
 
+		offerIDs := []*mesos_v1.OfferID{}
+		operations := []*mesos_v1.Offer_Operation{}
+
 		for _, mesosTask := range s.taskmanager.QueuedTasks() {
 			// See if we have resources.
 			if s.resourcemanager.HasResources() {
-				offerIDs := []*mesos_v1.OfferID{}
-				taskList := []*mesos_v1.TaskInfo{} // Clear it out every time.
-				operations := []*mesos_v1.Offer_Operation{}
 
 				offer, err := s.resourcemanager.Assign(mesosTask)
 				if err != nil {
@@ -144,17 +144,16 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 					Container: mesosTask.GetContainer(),
 					Resources: mesosTask.GetResources(),
 				}
+
 				s.TaskManager().SetTaskLaunched(t)
 
-				taskList = append(taskList, t)
 				offerIDs = append(offerIDs, offer.Id)
-				operations = append(operations, resources.LaunchOfferOperation(taskList))
+				operations = append(operations, resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
 
 				s.kv.Update("/tasks", t.String())
-				log.Printf("Launching task %v\n", taskList)
-				s.scheduler.Accept(offerIDs, operations, nil)
 			}
 		}
+		s.scheduler.Accept(offerIDs, operations, nil)
 	} else {
 		var ids []*mesos_v1.OfferID
 		for _, v := range offerEvent.GetOffers() {
