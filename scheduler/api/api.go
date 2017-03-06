@@ -58,8 +58,9 @@ type CommandJSON struct {
 
 //Struct to define our container image and tag.
 type ContainerJSON struct {
-	ImageName *string `json:"image"`
-	Tag       *string `json:"tag"`
+	ImageName *string                 `json:"image"`
+	Tag       *string                 `json:"tag"`
+	Network   []*mesos_v1.NetworkInfo `json:"network"`
 }
 
 //Struct to define our URI resources
@@ -223,6 +224,8 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 			var m KillJson
 			err = json.Unmarshal(dec, &m)
 			if err != nil {
+				// Improper json formatting.
+				fmt.Fprintf(w, "%v", err.Error())
 				return
 			}
 
@@ -233,7 +236,7 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 				a.eventCtrl.Scheduler().Kill(t.GetTaskId(), t.GetAgentId())
 				status = "Task " + t.GetTaskId().GetValue() + " killed."
 			} else {
-				status = "Task not found"
+				status = "Task not found."
 			}
 			fmt.Fprintf(w, "%v", status)
 		}
