@@ -59,8 +59,6 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	s.scheduler.Info.Id = id
 	log.Printf("Subscribed with an ID of %s", idVal)
 
-	// TODO enhance etcd client so that we can save this key with a lease corresponding to our failover timeout.
-	// Otherwise we run into trouble with resubscribing as the key always exists.
 	if err := s.kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout())); err != nil {
 		log.Printf("Failed to save framework ID of %s to persistent data store", idVal)
 	}
