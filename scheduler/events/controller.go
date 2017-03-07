@@ -9,7 +9,7 @@ import (
 	"log"
 	"mesos-framework-sdk/include/mesos"
 	sched "mesos-framework-sdk/include/scheduler"
-	"mesos-framework-sdk/persistence"
+	"mesos-framework-sdk/persistence/drivers/etcd"
 	"mesos-framework-sdk/resources"
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
@@ -22,10 +22,10 @@ type SprintEventController struct {
 	taskmanager     *task_manager.DefaultTaskManager
 	resourcemanager *manager.DefaultResourceManager
 	events          chan *sched.Event
-	kv              persistence.KVStorage
+	kv              *etcd.Etcd
 }
 
-func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *task_manager.DefaultTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, kv persistence.KVStorage) *SprintEventController {
+func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *task_manager.DefaultTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, kv *etcd.Etcd) *SprintEventController {
 	return &SprintEventController{
 		taskmanager:     manager,
 		scheduler:       scheduler,
@@ -58,7 +58,7 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 
 	// TODO enhance etcd client so that we can save this key with a lease corresponding to our failover timeout.
 	// Otherwise we run into trouble with resubscribing as the key always exists.
-	if err := s.kv.Update("/frameworkId", idVal); err != nil {
+	if err := s.kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout())); err != nil {
 		log.Printf("Failed to save framework ID of %s to persistent data store", idVal)
 	}
 }
@@ -180,8 +180,6 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 			// TODO this is done in the offers method above. Which spot do we want to do this in?
 			s.taskmanager.SetTaskLaunched(task)
 		} else {
-
-			// TODO possible leak here. Task is deleted from the primary map but not the map of launched tasks
 			s.taskmanager.Delete(task)
 			id := task.TaskId.GetValue()
 			if err := s.kv.Delete("/task/" + id); err != nil {
