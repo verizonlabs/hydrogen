@@ -8,6 +8,8 @@ import (
 	"io/ioutil"
 	"log"
 	"mesos-framework-sdk/include/mesos"
+	resourcebuilder "mesos-framework-sdk/resources"
+	taskbuilder "mesos-framework-sdk/resources/task"
 	"mesos-framework-sdk/server"
 	"mesos-framework-sdk/utils"
 	"net/http"
@@ -20,55 +22,8 @@ const (
 	deployEndpoint = "/deploy"
 	statusEndpoint = "/status"
 	killEndpoint   = "/kill"
+	updateEndpoint = "/update"
 )
-
-//This struct represents the possible application configuration options for an end-user of sprint.
-//Standardized to lower case.
-type ApplicationJSON struct {
-	Name        string              `json:"name"`
-	Resources   *ResourceJSON       `json:"resources"`
-	Command     *CommandJSON        `json:"command"`
-	Container   *ContainerJSON      `json:"container"`
-	HealthCheck *HealthCheckJSON    `json:"healthcheck"`
-	Labels      []map[string]string `json:"labels"`
-}
-
-// How do we want to define health checks?
-// Scripts, api end points, timers...etc?
-type HealthCheckJSON struct {
-	Endpoint *string `json:"endpoint"`
-}
-
-type KillJson struct {
-	TaskID *string `json:"taskid"`
-}
-
-//Struct to define our resources
-type ResourceJSON struct {
-	Mem  float64 `json:"mem"`
-	Cpu  float64 `json:"cpu"`
-	Disk float64 `json:"disk"`
-}
-
-//Struct to define a command for our container.
-type CommandJSON struct {
-	Cmd  *string   `json:"cmd"`
-	Uris []UriJSON `json:"uris"`
-}
-
-//Struct to define our container image and tag.
-type ContainerJSON struct {
-	ImageName *string                 `json:"image"`
-	Tag       *string                 `json:"tag"`
-	Network   []*mesos_v1.NetworkInfo `json:"network"`
-}
-
-//Struct to define our URI resources
-type UriJSON struct {
-	Uri     *string `json:"uri"`
-	Extract *bool   `json:"extract"`
-	Execute *bool   `json:"execute"`
-}
 
 type ApiServer struct {
 	cfg       server.Configuration
@@ -99,6 +54,7 @@ func (a *ApiServer) setDefaultHandlers() {
 	a.handle[baseUrl+deployEndpoint] = a.deploy
 	a.handle[baseUrl+statusEndpoint] = a.state
 	a.handle[baseUrl+killEndpoint] = a.kill
+	a.handle[baseUrl+updateEndpoint] = a.update
 }
 
 // RunAPI takes the scheduler controller and sets up the configuration for the API.
@@ -122,20 +78,18 @@ func (a *ApiServer) RunAPI(e *eventcontroller.SprintEventController) {
 	}
 }
 
-//Deploy endpoint will parse given JSON and create a given TaskInfo for the scheduler to execute.
+// Deploys a give application from parsed JSON
 func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
-	// We don't want to allow any other methods.
 	switch r.Method {
 	case "POST":
 		{
-			// Decode and unmarshal our JSON.
 			dec, err := ioutil.ReadAll(r.Body)
 			if err != nil {
 				fmt.Fprintf(w, err.Error())
 				return
 			}
 
-			var m ApplicationJSON
+			var m taskbuilder.ApplicationJSON
 			err = json.Unmarshal(dec, &m)
 			if err != nil {
 				fmt.Fprintf(w, err.Error())
@@ -165,6 +119,22 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 			resources = append(resources, cpu)
 			resources = append(resources, mem)
 
+			networks := []*mesos_v1.NetworkInfo{}
+			for _, network := range m.Container.Network {
+				ips := []*mesos_v1.NetworkInfo_IPAddress{}
+				for range network.IpAddresses {
+					i := &mesos_v1.NetworkInfo_IPAddress{
+						IpAddress: proto.String(""),
+						Protocol:  mesos_v1.NetworkInfo_IPv6.Enum(),
+					}
+					ips = append(ips, i)
+				}
+				n := &mesos_v1.NetworkInfo{
+					IpAddresses: ips,
+				}
+				networks = append(networks, n)
+			}
+
 			uuid, err := utils.UuidToString(utils.Uuid())
 			if err != nil {
 				log.Println(err.Error())
@@ -179,24 +149,17 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 					Type: mesos_v1.ContainerInfo_MESOS.Enum(),
 					Mesos: &mesos_v1.ContainerInfo_MesosInfo{
 						Image: &mesos_v1.Image{
+							Type: mesos_v1.Image_DOCKER.Enum(),
 							Docker: &mesos_v1.Image_Docker{
 								Name: m.Container.ImageName,
 							},
-							Type: mesos_v1.Image_DOCKER.Enum(),
 						},
 					},
-					NetworkInfos: []*mesos_v1.NetworkInfo{
-						{
-							IpAddresses: []*mesos_v1.NetworkInfo_IPAddress{
-								{
-									Protocol:  mesos_v1.NetworkInfo_IPv6.Enum(),
-									IpAddress: proto.String("fe80::3"),
-								},
-							},
-						},
-					},
+					NetworkInfos: networks,
 				},
 			}
+
+			fmt.Println(task.GetContainer())
 
 			a.eventCtrl.TaskManager().Add(task)
 			a.eventCtrl.Scheduler().Revive()
@@ -211,30 +174,107 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "POST":
+		{
+			dec, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				fmt.Fprintf(w, err.Error())
+				return
+			}
+
+			var m taskbuilder.ApplicationJSON
+			err = json.Unmarshal(dec, &m)
+			if err != nil {
+				fmt.Fprintf(w, err.Error())
+				return
+			}
+
+			// Check if this task already exists
+			taskToKill, err := a.eventCtrl.TaskManager().Get(&m.Name)
+			if err != nil {
+				fmt.Fprintf(w, err.Error())
+				return
+			}
+
+			var resources []*mesos_v1.Resource
+
+			var cpu = resourcebuilder.CreateCpu(m.Resources.Cpu, "*")
+			var mem = resourcebuilder.CreateMem(m.Resources.Mem, "*")
+
+			networks, err := taskbuilder.ParseNetworkJSON(m.Container.Network)
+			if err != nil {
+				// This isn't a fatal error so we can log this as debug and move along.
+				log.Println("No explicit network info passed in.")
+			}
+
+			// append into our resources slice.
+			resources = append(resources, cpu, mem)
+
+			uuid, err := utils.UuidToString(utils.Uuid())
+			if err != nil {
+				log.Println(err.Error())
+			}
+
+			task := &mesos_v1.TaskInfo{
+				Name:      proto.String(m.Name),
+				TaskId:    &mesos_v1.TaskID{Value: proto.String(uuid)},
+				Command:   resourcebuilder.CreateSimpleCommandInfo(m.Command.Cmd, nil),
+				Resources: resources,
+				Container: &mesos_v1.ContainerInfo{
+					Type: mesos_v1.ContainerInfo_MESOS.Enum(),
+					Mesos: &mesos_v1.ContainerInfo_MesosInfo{
+						Image: &mesos_v1.Image{
+							Type: mesos_v1.Image_DOCKER.Enum(),
+							Docker: &mesos_v1.Image_Docker{
+								Name: m.Container.ImageName,
+							},
+						},
+					},
+					NetworkInfos: networks,
+				},
+			}
+			// TODO: Instead of immediately launching new task and killing the old one, have A/B deployments?
+			a.eventCtrl.TaskManager().Add(task)
+			a.eventCtrl.Scheduler().Revive()
+			a.eventCtrl.TaskManager().Delete(taskToKill)
+			a.eventCtrl.Scheduler().Kill(taskToKill.GetTaskId(), taskToKill.GetAgentId())
+
+		}
+	default:
+		{
+			fmt.Fprintf(w, r.Method+" is not allowed on this endpoint.")
+		}
+	}
+}
+
 func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
 		{
-			// Decode and unmarshal our JSON.
 			dec, err := ioutil.ReadAll(r.Body)
 			if err != nil {
 				return
 			}
 
-			var m KillJson
+			var m taskbuilder.KillJson
 			err = json.Unmarshal(dec, &m)
 			if err != nil {
-				// Improper json formatting.
 				fmt.Fprintf(w, "%v", err.Error())
 				return
 			}
 
 			var status string
-			if m.TaskID != nil {
-				t := a.eventCtrl.TaskManager().Get(&mesos_v1.TaskID{Value: m.TaskID})
-				a.eventCtrl.TaskManager().Delete(t)
-				a.eventCtrl.Scheduler().Kill(t.GetTaskId(), t.GetAgentId())
-				status = "Task " + t.GetTaskId().GetValue() + " killed."
+			if m.Name != nil {
+				t, err := a.eventCtrl.TaskManager().Get(m.Name)
+				if err != nil {
+					a.eventCtrl.TaskManager().Delete(t)
+					a.eventCtrl.Scheduler().Kill(t.GetTaskId(), t.GetAgentId())
+					status = "Task " + t.GetName() + " killed."
+				} else {
+					status = "Unable to retrieve task from task manager."
+				}
 			} else {
 				status = "Task not found."
 			}
@@ -250,19 +290,22 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 
 // Status endpoint lets the end-user know about the TASK_STATUS of their task.
 func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
-	// We don't want to allow any other methods.
 	switch r.Method {
 	case "GET":
 		{
-			id := r.URL.Query().Get("taskID")
+			name := r.URL.Query().Get("name")
 
-			t := a.eventCtrl.TaskManager().Get(&mesos_v1.TaskID{Value: proto.String(id)})
+			t, err := a.eventCtrl.TaskManager().Get(&name)
+			if err != nil {
+				fmt.Fprintf(w, "Task not found, error %v", err.Error())
+				return
+			}
 			queued := a.eventCtrl.TaskManager().QueuedTasks()
 			var status string
 			if _, ok := queued[t.GetTaskId().GetValue()]; ok {
-				status = "task " + t.GetTaskId().GetValue() + " is queued."
+				status = "task " + t.GetName() + " is queued."
 			} else {
-				status = "task " + t.GetTaskId().GetValue() + " is launched."
+				status = "task " + t.GetName() + " is launched."
 			}
 			fmt.Fprintf(w, "%v", status)
 
