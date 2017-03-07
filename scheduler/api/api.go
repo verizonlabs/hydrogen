@@ -119,20 +119,10 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 			resources = append(resources, cpu)
 			resources = append(resources, mem)
 
-			networks := []*mesos_v1.NetworkInfo{}
-			for _, network := range m.Container.Network {
-				ips := []*mesos_v1.NetworkInfo_IPAddress{}
-				for range network.IpAddresses {
-					i := &mesos_v1.NetworkInfo_IPAddress{
-						IpAddress: proto.String(""),
-						Protocol:  mesos_v1.NetworkInfo_IPv6.Enum(),
-					}
-					ips = append(ips, i)
-				}
-				n := &mesos_v1.NetworkInfo{
-					IpAddresses: ips,
-				}
-				networks = append(networks, n)
+			networks, err := taskbuilder.ParseNetworkJSON(m.Container.Network)
+			if err != nil {
+				// This isn't a fatal error so we can log this as debug and move along.
+				log.Println("No explicit network info passed in.")
 			}
 
 			uuid, err := utils.UuidToString(utils.Uuid())
@@ -158,8 +148,6 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 					NetworkInfos: networks,
 				},
 			}
-
-			fmt.Println(task.GetContainer())
 
 			a.eventCtrl.TaskManager().Add(task)
 			a.eventCtrl.Scheduler().Revive()
@@ -235,7 +223,7 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 					NetworkInfos: networks,
 				},
 			}
-			// TODO: Instead of immediately launching new task and killing the old one, have A/B deployments?
+			// TODO: Race condition here, need to handle this by waiting for new task to deploy before old gets deleted.
 			a.eventCtrl.TaskManager().Add(task)
 			a.eventCtrl.Scheduler().Revive()
 			a.eventCtrl.TaskManager().Delete(taskToKill)
