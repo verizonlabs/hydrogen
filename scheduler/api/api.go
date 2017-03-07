@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"sprint/scheduler/events"
 	"strconv"
+	"time"
 )
 
 const (
@@ -23,6 +24,7 @@ const (
 	statusEndpoint = "/status"
 	killEndpoint   = "/kill"
 	updateEndpoint = "/update"
+	retries        = 20
 )
 
 type ApiServer struct {
@@ -98,32 +100,18 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 
 			// Allocate space for our resources.
 			var resources []*mesos_v1.Resource
-			var scalar = new(mesos_v1.Value_Type)
-			*scalar = mesos_v1.Value_SCALAR
 
-			// Add our cpu resources
-			var cpu = &mesos_v1.Resource{
-				Name:   proto.String("cpu"),
-				Type:   scalar,
-				Scalar: &mesos_v1.Value_Scalar{Value: proto.Float64(m.Resources.Cpu)},
-			}
-
-			// Add our memory resources
-			var mem = &mesos_v1.Resource{
-				Name:   proto.String("mem"),
-				Type:   scalar,
-				Scalar: &mesos_v1.Value_Scalar{Value: proto.Float64(m.Resources.Mem)},
-			}
-
-			// append into our resources slice.
-			resources = append(resources, cpu)
-			resources = append(resources, mem)
+			var cpu = resourcebuilder.CreateCpu(m.Resources.Cpu, "*")
+			var mem = resourcebuilder.CreateMem(m.Resources.Mem, "*")
 
 			networks, err := taskbuilder.ParseNetworkJSON(m.Container.Network)
 			if err != nil {
 				// This isn't a fatal error so we can log this as debug and move along.
 				log.Println("No explicit network info passed in.")
 			}
+
+			// append into our resources slice.
+			resources = append(resources, cpu, mem)
 
 			uuid, err := utils.UuidToString(utils.Uuid())
 			if err != nil {
@@ -133,7 +121,7 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 			task := &mesos_v1.TaskInfo{
 				Name:      proto.String(m.Name),
 				TaskId:    &mesos_v1.TaskID{Value: proto.String(uuid)},
-				Command:   &mesos_v1.CommandInfo{Value: m.Command.Cmd},
+				Command:   resourcebuilder.CreateSimpleCommandInfo(m.Command.Cmd, nil),
 				Resources: resources,
 				Container: &mesos_v1.ContainerInfo{
 					Type: mesos_v1.ContainerInfo_MESOS.Enum(),
@@ -223,12 +211,22 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 					NetworkInfos: networks,
 				},
 			}
-			// TODO: Race condition here, need to handle this by waiting for new task to deploy before old gets deleted.
 			a.eventCtrl.TaskManager().Add(task)
 			a.eventCtrl.Scheduler().Revive()
-			a.eventCtrl.TaskManager().Delete(taskToKill)
-			a.eventCtrl.Scheduler().Kill(taskToKill.GetTaskId(), taskToKill.GetAgentId())
 
+			go func() {
+				for i := 0; i < retries; i++ {
+					launched := a.eventCtrl.TaskManager().LaunchedTasks()
+					if _, ok := launched[task.GetName()]; ok {
+						a.eventCtrl.TaskManager().Delete(taskToKill)
+						a.eventCtrl.Scheduler().Kill(taskToKill.GetTaskId(), taskToKill.GetAgentId())
+						return
+					}
+					time.Sleep(2 * time.Second) // Wait a pre-determined amount of time for polling.
+				}
+				return
+			}()
+			fmt.Fprintf(w, "Updating %v", task.GetName())
 		}
 	default:
 		{
