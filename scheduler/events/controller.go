@@ -15,7 +15,10 @@ import (
 	"mesos-framework-sdk/scheduler"
 	"mesos-framework-sdk/task_manager"
 	"strconv"
+	"time"
 )
+
+const subscribeRetry = 2
 
 type SprintEventController struct {
 	scheduler       *scheduler.DefaultScheduler
@@ -69,12 +72,15 @@ func (s *SprintEventController) Run() {
 		s.scheduler.Info.Id = &mesos_v1.FrameworkID{Value: &id}
 	}
 
-	// TODO err is always nil here because of how Subscribe() is implemented
-	err = s.scheduler.Subscribe(s.events)
-	if err != nil {
-		log.Printf("Failed to subscribe: %s", err.Error())
-		return // TODO retry instead of returning
-	}
+	go func() {
+		for {
+			err = s.scheduler.Subscribe(s.events)
+			if err != nil {
+				log.Printf("Failed to subscribe: %s", err.Error())
+				time.Sleep(time.Duration(subscribeRetry) * time.Second)
+			}
+		}
+	}()
 
 	select {
 	case e := <-s.events:
