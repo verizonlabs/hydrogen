@@ -5,9 +5,11 @@ Adapted from mesos-framework-sdk
 */
 import (
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"log"
 	"mesos-framework-sdk/include/mesos"
 	sched "mesos-framework-sdk/include/scheduler"
+	"mesos-framework-sdk/persistence/drivers/etcd"
 	"mesos-framework-sdk/resources"
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
@@ -20,16 +22,16 @@ type SprintEventController struct {
 	taskmanager     *task_manager.DefaultTaskManager
 	resourcemanager *manager.DefaultResourceManager
 	events          chan *sched.Event
-	numOfExecutors  int
+	kv              *etcd.Etcd
 }
 
-func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *task_manager.DefaultTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, e int) *SprintEventController {
+func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *task_manager.DefaultTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, kv *etcd.Etcd) *SprintEventController {
 	return &SprintEventController{
 		taskmanager:     manager,
 		scheduler:       scheduler,
 		events:          eventChan,
 		resourcemanager: resourceManager,
-		numOfExecutors:  e,
+		kv:              kv,
 	}
 }
 
@@ -48,23 +50,35 @@ func (s *SprintEventController) ResourceManager() *manager.DefaultResourceManage
 	return s.resourcemanager
 }
 
-func (s *SprintEventController) Subscribe(*sched.Event_Subscribed) {
-	fmt.Println("Subscribe event.")
+func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
+	id := subEvent.GetFrameworkId()
+	idVal := id.GetValue()
+	s.scheduler.Info.Id = id
+	log.Printf("Subscribed with an ID of %s", idVal)
+
+	// TODO enhance etcd client so that we can save this key with a lease corresponding to our failover timeout.
+	// Otherwise we run into trouble with resubscribing as the key always exists.
+	if err := s.kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout())); err != nil {
+		log.Printf("Failed to save framework ID of %s to persistent data store", idVal)
+	}
 }
 
 func (s *SprintEventController) Run() {
-	if s.scheduler.FrameworkInfo().GetId() == nil {
-		err := s.scheduler.Subscribe(s.events)
-		if err != nil {
-			log.Printf("Error: %v", err.Error())
-		}
+	id, err := s.kv.Read("/frameworkId")
+	if err == nil {
+		s.scheduler.Info.Id = &mesos_v1.FrameworkID{Value: &id}
+	}
 
-		select {
-		case e := <-s.events:
-			id := e.GetSubscribed().GetFrameworkId()
-			s.scheduler.Info.Id = id
-			log.Printf("Subscribed with an ID of %s", id.GetValue())
-		}
+	// TODO err is always nil here because of how Subscribe() is implemented
+	err = s.scheduler.Subscribe(s.events)
+	if err != nil {
+		log.Printf("Failed to subscribe: %s", err.Error())
+		return // TODO retry instead of returning
+	}
+
+	select {
+	case e := <-s.events:
+		s.Subscribe(e.GetSubscribed())
 	}
 	s.Listen()
 }
@@ -75,8 +89,6 @@ func (s *SprintEventController) Listen() {
 		select {
 		case t := <-s.events:
 			switch t.GetType() {
-			case sched.Event_SUBSCRIBED:
-				log.Println("Subscribe event.")
 			case sched.Event_ERROR:
 				go s.Error(t.GetError())
 			case sched.Event_FAILURE:
@@ -86,7 +98,6 @@ func (s *SprintEventController) Listen() {
 			case sched.Event_MESSAGE:
 				go s.Message(t.GetMessage())
 			case sched.Event_OFFERS:
-				log.Println("Offers...")
 				go s.Offers(t.GetOffers())
 			case sched.Event_RESCIND:
 				go s.Rescind(t.GetRescind())
@@ -95,7 +106,6 @@ func (s *SprintEventController) Listen() {
 			case sched.Event_UPDATE:
 				go s.Update(t.GetUpdate())
 			case sched.Event_HEARTBEAT:
-				fmt.Println("Heart beat.")
 			case sched.Event_UNKNOWN:
 				fmt.Println("Unknown event recieved.")
 			}
@@ -104,22 +114,18 @@ func (s *SprintEventController) Listen() {
 }
 
 func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
-	fmt.Println("Offers event recieved.")
-	//Reconcile any tasks.
-	var reconcileTasks []*mesos_v1.Task
-	s.scheduler.Reconcile(reconcileTasks)
 
 	// Check task manager for any active tasks.
 	if s.taskmanager.HasQueuedTasks() {
 		// Update our resources in the manager
 		s.resourcemanager.AddOffers(offerEvent.GetOffers())
 
+		offerIDs := []*mesos_v1.OfferID{}
+		operations := []*mesos_v1.Offer_Operation{}
+
 		for _, mesosTask := range s.taskmanager.QueuedTasks() {
 			// See if we have resources.
 			if s.resourcemanager.HasResources() {
-				offerIDs := []*mesos_v1.OfferID{}
-				taskList := []*mesos_v1.TaskInfo{} // Clear it out every time.
-				operations := []*mesos_v1.Offer_Operation{}
 
 				offer, err := s.resourcemanager.Assign(mesosTask)
 				if err != nil {
@@ -135,17 +141,20 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 					Container: mesosTask.GetContainer(),
 					Resources: mesosTask.GetResources(),
 				}
+
 				s.TaskManager().SetTaskLaunched(t)
 
-				taskList = append(taskList, t)
 				offerIDs = append(offerIDs, offer.Id)
-				operations = append(operations, resources.LaunchOfferOperation(taskList))
+				operations = append(operations, resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
 
-				log.Printf("Launching task %v\n", taskList)
-				s.scheduler.Accept(offerIDs, operations, nil)
-
+				data := proto.MarshalTextString(t)
+				id := t.TaskId.GetValue()
+				if err := s.kv.Create("/task/"+id, data); err != nil {
+					log.Printf("Failed to save task %s with name %s to persistent data store", id, t.GetName())
+				}
 			}
 		}
+		s.scheduler.Accept(offerIDs, operations, nil)
 	} else {
 		var ids []*mesos_v1.OfferID
 		for _, v := range offerEvent.GetOffers() {
@@ -167,9 +176,15 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 	task := s.taskmanager.GetById(updateEvent.GetStatus().GetTaskId())
 	if task != nil {
 		if updateEvent.GetStatus().GetState() != mesos_v1.TaskState_TASK_FAILED {
+
+			// TODO this is done in the offers method above. Which spot do we want to do this in?
 			s.taskmanager.SetTaskLaunched(task)
 		} else {
 			s.taskmanager.Delete(task)
+			id := task.TaskId.GetValue()
+			if err := s.kv.Delete("/task/" + id); err != nil {
+				log.Printf("Failed to delete task %s with name %s from persistent data store", id, task.GetName())
+			}
 		}
 	}
 	status := updateEvent.GetStatus()
