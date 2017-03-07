@@ -9,7 +9,7 @@ import (
 func main() {
 	//cfg := new(exec.ExecutorConfiguration).Initialize()
 	//flag.Parse()
-	c := client.NewClient("http://68.128.154.89:5050/api/v1/executor")
+	c := client.NewClient("http://localhost:5050/api/v1/executor")
 	e := exec.NewDefaultExecutor(c)
 	e.Run()
 

@@ -5,7 +5,6 @@ Adapted from mesos-framework-sdk
 */
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"log"
 	"mesos-framework-sdk/include/mesos"
 	sched "mesos-framework-sdk/include/scheduler"
@@ -13,7 +12,6 @@ import (
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
 	"mesos-framework-sdk/task_manager"
-	"mesos-framework-sdk/utils"
 	"strconv"
 )
 
@@ -67,27 +65,8 @@ func (s *SprintEventController) Run() {
 			s.scheduler.Info.Id = id
 			log.Printf("Subscribed with an ID of %s", id.GetValue())
 		}
-		s.launchExecutors(s.numOfExecutors)
 	}
 	s.Listen()
-}
-
-// Create n default executors and launch them.
-func (s *SprintEventController) launchExecutors(num int) {
-	for i := 0; i < num; i++ {
-		id, _ := utils.UuidToString(utils.Uuid())
-		// Add tasks to task manager
-		task := &mesos_v1.TaskInfo{
-			Name:    proto.String("Sprint_" + id),
-			TaskId:  &mesos_v1.TaskID{Value: proto.String(id)},
-			Command: &mesos_v1.CommandInfo{Value: proto.String("/bin/sleep 40000")},
-			Resources: []*mesos_v1.Resource{
-				resources.CreateCpu(0.1, "*"),
-				resources.CreateMem(128.0, "*"),
-			},
-		}
-		s.taskmanager.Add(task)
-	}
 }
 
 // Main event loop that listens on channels forever until framework terminates.
@@ -185,16 +164,13 @@ func (s *SprintEventController) Rescind(rescindEvent *sched.Event_Rescind) {
 }
 
 func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
-	fmt.Printf("Update recieved for: %v\n", *updateEvent.GetStatus())
-	fmt.Printf("Network Info: %v\n", updateEvent.GetStatus().GetContainerStatus().GetNetworkInfos())
-
-	task := s.taskmanager.Get(updateEvent.GetStatus().GetTaskId())
-	// TODO: Handle more states in regard to tasks.
-	if updateEvent.GetStatus().GetState() != mesos_v1.TaskState_TASK_FAILED {
-		// Only set the task to "launched" if it didn't fail.
-		s.taskmanager.SetTaskLaunched(task)
-	} else {
-		s.taskmanager.Delete(task)
+	task := s.taskmanager.GetById(updateEvent.GetStatus().GetTaskId())
+	if task != nil {
+		if updateEvent.GetStatus().GetState() != mesos_v1.TaskState_TASK_FAILED {
+			s.taskmanager.SetTaskLaunched(task)
+		} else {
+			s.taskmanager.Delete(task)
+		}
 	}
 	status := updateEvent.GetStatus()
 	s.scheduler.Acknowledge(status.GetAgentId(), status.GetTaskId(), status.GetUuid())
