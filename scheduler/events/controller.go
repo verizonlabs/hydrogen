@@ -9,29 +9,32 @@ import (
 	"log"
 	"mesos-framework-sdk/include/mesos"
 	sched "mesos-framework-sdk/include/scheduler"
+	"mesos-framework-sdk/persistence/drivers/etcd"
 	"mesos-framework-sdk/resources"
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
 	"mesos-framework-sdk/task_manager"
-	"mesos-framework-sdk/utils"
 	"strconv"
+	"time"
 )
+
+const subscribeRetry = 2
 
 type SprintEventController struct {
 	scheduler       *scheduler.DefaultScheduler
 	taskmanager     *task_manager.DefaultTaskManager
 	resourcemanager *manager.DefaultResourceManager
 	events          chan *sched.Event
-	numOfExecutors  int
+	kv              *etcd.Etcd
 }
 
-func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *task_manager.DefaultTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, e int) *SprintEventController {
+func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *task_manager.DefaultTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, kv *etcd.Etcd) *SprintEventController {
 	return &SprintEventController{
 		taskmanager:     manager,
 		scheduler:       scheduler,
 		events:          eventChan,
 		resourcemanager: resourceManager,
-		numOfExecutors:  e,
+		kv:              kv,
 	}
 }
 
@@ -50,44 +53,38 @@ func (s *SprintEventController) ResourceManager() *manager.DefaultResourceManage
 	return s.resourcemanager
 }
 
-func (s *SprintEventController) Subscribe(*sched.Event_Subscribed) {
-	fmt.Println("Subscribe event.")
+func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
+	id := subEvent.GetFrameworkId()
+	idVal := id.GetValue()
+	s.scheduler.Info.Id = id
+	log.Printf("Subscribed with an ID of %s", idVal)
+
+	if err := s.kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout())); err != nil {
+		log.Printf("Failed to save framework ID of %s to persistent data store", idVal)
+	}
 }
 
 func (s *SprintEventController) Run() {
-	if s.scheduler.FrameworkInfo().GetId() == nil {
-		err := s.scheduler.Subscribe(s.events)
-		if err != nil {
-			log.Printf("Error: %v", err.Error())
-		}
+	id, err := s.kv.Read("/frameworkId")
+	if err == nil {
+		s.scheduler.Info.Id = &mesos_v1.FrameworkID{Value: &id}
+	}
 
-		select {
-		case e := <-s.events:
-			id := e.GetSubscribed().GetFrameworkId()
-			s.scheduler.Info.Id = id
-			log.Printf("Subscribed with an ID of %s", id.GetValue())
+	go func() {
+		for {
+			err = s.scheduler.Subscribe(s.events)
+			if err != nil {
+				log.Printf("Failed to subscribe: %s", err.Error())
+				time.Sleep(time.Duration(subscribeRetry) * time.Second)
+			}
 		}
-		s.launchExecutors(s.numOfExecutors)
+	}()
+
+	select {
+	case e := <-s.events:
+		s.Subscribe(e.GetSubscribed())
 	}
 	s.Listen()
-}
-
-// Create n default executors and launch them.
-func (s *SprintEventController) launchExecutors(num int) {
-	for i := 0; i < num; i++ {
-		id, _ := utils.UuidToString(utils.Uuid())
-		// Add tasks to task manager
-		task := &mesos_v1.Task{
-			Name:   proto.String("Sprint_" + id),
-			TaskId: &mesos_v1.TaskID{Value: proto.String(id)},
-			Resources: []*mesos_v1.Resource{
-				resources.CreateCpu(0.1, "*"),
-				resources.CreateMem(128.0, "*"),
-			},
-			State: mesos_v1.TaskState_TASK_STAGING.Enum(),
-		}
-		s.taskmanager.Add(task)
-	}
 }
 
 // Main event loop that listens on channels forever until framework terminates.
@@ -96,8 +93,6 @@ func (s *SprintEventController) Listen() {
 		select {
 		case t := <-s.events:
 			switch t.GetType() {
-			case sched.Event_SUBSCRIBED:
-				log.Println("Subscribe event.")
 			case sched.Event_ERROR:
 				go s.Error(t.GetError())
 			case sched.Event_FAILURE:
@@ -107,7 +102,6 @@ func (s *SprintEventController) Listen() {
 			case sched.Event_MESSAGE:
 				go s.Message(t.GetMessage())
 			case sched.Event_OFFERS:
-				log.Println("Offers...")
 				go s.Offers(t.GetOffers())
 			case sched.Event_RESCIND:
 				go s.Rescind(t.GetRescind())
@@ -116,7 +110,6 @@ func (s *SprintEventController) Listen() {
 			case sched.Event_UPDATE:
 				go s.Update(t.GetUpdate())
 			case sched.Event_HEARTBEAT:
-				fmt.Println("Heart beat.")
 			case sched.Event_UNKNOWN:
 				fmt.Println("Unknown event recieved.")
 			}
@@ -125,38 +118,18 @@ func (s *SprintEventController) Listen() {
 }
 
 func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
-	fmt.Println("Offers event recieved.")
-	//Reconcile any tasks.
-	var reconcileTasks []*mesos_v1.Task
-	s.scheduler.Reconcile(reconcileTasks)
-
-	var offerIDs []*mesos_v1.OfferID
-
-	for num, offer := range offerEvent.GetOffers() {
-		fmt.Printf("Offer number: %v, Offer info: %v\n", num, offer)
-		offerIDs = append(offerIDs, offer.GetId())
-	}
 
 	// Check task manager for any active tasks.
 	if s.taskmanager.HasQueuedTasks() {
 		// Update our resources in the manager
 		s.resourcemanager.AddOffers(offerEvent.GetOffers())
-		tasksToLaunch := []*mesos_v1.Task{}
 
-		// See which tasks still need to be launched.
-		for item := range s.taskmanager.Tasks().Iterate() {
-			t := item.Value.(mesos_v1.Task)
-			if t.GetState() == mesos_v1.TaskState_TASK_STAGING {
-				tasksToLaunch = append(tasksToLaunch, &t)
-			}
-		}
+		offerIDs := []*mesos_v1.OfferID{}
+		operations := []*mesos_v1.Offer_Operation{}
 
-		for _, item := range tasksToLaunch {
+		for _, mesosTask := range s.taskmanager.QueuedTasks() {
 			// See if we have resources.
 			if s.resourcemanager.HasResources() {
-				taskList := []*mesos_v1.TaskInfo{} // Clear it out every time.
-				operations := []*mesos_v1.Offer_Operation{}
-				mesosTask := item
 
 				offer, err := s.resourcemanager.Assign(mesosTask)
 				if err != nil {
@@ -165,27 +138,27 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 				}
 
 				t := &mesos_v1.TaskInfo{
-					Name:    mesosTask.Name,
-					TaskId:  mesosTask.TaskId,
-					AgentId: offer.AgentId,
-					Command: &mesos_v1.CommandInfo{
-						User:  proto.String("root"),
-						Value: proto.String("/bin/sleep 10"),
-					},
-					Resources: []*mesos_v1.Resource{
-						resources.CreateCpu(0.1, ""),
-						resources.CreateMem(64.0, ""),
-					},
+					Name:      mesosTask.Name,
+					TaskId:    mesosTask.GetTaskId(),
+					AgentId:   offer.GetAgentId(),
+					Command:   mesosTask.GetCommand(),
+					Container: mesosTask.GetContainer(),
+					Resources: mesosTask.GetResources(),
 				}
 
-				taskList = append(taskList, t)
+				s.TaskManager().SetTaskLaunched(t)
 
-				operations = append(operations, resources.LaunchOfferOperation(taskList))
+				offerIDs = append(offerIDs, offer.Id)
+				operations = append(operations, resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
 
-				log.Printf("Launching task %v\n", taskList)
-				s.scheduler.Accept(offerIDs, operations, nil)
+				data := proto.MarshalTextString(t)
+				id := t.TaskId.GetValue()
+				if err := s.kv.Create("/task/"+id, data); err != nil {
+					log.Printf("Failed to save task %s with name %s to persistent data store", id, t.GetName())
+				}
 			}
 		}
+		s.scheduler.Accept(offerIDs, operations, nil)
 	} else {
 		var ids []*mesos_v1.OfferID
 		for _, v := range offerEvent.GetOffers() {
@@ -193,7 +166,7 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 		}
 		// decline offers.
 		fmt.Println("Declining offers.")
-		s.scheduler.Decline(ids, nil)
+		s.scheduler.Decline(ids, nil) // We want to make sure all offers are declined.
 		s.scheduler.Suppress()
 	}
 }
@@ -204,11 +177,18 @@ func (s *SprintEventController) Rescind(rescindEvent *sched.Event_Rescind) {
 }
 
 func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
-	fmt.Printf("Update recieved for: %v\n", *updateEvent.GetStatus())
-
-	id := s.taskmanager.Get(updateEvent.GetStatus().GetTaskId())
-	s.taskmanager.SetTaskState(id, updateEvent.GetStatus().State)
-
+	task := s.taskmanager.GetById(updateEvent.GetStatus().GetTaskId())
+	if task != nil {
+		if updateEvent.GetStatus().GetState() != mesos_v1.TaskState_TASK_FAILED {
+			s.taskmanager.SetTaskLaunched(task)
+		} else {
+			s.taskmanager.Delete(task)
+			id := task.TaskId.GetValue()
+			if err := s.kv.Delete("/task/" + id); err != nil {
+				log.Printf("Failed to delete task %s with name %s from persistent data store", id, task.GetName())
+			}
+		}
+	}
 	status := updateEvent.GetStatus()
 	s.scheduler.Acknowledge(status.GetAgentId(), status.GetTaskId(), status.GetUuid())
 }

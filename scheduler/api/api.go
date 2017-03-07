@@ -1,6 +1,5 @@
 package api
 
-// TODO this needs to be hooked into the newer framework sdk.
 import (
 	"encoding/json"
 	"flag"
@@ -9,61 +8,24 @@ import (
 	"io/ioutil"
 	"log"
 	"mesos-framework-sdk/include/mesos"
+	resourcebuilder "mesos-framework-sdk/resources"
+	taskbuilder "mesos-framework-sdk/resources/task"
 	"mesos-framework-sdk/server"
 	"mesos-framework-sdk/utils"
 	"net/http"
-	"sprint/scheduler/eventcontroller"
+	"sprint/scheduler/events"
 	"strconv"
+	"time"
 )
 
 const (
 	baseUrl        = "/v1/api"
 	deployEndpoint = "/deploy"
 	statusEndpoint = "/status"
+	killEndpoint   = "/kill"
+	updateEndpoint = "/update"
+	retries        = 20
 )
-
-//This struct represents the possible application configuration options for an end-user of sprint.
-//Standardized to lower case.
-type ApplicationJSON struct {
-	Name        string              `json:"name"`
-	Resources   *ResourceJSON       `json:"resources"`
-	Command     *CommandJSON        `json:"command"`
-	Container   *ContainerJSON      `json:"container"`
-	HealthCheck *HealthCheckJSON    `json:"healthcheck"`
-	Labels      []map[string]string `json:"labels"`
-}
-
-// How do we want to define health checks?
-// Scripts, api end points, timers...etc?
-type HealthCheckJSON struct {
-	Endpoint *string `json:"endpoint"`
-}
-
-//Struct to define our resources
-type ResourceJSON struct {
-	Mem  float64 `json:"mem"`
-	Cpu  float64 `json:"cpu"`
-	Disk float64 `json:"disk"`
-}
-
-//Struct to define a command for our container.
-type CommandJSON struct {
-	Cmd  *string   `json:"cmd"`
-	Uris []UriJSON `json:"uris"`
-}
-
-//Struct to define our container image and tag.
-type ContainerJSON struct {
-	ImageName *string `json:"image"`
-	Tag       *string `json:"tag"`
-}
-
-//Struct to define our URI resources
-type UriJSON struct {
-	Uri     *string `json:"uri"`
-	Extract *bool   `json:"extract"`
-	Execute *bool   `json:"execute"`
-}
 
 type ApiServer struct {
 	cfg       server.Configuration
@@ -93,6 +55,8 @@ func (a *ApiServer) setDefaultHandlers() {
 	a.handle = make(map[string]http.HandlerFunc, 4)
 	a.handle[baseUrl+deployEndpoint] = a.deploy
 	a.handle[baseUrl+statusEndpoint] = a.state
+	a.handle[baseUrl+killEndpoint] = a.kill
+	a.handle[baseUrl+updateEndpoint] = a.update
 }
 
 // RunAPI takes the scheduler controller and sets up the configuration for the API.
@@ -116,20 +80,18 @@ func (a *ApiServer) RunAPI(e *eventcontroller.SprintEventController) {
 	}
 }
 
-//Deploy endpoint will parse given JSON and create a given TaskInfo for the scheduler to execute.
+// Deploys a give application from parsed JSON
 func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
-	// We don't want to allow any other methods.
 	switch r.Method {
 	case "POST":
 		{
-			// Decode and unmarshal our JSON.
 			dec, err := ioutil.ReadAll(r.Body)
 			if err != nil {
 				fmt.Fprintf(w, err.Error())
 				return
 			}
 
-			var m ApplicationJSON
+			var m taskbuilder.ApplicationJSON
 			err = json.Unmarshal(dec, &m)
 			if err != nil {
 				fmt.Fprintf(w, err.Error())
@@ -138,42 +100,40 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 
 			// Allocate space for our resources.
 			var resources []*mesos_v1.Resource
-			var scalar = new(mesos_v1.Value_Type)
-			*scalar = mesos_v1.Value_SCALAR
 
-			// Add our cpu resources
-			var cpu = &mesos_v1.Resource{
-				Name:   proto.String("cpu"),
-				Type:   scalar,
-				Scalar: &mesos_v1.Value_Scalar{Value: proto.Float64(m.Resources.Cpu)},
-			}
+			var cpu = resourcebuilder.CreateCpu(m.Resources.Cpu, "*")
+			var mem = resourcebuilder.CreateMem(m.Resources.Mem, "*")
 
-			// Add our memory resources
-			var mem = &mesos_v1.Resource{
-				Name:   proto.String("mem"),
-				Type:   scalar,
-				Scalar: &mesos_v1.Value_Scalar{Value: proto.Float64(m.Resources.Mem)},
+			networks, err := taskbuilder.ParseNetworkJSON(m.Container.Network)
+			if err != nil {
+				// This isn't a fatal error so we can log this as debug and move along.
+				log.Println("No explicit network info passed in.")
 			}
 
 			// append into our resources slice.
-			resources = append(resources, cpu)
-			resources = append(resources, mem)
+			resources = append(resources, cpu, mem)
 
 			uuid, err := utils.UuidToString(utils.Uuid())
 			if err != nil {
 				log.Println(err.Error())
 			}
 
-			task := &mesos_v1.Task{
+			task := &mesos_v1.TaskInfo{
 				Name:      proto.String(m.Name),
 				TaskId:    &mesos_v1.TaskID{Value: proto.String(uuid)},
-				State:     mesos_v1.TaskState_TASK_STAGING.Enum(),
+				Command:   resourcebuilder.CreateSimpleCommandInfo(m.Command.Cmd, nil),
 				Resources: resources,
 				Container: &mesos_v1.ContainerInfo{
-					Type: mesos_v1.ContainerInfo_DOCKER.Enum(),
-					Docker: &mesos_v1.ContainerInfo_DockerInfo{
-						Image: m.Container.ImageName,
+					Type: mesos_v1.ContainerInfo_MESOS.Enum(),
+					Mesos: &mesos_v1.ContainerInfo_MesosInfo{
+						Image: &mesos_v1.Image{
+							Type: mesos_v1.Image_DOCKER.Enum(),
+							Docker: &mesos_v1.Image_Docker{
+								Name: m.Container.ImageName,
+							},
+						},
 					},
+					NetworkInfos: networks,
 				},
 			}
 
@@ -190,17 +150,150 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "POST":
+		{
+			dec, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				fmt.Fprintf(w, err.Error())
+				return
+			}
+
+			var m taskbuilder.ApplicationJSON
+			err = json.Unmarshal(dec, &m)
+			if err != nil {
+				fmt.Fprintf(w, err.Error())
+				return
+			}
+
+			// Check if this task already exists
+			taskToKill, err := a.eventCtrl.TaskManager().Get(&m.Name)
+			if err != nil {
+				fmt.Fprintf(w, err.Error())
+				return
+			}
+
+			var resources []*mesos_v1.Resource
+
+			var cpu = resourcebuilder.CreateCpu(m.Resources.Cpu, "*")
+			var mem = resourcebuilder.CreateMem(m.Resources.Mem, "*")
+
+			networks, err := taskbuilder.ParseNetworkJSON(m.Container.Network)
+			if err != nil {
+				// This isn't a fatal error so we can log this as debug and move along.
+				log.Println("No explicit network info passed in.")
+			}
+
+			// append into our resources slice.
+			resources = append(resources, cpu, mem)
+
+			uuid, err := utils.UuidToString(utils.Uuid())
+			if err != nil {
+				log.Println(err.Error())
+			}
+
+			task := &mesos_v1.TaskInfo{
+				Name:      proto.String(m.Name),
+				TaskId:    &mesos_v1.TaskID{Value: proto.String(uuid)},
+				Command:   resourcebuilder.CreateSimpleCommandInfo(m.Command.Cmd, nil),
+				Resources: resources,
+				Container: &mesos_v1.ContainerInfo{
+					Type: mesos_v1.ContainerInfo_MESOS.Enum(),
+					Mesos: &mesos_v1.ContainerInfo_MesosInfo{
+						Image: &mesos_v1.Image{
+							Type: mesos_v1.Image_DOCKER.Enum(),
+							Docker: &mesos_v1.Image_Docker{
+								Name: m.Container.ImageName,
+							},
+						},
+					},
+					NetworkInfos: networks,
+				},
+			}
+			a.eventCtrl.TaskManager().Add(task)
+			a.eventCtrl.Scheduler().Revive()
+
+			go func() {
+				for i := 0; i < retries; i++ {
+					launched := a.eventCtrl.TaskManager().LaunchedTasks()
+					if _, ok := launched[task.GetName()]; ok {
+						a.eventCtrl.TaskManager().Delete(taskToKill)
+						a.eventCtrl.Scheduler().Kill(taskToKill.GetTaskId(), taskToKill.GetAgentId())
+						return
+					}
+					time.Sleep(2 * time.Second) // Wait a pre-determined amount of time for polling.
+				}
+				return
+			}()
+			fmt.Fprintf(w, "Updating %v", task.GetName())
+		}
+	default:
+		{
+			fmt.Fprintf(w, r.Method+" is not allowed on this endpoint.")
+		}
+	}
+}
+
+func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "POST":
+		{
+			dec, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				return
+			}
+
+			var m taskbuilder.KillJson
+			err = json.Unmarshal(dec, &m)
+			if err != nil {
+				fmt.Fprintf(w, "%v", err.Error())
+				return
+			}
+
+			var status string
+			if m.Name != nil {
+				t, err := a.eventCtrl.TaskManager().Get(m.Name)
+				if err != nil {
+					a.eventCtrl.TaskManager().Delete(t)
+					a.eventCtrl.Scheduler().Kill(t.GetTaskId(), t.GetAgentId())
+					status = "Task " + t.GetName() + " killed."
+				} else {
+					status = "Unable to retrieve task from task manager."
+				}
+			} else {
+				status = "Task not found."
+			}
+			fmt.Fprintf(w, "%v", status)
+		}
+	default:
+		{
+			fmt.Fprintf(w, r.Method+" is not allowed on this endpoint.")
+		}
+	}
+
+}
+
 // Status endpoint lets the end-user know about the TASK_STATUS of their task.
 func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
-	// We don't want to allow any other methods.
 	switch r.Method {
 	case "GET":
 		{
-			id := r.URL.Query().Get("taskID")
+			name := r.URL.Query().Get("name")
 
-			t := a.eventCtrl.TaskManager().Get(&mesos_v1.TaskID{Value: proto.String(id)})
-
-			fmt.Fprintf(w, "%v", t.GetState())
+			t, err := a.eventCtrl.TaskManager().Get(&name)
+			if err != nil {
+				fmt.Fprintf(w, "Task not found, error %v", err.Error())
+				return
+			}
+			queued := a.eventCtrl.TaskManager().QueuedTasks()
+			var status string
+			if _, ok := queued[t.GetTaskId().GetValue()]; ok {
+				status = "task " + t.GetName() + " is queued."
+			} else {
+				status = "task " + t.GetName() + " is launched."
+			}
+			fmt.Fprintf(w, "%v", status)
 
 		}
 	default:
