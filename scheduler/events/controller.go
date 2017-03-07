@@ -56,7 +56,11 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	s.scheduler.Info.Id = id
 	log.Printf("Subscribed with an ID of %s", idVal)
 
-	s.kv.Update("/frameworkId", idVal)
+	// TODO enhance etcd client so that we can save this key with a lease corresponding to our failover timeout.
+	// Otherwise we run into trouble with resubscribing as the key always exists.
+	if err := s.kv.Update("/frameworkId", idVal); err != nil {
+		log.Printf("Failed to save framework ID of %s to persistent data store", idVal)
+	}
 }
 
 func (s *SprintEventController) Run() {
@@ -144,7 +148,10 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 				operations = append(operations, resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
 
 				data := proto.MarshalTextString(t)
-				s.kv.Create("/task/"+t.TaskId.GetValue(), data)
+				id := t.TaskId.GetValue()
+				if err := s.kv.Create("/task/"+id, data); err != nil {
+					log.Printf("Failed to save task %s with name %s to persistent data store", id, t.GetName())
+				}
 			}
 		}
 		s.scheduler.Accept(offerIDs, operations, nil)
@@ -181,7 +188,7 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 		s.taskmanager.Delete(task)
 		id := task.TaskId.GetValue()
 		if err := s.kv.Delete("/task/" + id); err != nil {
-			log.Printf("Failed to delete task %s with name %s from persistent store", id, task.GetName())
+			log.Printf("Failed to delete task %s with name %s from persistent data store", id, task.GetName())
 		}
 	}
 	status := updateEvent.GetStatus()
