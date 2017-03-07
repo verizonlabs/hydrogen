@@ -173,9 +173,16 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 	// TODO: Handle more states in regard to tasks.
 	if updateEvent.GetStatus().GetState() != mesos_v1.TaskState_TASK_FAILED {
 		// Only set the task to "launched" if it didn't fail.
+		// TODO this is done in the offers method above. Which spot do we want to do this in?
 		s.taskmanager.SetTaskLaunched(task)
 	} else {
+
+		// TODO possible leak here. Task is deleted from the primary map but not the map of launched tasks
 		s.taskmanager.Delete(task)
+		id := task.TaskId.GetValue()
+		if err := s.kv.Delete("/task/" + id); err != nil {
+			log.Printf("Failed to delete task %s with name %s from persistent store", id, task.GetName())
+		}
 	}
 	status := updateEvent.GetStatus()
 	s.scheduler.Acknowledge(status.GetAgentId(), status.GetTaskId(), status.GetUuid())
