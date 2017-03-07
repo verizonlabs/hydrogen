@@ -14,7 +14,7 @@ import (
 	"mesos-framework-sdk/task_manager"
 	"sprint/scheduler"
 	"sprint/scheduler/api"
-	"sprint/scheduler/eventcontroller"
+	"sprint/scheduler/events"
 	"strings"
 )
 

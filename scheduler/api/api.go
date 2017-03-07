@@ -11,7 +11,7 @@ import (
 	"mesos-framework-sdk/server"
 	"mesos-framework-sdk/utils"
 	"net/http"
-	"sprint/scheduler/eventcontroller"
+	"sprint/scheduler/events"
 	"strconv"
 )
 
