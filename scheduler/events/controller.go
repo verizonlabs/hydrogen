@@ -182,8 +182,6 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 	task := s.taskmanager.GetById(updateEvent.GetStatus().GetTaskId())
 	if task != nil {
 		if updateEvent.GetStatus().GetState() != mesos_v1.TaskState_TASK_FAILED {
-
-			// TODO this is done in the offers method above. Which spot do we want to do this in?
 			s.taskmanager.SetTaskLaunched(task)
 		} else {
 			s.taskmanager.Delete(task)
