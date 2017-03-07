@@ -5,7 +5,6 @@ Adapted from mesos-framework-sdk
 */
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"log"
 	"mesos-framework-sdk/include/mesos"
 	sched "mesos-framework-sdk/include/scheduler"
@@ -13,7 +12,6 @@ import (
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
 	"mesos-framework-sdk/task_manager"
-	"mesos-framework-sdk/utils"
 	"strconv"
 )
 
@@ -67,27 +65,8 @@ func (s *SprintEventController) Run() {
 			s.scheduler.Info.Id = id
 			log.Printf("Subscribed with an ID of %s", id.GetValue())
 		}
-		s.launchExecutors(s.numOfExecutors)
 	}
 	s.Listen()
-}
-
-// Create n default executors and launch them.
-func (s *SprintEventController) launchExecutors(num int) {
-	for i := 0; i < num; i++ {
-		id, _ := utils.UuidToString(utils.Uuid())
-		// Add tasks to task manager
-		task := &mesos_v1.TaskInfo{
-			Name:    proto.String("Sprint_" + id),
-			TaskId:  &mesos_v1.TaskID{Value: proto.String(id)},
-			Command: &mesos_v1.CommandInfo{Value: proto.String("/bin/sleep 40000")},
-			Resources: []*mesos_v1.Resource{
-				resources.CreateCpu(0.1, "*"),
-				resources.CreateMem(128.0, "*"),
-			},
-		}
-		s.taskmanager.Add(task)
-	}
 }
 
 // Main event loop that listens on channels forever until framework terminates.

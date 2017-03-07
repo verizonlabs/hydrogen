@@ -8,7 +8,8 @@ import (
 	"io/ioutil"
 	"log"
 	"mesos-framework-sdk/include/mesos"
-	"mesos-framework-sdk/resources/task"
+	resourcebuilder "mesos-framework-sdk/resources"
+	taskbuilder "mesos-framework-sdk/resources/task"
 	"mesos-framework-sdk/server"
 	"mesos-framework-sdk/utils"
 	"net/http"
@@ -88,7 +89,7 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			var m task.ApplicationJSON
+			var m taskbuilder.ApplicationJSON
 			err = json.Unmarshal(dec, &m)
 			if err != nil {
 				fmt.Fprintf(w, err.Error())
@@ -183,7 +184,7 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			var m task.ApplicationJSON
+			var m taskbuilder.ApplicationJSON
 			err = json.Unmarshal(dec, &m)
 			if err != nil {
 				fmt.Fprintf(w, err.Error())
@@ -191,48 +192,25 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Check if this task already exists
-			//a.eventCtrl.TaskManager().Get()
-
-			// if it does, send an update to it.
-
-			// Allocate space for our resources.
-			var resources []*mesos_v1.Resource
-			var scalar = new(mesos_v1.Value_Type)
-			*scalar = mesos_v1.Value_SCALAR
-
-			// Add our cpu resources
-			var cpu = &mesos_v1.Resource{
-				Name:   proto.String("cpu"),
-				Type:   scalar,
-				Scalar: &mesos_v1.Value_Scalar{Value: proto.Float64(m.Resources.Cpu)},
+			taskToKill, err := a.eventCtrl.TaskManager().Get(&m.Name)
+			if err != nil {
+				fmt.Fprintf(w, err.Error())
+				return
 			}
 
-			// Add our memory resources
-			var mem = &mesos_v1.Resource{
-				Name:   proto.String("mem"),
-				Type:   scalar,
-				Scalar: &mesos_v1.Value_Scalar{Value: proto.Float64(m.Resources.Mem)},
+			var resources []*mesos_v1.Resource
+
+			var cpu = resourcebuilder.CreateCpu(m.Resources.Cpu, "*")
+			var mem = resourcebuilder.CreateMem(m.Resources.Mem, "*")
+
+			networks, err := taskbuilder.ParseNetworkJSON(m.Container.Network)
+			if err != nil {
+				// This isn't a fatal error so we can log this as debug and move along.
+				log.Println("No explicit network info passed in.")
 			}
 
 			// append into our resources slice.
-			resources = append(resources, cpu)
-			resources = append(resources, mem)
-
-			networks := []*mesos_v1.NetworkInfo{}
-			for _, network := range m.Container.Network {
-				ips := []*mesos_v1.NetworkInfo_IPAddress{}
-				for range network.IpAddresses {
-					i := &mesos_v1.NetworkInfo_IPAddress{
-						IpAddress: proto.String(""),
-						Protocol:  mesos_v1.NetworkInfo_IPv6.Enum(),
-					}
-					ips = append(ips, i)
-				}
-				n := &mesos_v1.NetworkInfo{
-					IpAddresses: ips,
-				}
-				networks = append(networks, n)
-			}
+			resources = append(resources, cpu, mem)
 
 			uuid, err := utils.UuidToString(utils.Uuid())
 			if err != nil {
@@ -242,7 +220,7 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 			task := &mesos_v1.TaskInfo{
 				Name:      proto.String(m.Name),
 				TaskId:    &mesos_v1.TaskID{Value: proto.String(uuid)},
-				Command:   &mesos_v1.CommandInfo{Value: m.Command.Cmd},
+				Command:   resourcebuilder.CreateSimpleCommandInfo(m.Command.Cmd, nil),
 				Resources: resources,
 				Container: &mesos_v1.ContainerInfo{
 					Type: mesos_v1.ContainerInfo_MESOS.Enum(),
@@ -257,9 +235,11 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 					NetworkInfos: networks,
 				},
 			}
-
+			// TODO: Instead of immediately launching new task and killing the old one, have A/B deployments?
 			a.eventCtrl.TaskManager().Add(task)
 			a.eventCtrl.Scheduler().Revive()
+			a.eventCtrl.TaskManager().Delete(taskToKill)
+			a.eventCtrl.Scheduler().Kill(taskToKill.GetTaskId(), taskToKill.GetAgentId())
 
 		}
 	default:
@@ -273,24 +253,22 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
 		{
-			// Decode and unmarshal our JSON.
 			dec, err := ioutil.ReadAll(r.Body)
 			if err != nil {
 				return
 			}
 
-			var m task.KillJson
+			var m taskbuilder.KillJson
 			err = json.Unmarshal(dec, &m)
 			if err != nil {
-				// Improper json formatting.
 				fmt.Fprintf(w, "%v", err.Error())
 				return
 			}
-			log.Println(*m.Name)
+
 			var status string
 			if m.Name != nil {
-				t := a.eventCtrl.TaskManager().Get(m.Name)
-				if t != nil {
+				t, err := a.eventCtrl.TaskManager().Get(m.Name)
+				if err != nil {
 					a.eventCtrl.TaskManager().Delete(t)
 					a.eventCtrl.Scheduler().Kill(t.GetTaskId(), t.GetAgentId())
 					status = "Task " + t.GetName() + " killed."
@@ -317,7 +295,11 @@ func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 		{
 			name := r.URL.Query().Get("name")
 
-			t := a.eventCtrl.TaskManager().Get(&name)
+			t, err := a.eventCtrl.TaskManager().Get(&name)
+			if err != nil {
+				fmt.Fprintf(w, "Task not found, error %v", err.Error())
+				return
+			}
 			queued := a.eventCtrl.TaskManager().QueuedTasks()
 			var status string
 			if _, ok := queued[t.GetTaskId().GetValue()]; ok {
