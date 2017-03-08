@@ -10,6 +10,6 @@ import (
 func main() {
 	logger := logging.NewDefaultLogger()
 	c := client.NewClient("http://localhost:5050/api/v1/executor", logger)
-	e := exec.NewDefaultExecutor(c)
+	e := exec.NewDefaultExecutor(c, logger)
 	e.Run()
 }
