@@ -13,6 +13,7 @@ import (
 	taskbuilder "mesos-framework-sdk/task"
 	"mesos-framework-sdk/utils"
 	"net/http"
+	"sprint/scheduler/api/response"
 	"sprint/scheduler/events"
 	"strconv"
 	"time"
@@ -133,8 +134,7 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 
 			a.eventCtrl.TaskManager().Add(task)
 			a.eventCtrl.Scheduler().Revive()
-
-			fmt.Fprintf(w, "%v", task)
+			json.NewEncoder(w).Encode(response.Deploy{Status: response.ACCEPTED, Task: task.GetName()})
 		}
 	default:
 		{
