@@ -11,7 +11,7 @@ import (
 	sched "mesos-framework-sdk/scheduler"
 	"mesos-framework-sdk/server"
 	"mesos-framework-sdk/server/file"
-	"mesos-framework-sdk/task_manager"
+	"mesos-framework-sdk/task/manager"
 	"sprint/scheduler"
 	"sprint/scheduler/api"
 	"sprint/scheduler/events"

@@ -13,7 +13,7 @@ import (
 	"mesos-framework-sdk/resources"
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
-	"mesos-framework-sdk/task_manager"
+	"mesos-framework-sdk/task/manager"
 	"strconv"
 	"time"
 )
@@ -120,6 +120,7 @@ func (s *SprintEventController) Listen() {
 }
 
 func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
+	s.scheduler.Reconcile([]*mesos_v1.Task{})
 
 	// Check task manager for any active tasks.
 	if s.taskmanager.HasQueuedTasks() {
@@ -137,6 +138,7 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 				if err != nil {
 					// It didn't match any offers.
 					log.Println(err.Error())
+					continue // We should decline.
 				}
 
 				t := &mesos_v1.TaskInfo{

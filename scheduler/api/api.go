@@ -9,8 +9,8 @@ import (
 	"log"
 	"mesos-framework-sdk/include/mesos"
 	resourcebuilder "mesos-framework-sdk/resources"
-	taskbuilder "mesos-framework-sdk/resources/task"
 	"mesos-framework-sdk/server"
+	taskbuilder "mesos-framework-sdk/task"
 	"mesos-framework-sdk/utils"
 	"net/http"
 	"sprint/scheduler/events"
@@ -24,6 +24,7 @@ const (
 	statusEndpoint = "/status"
 	killEndpoint   = "/kill"
 	updateEndpoint = "/update"
+	statsEndpoint  = "/stats"
 	retries        = 20
 )
 
@@ -57,6 +58,7 @@ func (a *ApiServer) setDefaultHandlers() {
 	a.handle[baseUrl+statusEndpoint] = a.state
 	a.handle[baseUrl+killEndpoint] = a.kill
 	a.handle[baseUrl+updateEndpoint] = a.update
+	a.handle[baseUrl+statsEndpoint] = a.stats
 }
 
 // RunAPI takes the scheduler controller and sets up the configuration for the API.
@@ -98,11 +100,9 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			// Allocate space for our resources.
 			var resources []*mesos_v1.Resource
-
-			var cpu = resourcebuilder.CreateCpu(m.Resources.Cpu, "*")
-			var mem = resourcebuilder.CreateMem(m.Resources.Mem, "*")
+			var cpu = resourcebuilder.CreateCpu(m.Resources.Cpu, m.Resources.Role)
+			var mem = resourcebuilder.CreateMem(m.Resources.Mem, m.Resources.Role)
 
 			networks, err := taskbuilder.ParseNetworkJSON(m.Container.Network)
 			if err != nil {
@@ -110,7 +110,6 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 				log.Println("No explicit network info passed in.")
 			}
 
-			// append into our resources slice.
 			resources = append(resources, cpu, mem)
 
 			uuid, err := utils.UuidToString(utils.Uuid())
@@ -118,24 +117,19 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 				log.Println(err.Error())
 			}
 
-			task := &mesos_v1.TaskInfo{
-				Name:      proto.String(m.Name),
-				TaskId:    &mesos_v1.TaskID{Value: proto.String(uuid)},
-				Command:   resourcebuilder.CreateSimpleCommandInfo(m.Command.Cmd, nil),
-				Resources: resources,
-				Container: &mesos_v1.ContainerInfo{
-					Type: mesos_v1.ContainerInfo_MESOS.Enum(),
-					Mesos: &mesos_v1.ContainerInfo_MesosInfo{
-						Image: &mesos_v1.Image{
-							Type: mesos_v1.Image_DOCKER.Enum(),
-							Docker: &mesos_v1.Image_Docker{
-								Name: m.Container.ImageName,
-							},
-						},
-					},
-					NetworkInfos: networks,
-				},
-			}
+			container := resourcebuilder.CreateContainerInfoForMesos(
+				resourcebuilder.CreateImage(
+					*m.Container.ImageName, "", mesos_v1.Image_DOCKER.Enum(),
+				),
+			)
+
+			task := resourcebuilder.CreateTaskInfo(
+				proto.String(m.Name),
+				&mesos_v1.TaskID{Value: proto.String(uuid)},
+				resourcebuilder.CreateSimpleCommandInfo(m.Command.Cmd, nil),
+				resources,
+				resourcebuilder.CreateMesosContainerInfo(container, networks),
+			)
 
 			a.eventCtrl.TaskManager().Add(task)
 			a.eventCtrl.Scheduler().Revive()
@@ -192,25 +186,20 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				log.Println(err.Error())
 			}
+			container := resourcebuilder.CreateContainerInfoForMesos(
+				resourcebuilder.CreateImage(
+					*m.Container.ImageName, "", mesos_v1.Image_DOCKER.Enum(),
+				),
+			)
 
-			task := &mesos_v1.TaskInfo{
-				Name:      proto.String(m.Name),
-				TaskId:    &mesos_v1.TaskID{Value: proto.String(uuid)},
-				Command:   resourcebuilder.CreateSimpleCommandInfo(m.Command.Cmd, nil),
-				Resources: resources,
-				Container: &mesos_v1.ContainerInfo{
-					Type: mesos_v1.ContainerInfo_MESOS.Enum(),
-					Mesos: &mesos_v1.ContainerInfo_MesosInfo{
-						Image: &mesos_v1.Image{
-							Type: mesos_v1.Image_DOCKER.Enum(),
-							Docker: &mesos_v1.Image_Docker{
-								Name: m.Container.ImageName,
-							},
-						},
-					},
-					NetworkInfos: networks,
-				},
-			}
+			task := resourcebuilder.CreateTaskInfo(
+				proto.String(m.Name),
+				&mesos_v1.TaskID{Value: proto.String(uuid)},
+				resourcebuilder.CreateSimpleCommandInfo(m.Command.Cmd, nil),
+				resources,
+				resourcebuilder.CreateMesosContainerInfo(container, networks),
+			)
+
 			a.eventCtrl.TaskManager().Add(task)
 			a.eventCtrl.Scheduler().Revive()
 
@@ -272,6 +261,26 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+}
+
+func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "GET":
+		{
+			name := r.URL.Query().Get("name")
+
+			_, err := a.eventCtrl.TaskManager().Get(&name)
+			if err != nil {
+				fmt.Fprintf(w, "Task not found, error %v", err.Error())
+				return
+			}
+			// get the task from task queue to
+		}
+	default:
+		{
+			fmt.Fprintf(w, r.Method+" is not allowed on this endpoint.")
+		}
+	}
 }
 
 // Status endpoint lets the end-user know about the TASK_STATUS of their task.
