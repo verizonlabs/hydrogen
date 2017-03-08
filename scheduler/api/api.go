@@ -6,13 +6,14 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"io/ioutil"
-	"log"
 	"mesos-framework-sdk/include/mesos"
+	"mesos-framework-sdk/logging"
 	resourcebuilder "mesos-framework-sdk/resources"
 	"mesos-framework-sdk/server"
 	taskbuilder "mesos-framework-sdk/task"
 	"mesos-framework-sdk/utils"
 	"net/http"
+	"os"
 	"sprint/scheduler/events"
 	"strconv"
 	"time"
@@ -35,14 +36,16 @@ type ApiServer struct {
 	handle    map[string]http.HandlerFunc // route -> handler func for that route
 	eventCtrl *eventcontroller.SprintEventController
 	version   string
+	logger    logging.Logger
 }
 
-func NewApiServer(cfg server.Configuration) *ApiServer {
+func NewApiServer(cfg server.Configuration, logger logging.Logger) *ApiServer {
 	return &ApiServer{
 		cfg:     cfg,
 		port:    flag.Int("server.api.port", 8080, "API server listen port"),
 		mux:     http.NewServeMux(),
 		version: "v1",
+		logger:  logger,
 	}
 }
 
@@ -76,9 +79,15 @@ func (a *ApiServer) RunAPI(e *eventcontroller.SprintEventController) {
 	if a.cfg.TLS() {
 		a.cfg.Server().Handler = a.mux
 		a.cfg.Server().Addr = ":" + strconv.Itoa(*a.port)
-		log.Fatal(a.cfg.Server().ListenAndServeTLS(a.cfg.Cert(), a.cfg.Key()))
+		if err := a.cfg.Server().ListenAndServeTLS(a.cfg.Cert(), a.cfg.Key()); err != nil {
+			a.logger.Emit(logging.ERROR, err.Error())
+			os.Exit(1)
+		}
 	} else {
-		log.Fatal(http.ListenAndServe(":"+strconv.Itoa(*a.port), a.mux))
+		if err := http.ListenAndServe(":"+strconv.Itoa(*a.port), a.mux); err != nil {
+			a.logger.Emit(logging.ERROR, err.Error())
+			os.Exit(1)
+		}
 	}
 }
 
@@ -106,15 +115,16 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 
 			networks, err := taskbuilder.ParseNetworkJSON(m.Container.Network)
 			if err != nil {
+
 				// This isn't a fatal error so we can log this as debug and move along.
-				log.Println("No explicit network info passed in.")
+				a.logger.Emit(logging.INFO, "No explicit network info passed in.")
 			}
 
 			resources = append(resources, cpu, mem)
 
 			uuid, err := utils.UuidToString(utils.Uuid())
 			if err != nil {
-				log.Println(err.Error())
+				a.logger.Emit(logging.ERROR, err.Error())
 			}
 
 			container := resourcebuilder.CreateContainerInfoForMesos(
@@ -176,7 +186,7 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 			networks, err := taskbuilder.ParseNetworkJSON(m.Container.Network)
 			if err != nil {
 				// This isn't a fatal error so we can log this as debug and move along.
-				log.Println("No explicit network info passed in.")
+				a.logger.Emit(logging.INFO, "No explicit network info passed in.")
 			}
 
 			// append into our resources slice.
@@ -184,7 +194,7 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 
 			uuid, err := utils.UuidToString(utils.Uuid())
 			if err != nil {
-				log.Println(err.Error())
+				a.logger.Emit(logging.INFO, err.Error())
 			}
 			container := resourcebuilder.CreateContainerInfoForMesos(
 				resourcebuilder.CreateImage(
