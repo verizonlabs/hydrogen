@@ -13,7 +13,6 @@ import (
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
 	taskmanager "sprint/task/manager"
-	"strconv"
 	"time"
 )
 
@@ -28,7 +27,7 @@ type SprintEventController struct {
 	logger          logging.Logger
 }
 
-func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *task_manager.DefaultTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, kv *etcd.Etcd, logger logging.Logger) *SprintEventController {
+func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *taskmanager.SprintTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, kv *etcd.Etcd, logger logging.Logger) *SprintEventController {
 	return &SprintEventController{
 		taskmanager:     manager,
 		scheduler:       scheduler,
