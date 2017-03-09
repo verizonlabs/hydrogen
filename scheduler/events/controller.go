@@ -4,9 +4,7 @@ package eventcontroller
 Adapted from mesos-framework-sdk
 */
 import (
-	"fmt"
 	"github.com/golang/protobuf/proto"
-	"log"
 	"mesos-framework-sdk/include/mesos"
 	sched "mesos-framework-sdk/include/scheduler"
 	"mesos-framework-sdk/logging"
@@ -27,17 +25,17 @@ type SprintEventController struct {
 	resourcemanager *manager.DefaultResourceManager
 	events          chan *sched.Event
 	kv              *etcd.Etcd
-	log             *logging.DefaultLogger
+	logger          logging.Logger
 }
 
-func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *taskmanager.SprintTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, kv *etcd.Etcd, lgr *logging.DefaultLogger) *SprintEventController {
+func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *task_manager.DefaultTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, kv *etcd.Etcd, logger logging.Logger) *SprintEventController {
 	return &SprintEventController{
 		taskmanager:     manager,
 		scheduler:       scheduler,
 		events:          eventChan,
 		resourcemanager: resourceManager,
 		kv:              kv,
-		log:             lgr,
+		logger:          logger,
 	}
 }
 
@@ -60,10 +58,10 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	id := subEvent.GetFrameworkId()
 	idVal := id.GetValue()
 	s.scheduler.Info.Id = id
-	s.log.Emit(logging.INFO, "Subscribed with an ID of %s", idVal)
+	s.logger.Emit(logging.INFO, "Subscribed with an ID of %s", idVal)
 
 	if err := s.kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout())); err != nil {
-		log.Printf("Failed to save framework ID of %s to persistent data store", idVal)
+		s.logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
 	}
 }
 
@@ -77,7 +75,7 @@ func (s *SprintEventController) Run() {
 		for {
 			err = s.scheduler.Subscribe(s.events)
 			if err != nil {
-				s.log.Emit(logging.INFO, "Failed to subscribe: %s", err.Error())
+				s.logger.Emit(logging.ERROR, "Failed to subscribe: %s", err.Error())
 				time.Sleep(time.Duration(subscribeRetry) * time.Second)
 			}
 		}
@@ -114,7 +112,7 @@ func (s *SprintEventController) Listen() {
 				go s.Update(t.GetUpdate())
 			case sched.Event_HEARTBEAT:
 			case sched.Event_UNKNOWN:
-				fmt.Println("Unknown event recieved.")
+				s.logger.Emit(logging.ALARM, "Unknown event received")
 			}
 		}
 	}
@@ -136,8 +134,10 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 
 				offer, err := s.resourcemanager.Assign(mesosTask)
 				if err != nil {
+
 					// It didn't match any offers.
-					log.Println(err.Error())
+					s.logger.Emit(logging.ERROR, err.Error())
+					continue // We should decline.
 				}
 
 				t := &mesos_v1.TaskInfo{
@@ -157,7 +157,7 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 				data := proto.MarshalTextString(t)
 				id := t.TaskId.GetValue()
 				if err := s.kv.Create("/task/"+id, data); err != nil {
-					log.Printf("Failed to save task %s with name %s to persistent data store", id, t.GetName())
+					s.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, t.GetName())
 				}
 			}
 		}
@@ -167,15 +167,15 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 		for _, v := range offerEvent.GetOffers() {
 			ids = append(ids, v.GetId())
 		}
-		// decline offers.
-		fmt.Println("Declining offers.")
+		// Decline and supress offers until we're ready again.
+		s.logger.Emit(logging.INFO, "Declining %d offers", len(ids))
 		s.scheduler.Decline(ids, nil) // We want to make sure all offers are declined.
 		s.scheduler.Suppress()
 	}
 }
 
 func (s *SprintEventController) Rescind(rescindEvent *sched.Event_Rescind) {
-	fmt.Printf("Rescind event recieved.: %v\n", *rescindEvent)
+	s.logger.Emit(logging.INFO, "Rescind event recieved.: %v", *rescindEvent)
 	rescindEvent.GetOfferId().GetValue()
 }
 
@@ -183,7 +183,7 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 	task, err := s.taskmanager.GetById(updateEvent.GetStatus().GetTaskId())
 	if err != nil {
 		// This task doesn't exist according to task manager so we can't update it's status.
-		s.log.Emit(logging.ERROR, err.Error())
+		s.logger.Emit(logging.ERROR, err.Error())
 		return
 	}
 
@@ -203,7 +203,7 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 		s.taskmanager.Delete(task)
 		id := task.TaskId.GetValue()
 		if err := s.kv.Delete("/task/" + id); err != nil {
-			log.Printf("Failed to delete task %s with name %s from persistent data store", id, task.GetName())
+			s.logger.Emit(logging.INFO, "Failed to delete task %s with name %s from persistent data store", id, task.GetName())
 		}
 	case mesos_v1.TaskState_TASK_GONE:
 		// Agent is dead and task is lost.
@@ -214,7 +214,7 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 		s.taskmanager.Delete(task)
 		id := task.TaskId.GetValue()
 		if err := s.kv.Delete("/task/" + id); err != nil {
-			log.Printf("Failed to delete task %s with name %s from persistent data store", id, task.GetName())
+			s.logger.Emit(logging.INFO, "Failed to delete task %s with name %s from persistent data store", id, task.GetName())
 		}
 	case mesos_v1.TaskState_TASK_KILLING:
 		// Task is in the process of catching a SIGNAL and shutting down.
@@ -238,21 +238,21 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 }
 
 func (s *SprintEventController) Message(msg *sched.Event_Message) {
-	fmt.Printf("Message event recieved: %v\n", *msg)
+	s.logger.Emit(logging.INFO, "Message event recieved: %v", *msg)
 }
 
 func (s *SprintEventController) Failure(fail *sched.Event_Failure) {
-	log.Println("Executor " + fail.GetExecutorId().GetValue() + " failed with status " + strconv.Itoa(int(fail.GetStatus())))
+	s.logger.Emit(logging.ERROR, "Executor %s failed with status %d", fail.GetExecutorId().GetValue(), fail.GetStatus())
 }
 
 func (s *SprintEventController) Error(err *sched.Event_Error) {
-	fmt.Printf("Error event recieved: %v\n", err)
+	s.logger.Emit(logging.INFO, "Error event recieved: %v", err)
 }
 
 func (s *SprintEventController) InverseOffer(ioffers *sched.Event_InverseOffers) {
-	fmt.Printf("Inverse Offer event recieved: %v\n", ioffers)
+	s.logger.Emit(logging.INFO, "Inverse Offer event recieved: %v", ioffers)
 }
 
 func (s *SprintEventController) RescindInverseOffer(rioffers *sched.Event_RescindInverseOffer) {
-	fmt.Printf("Rescind Inverse Offer event recieved: %v\n", rioffers)
+	s.logger.Emit(logging.INFO, "Rescind Inverse Offer event recieved: %v", rioffers)
 }
