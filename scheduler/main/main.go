@@ -11,11 +11,12 @@ import (
 	sched "mesos-framework-sdk/scheduler"
 	"mesos-framework-sdk/server"
 	"mesos-framework-sdk/server/file"
-	"mesos-framework-sdk/task/manager"
+	"mesos-framework-sdk/structures"
 	"net/http"
 	"sprint/scheduler"
 	"sprint/scheduler/api"
 	"sprint/scheduler/events"
+	taskmanager "sprint/task/manager"
 	"strings"
 )
 
@@ -67,10 +68,10 @@ func main() {
 		strings.Split(schedulerConfig.StorageEndpoints, ","),
 		schedulerConfig.StorageTimeout,
 	) // Storage client
-	m := task_manager.NewDefaultTaskManager()            // Manages our tasks
-	r := manager.NewDefaultResourceManager()             // Manages resources from the cluster
-	c := client.NewClient(schedulerConfig.MesosEndpoint) // Manages HTTP calls
-	s := sched.NewDefaultScheduler(c, frameworkInfo)     // Manages how to route and schedule tasks.
+	m := taskmanager.NewTaskManager(structures.NewConcurrentMap(100)) // Manages our tasks
+	r := manager.NewDefaultResourceManager()                          // Manages resources from the cluster
+	c := client.NewClient(schedulerConfig.MesosEndpoint)              // Manages HTTP calls
+	s := sched.NewDefaultScheduler(c, frameworkInfo)                  // Manages how to route and schedule tasks.
 	// Event controller manages scheduler events and how they are handled.
 	e := eventcontroller.NewSprintEventController(s, m, r, eventChan, kv)
 
