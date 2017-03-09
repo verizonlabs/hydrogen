@@ -13,7 +13,7 @@ import (
 	"mesos-framework-sdk/resources"
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
-	"mesos-framework-sdk/task_manager"
+	"mesos-framework-sdk/task/manager"
 	"strconv"
 	"time"
 )

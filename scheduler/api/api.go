@@ -2,15 +2,14 @@ package api
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"io/ioutil"
 	"log"
 	"mesos-framework-sdk/include/mesos"
 	resourcebuilder "mesos-framework-sdk/resources"
-	taskbuilder "mesos-framework-sdk/resources/task"
 	"mesos-framework-sdk/server"
+	taskbuilder "mesos-framework-sdk/task"
 	"mesos-framework-sdk/utils"
 	"net/http"
 	"sprint/scheduler/events"
@@ -36,12 +35,12 @@ type ApiServer struct {
 	version   string
 }
 
-func NewApiServer(cfg server.Configuration) *ApiServer {
+func NewApiServer(cfg server.Configuration, mux *http.ServeMux, port int, version string) *ApiServer {
 	return &ApiServer{
 		cfg:     cfg,
-		port:    flag.Int("server.api.port", 8080, "API server listen port"),
-		mux:     http.NewServeMux(),
-		version: "v1",
+		port:    port,
+		mux:     mux,
+		version: version,
 	}
 }
 
