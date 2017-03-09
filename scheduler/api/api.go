@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"io/ioutil"
@@ -39,13 +38,13 @@ type ApiServer struct {
 	logger    logging.Logger
 }
 
-func NewApiServer(cfg server.Configuration, logger logging.Logger) *ApiServer {
+func NewApiServer(cfg server.Configuration, mux *http.ServeMux, port *int, version string, lgr *logging.DefaultLogger) *ApiServer {
 	return &ApiServer{
 		cfg:     cfg,
-		port:    flag.Int("server.api.port", 8080, "API server listen port"),
-		mux:     http.NewServeMux(),
-		version: "v1",
-		logger:  logger,
+		port:    port,
+		mux:     mux,
+		version: version,
+		logger:     lgr,
 	}
 }
 
@@ -64,12 +63,26 @@ func (a *ApiServer) setDefaultHandlers() {
 	a.handle[baseUrl+statsEndpoint] = a.stats
 }
 
-// RunAPI takes the scheduler controller and sets up the configuration for the API.
-func (a *ApiServer) RunAPI(e *eventcontroller.SprintEventController) {
-	// Set our default handlers here.
-	a.setDefaultHandlers()
+func (a *ApiServer) setHandlers(handles map[string]http.HandlerFunc) {
+	for route, handle := range handles {
+		a.handle[route] = handle
+	}
+}
 
+func (a *ApiServer) setEventController(e *eventcontroller.SprintEventController) {
 	a.eventCtrl = e
+}
+
+// RunAPI takes the scheduler controller and sets up the configuration for the API.
+func (a *ApiServer) RunAPI(e *eventcontroller.SprintEventController, handlers map[string]http.HandlerFunc) {
+	if handlers != nil || len(handlers) == 0 {
+		a.setHandlers(handlers)
+	} else {
+		a.logger.Emit(logging.INFO, "Setting default handlers instead since handlers passed in was nil or empty.")
+		a.setDefaultHandlers()
+	}
+
+	a.setEventController(e)
 
 	// Iterate through all methods and setup endpoints.
 	for route, handle := range a.handle {
@@ -91,7 +104,7 @@ func (a *ApiServer) RunAPI(e *eventcontroller.SprintEventController) {
 	}
 }
 
-// Deploys a give application from parsed JSON
+// Deploys a given application from parsed JSON
 func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
@@ -109,13 +122,13 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			// Allocate space for our resources.
 			var resources []*mesos_v1.Resource
 			var cpu = resourcebuilder.CreateCpu(m.Resources.Cpu, m.Resources.Role)
 			var mem = resourcebuilder.CreateMem(m.Resources.Mem, m.Resources.Role)
 
 			networks, err := taskbuilder.ParseNetworkJSON(m.Container.Network)
 			if err != nil {
-
 				// This isn't a fatal error so we can log this as debug and move along.
 				a.logger.Emit(logging.INFO, "No explicit network info passed in.")
 			}
