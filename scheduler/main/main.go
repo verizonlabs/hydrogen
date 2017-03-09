@@ -60,7 +60,6 @@ func main() {
 
 	logger.Emit(logging.INFO, "Starting executor file server")
 	// Executor server serves up our custom executor binary, if any.
-	logger.Emit(logging.INFO, "Starting executor server...")
 	go executorSrv.Serve()
 
 	// Used to listen for events coming from mesos master to our scheduler.
@@ -78,7 +77,7 @@ func main() {
 	// Event controller manages scheduler events and how they are handled.
 	e := eventcontroller.NewSprintEventController(s, m, r, eventChan, kv, logger)
 
-	logger.Emit(logging.INFO, "Starting API server...")
+	logger.Emit(logging.INFO, "Starting API server")
 	// Run our API in a go routine to listen for user requests.
 	go apiSrv.RunAPI(e, nil) // nil means to use default handlers.
 	// Run our event controller to subscribe to mesos master and start listening for events.
