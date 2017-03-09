@@ -95,15 +95,15 @@ func (m *SprintTaskManager) HasQueuedTasks() bool {
 // Check to see if any tasks we have match the id passed in.
 func (m *SprintTaskManager) GetById(id *mesos_v1.TaskID) (*mesos_v1.TaskInfo, error) {
 	if m.tasks.Length() == 0 {
-		return nil
+		return nil, errors.New("Task manager is empty.")
 	}
 	for v := range m.tasks.Iterate() {
 		task := v.Value.(mesos_v1.TaskInfo)
 		if task.GetTaskId().GetValue() == id.GetValue() {
-			return &task
+			return &task, nil
 		}
 	}
-	return nil
+	return nil, errors.New("Could not find task by id: " + id.GetValue())
 }
 
 func (m *SprintTaskManager) QueuedTasks() map[string]*mesos_v1.TaskInfo {
