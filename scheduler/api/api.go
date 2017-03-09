@@ -2,18 +2,17 @@ package api
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"io/ioutil"
-	"log"
 	"mesos-framework-sdk/include/mesos"
+	"mesos-framework-sdk/logging"
 	resourcebuilder "mesos-framework-sdk/resources"
 	"mesos-framework-sdk/server"
 	taskbuilder "mesos-framework-sdk/task"
 	"mesos-framework-sdk/utils"
 	"net/http"
-	"sprint/scheduler/api/response"
+	"os"
 	"sprint/scheduler/events"
 	"strconv"
 	"time"
@@ -36,14 +35,16 @@ type ApiServer struct {
 	handle    map[string]http.HandlerFunc // route -> handler func for that route
 	eventCtrl *eventcontroller.SprintEventController
 	version   string
+	logger    logging.Logger
 }
 
-func NewApiServer(cfg server.Configuration) *ApiServer {
+func NewApiServer(cfg server.Configuration, mux *http.ServeMux, port *int, version string, lgr *logging.DefaultLogger) *ApiServer {
 	return &ApiServer{
 		cfg:     cfg,
-		port:    flag.Int("server.api.port", 8080, "API server listen port"),
-		mux:     http.NewServeMux(),
-		version: "v1",
+		port:    port,
+		mux:     mux,
+		version: version,
+		logger:     lgr,
 	}
 }
 
@@ -62,12 +63,26 @@ func (a *ApiServer) setDefaultHandlers() {
 	a.handle[baseUrl+statsEndpoint] = a.stats
 }
 
-// RunAPI takes the scheduler controller and sets up the configuration for the API.
-func (a *ApiServer) RunAPI(e *eventcontroller.SprintEventController) {
-	// Set our default handlers here.
-	a.setDefaultHandlers()
+func (a *ApiServer) setHandlers(handles map[string]http.HandlerFunc) {
+	for route, handle := range handles {
+		a.handle[route] = handle
+	}
+}
 
+func (a *ApiServer) setEventController(e *eventcontroller.SprintEventController) {
 	a.eventCtrl = e
+}
+
+// RunAPI takes the scheduler controller and sets up the configuration for the API.
+func (a *ApiServer) RunAPI(e *eventcontroller.SprintEventController, handlers map[string]http.HandlerFunc) {
+	if handlers != nil || len(handlers) == 0 {
+		a.setHandlers(handlers)
+	} else {
+		a.logger.Emit(logging.INFO, "Setting default handlers instead since handlers passed in was nil or empty.")
+		a.setDefaultHandlers()
+	}
+
+	a.setEventController(e)
 
 	// Iterate through all methods and setup endpoints.
 	for route, handle := range a.handle {
@@ -77,13 +92,19 @@ func (a *ApiServer) RunAPI(e *eventcontroller.SprintEventController) {
 	if a.cfg.TLS() {
 		a.cfg.Server().Handler = a.mux
 		a.cfg.Server().Addr = ":" + strconv.Itoa(*a.port)
-		log.Fatal(a.cfg.Server().ListenAndServeTLS(a.cfg.Cert(), a.cfg.Key()))
+		if err := a.cfg.Server().ListenAndServeTLS(a.cfg.Cert(), a.cfg.Key()); err != nil {
+			a.logger.Emit(logging.ERROR, err.Error())
+			os.Exit(1)
+		}
 	} else {
-		log.Fatal(http.ListenAndServe(":"+strconv.Itoa(*a.port), a.mux))
+		if err := http.ListenAndServe(":"+strconv.Itoa(*a.port), a.mux); err != nil {
+			a.logger.Emit(logging.ERROR, err.Error())
+			os.Exit(1)
+		}
 	}
 }
 
-// Deploys a give application from parsed JSON
+// Deploys a given application from parsed JSON
 func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
@@ -101,6 +122,7 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
+			// Allocate space for our resources.
 			var resources []*mesos_v1.Resource
 			var cpu = resourcebuilder.CreateCpu(m.Resources.Cpu, m.Resources.Role)
 			var mem = resourcebuilder.CreateMem(m.Resources.Mem, m.Resources.Role)
@@ -108,14 +130,14 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 			networks, err := taskbuilder.ParseNetworkJSON(m.Container.Network)
 			if err != nil {
 				// This isn't a fatal error so we can log this as debug and move along.
-				log.Println("No explicit network info passed in.")
+				a.logger.Emit(logging.INFO, "No explicit network info passed in.")
 			}
 
 			resources = append(resources, cpu, mem)
 
 			uuid, err := utils.UuidToString(utils.Uuid())
 			if err != nil {
-				log.Println(err.Error())
+				a.logger.Emit(logging.ERROR, err.Error())
 			}
 
 			container := resourcebuilder.CreateContainerInfoForMesos(
@@ -134,7 +156,8 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 
 			a.eventCtrl.TaskManager().Add(task)
 			a.eventCtrl.Scheduler().Revive()
-			json.NewEncoder(w).Encode(response.Deploy{Status: response.ACCEPTED, Task: task.GetName()})
+
+			fmt.Fprintf(w, "%v", task)
 		}
 	default:
 		{
@@ -176,7 +199,7 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 			networks, err := taskbuilder.ParseNetworkJSON(m.Container.Network)
 			if err != nil {
 				// This isn't a fatal error so we can log this as debug and move along.
-				log.Println("No explicit network info passed in.")
+				a.logger.Emit(logging.INFO, "No explicit network info passed in.")
 			}
 
 			// append into our resources slice.
@@ -184,7 +207,7 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 
 			uuid, err := utils.UuidToString(utils.Uuid())
 			if err != nil {
-				log.Println(err.Error())
+				a.logger.Emit(logging.INFO, err.Error())
 			}
 			container := resourcebuilder.CreateContainerInfoForMesos(
 				resourcebuilder.CreateImage(
