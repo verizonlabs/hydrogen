@@ -75,16 +75,16 @@ func (a *ApiServer) setEventController(e *eventcontroller.SprintEventController)
 
 // RunAPI takes the scheduler controller and sets up the configuration for the API.
 func (a *ApiServer) RunAPI(e *eventcontroller.SprintEventController, handlers map[string]http.HandlerFunc) {
-	if len(handlers) == 0 {
-		a.setDefaultHandlers()
-	} else {
-		// Attempt to set custom handlers.
+	if handlers != nil || len(handlers) == 0 {
 		if err := a.setHandlers(handlers); err != nil {
 			log.Println(err.Error())
 			log.Println("Setting default handlers instead.")
 			a.setDefaultHandlers()
 		}
+	} else {
+		a.setDefaultHandlers()
 	}
+	// Attempt to set custom handlers.
 
 	a.setEventController(e)
 
