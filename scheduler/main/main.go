@@ -11,13 +11,13 @@ import (
 	sched "mesos-framework-sdk/scheduler"
 	"mesos-framework-sdk/server"
 	"mesos-framework-sdk/server/file"
+	"mesos-framework-sdk/structures"
+	"net/http"
 	"sprint/scheduler"
 	"sprint/scheduler/api"
 	"sprint/scheduler/events"
 	taskmanager "sprint/task/manager"
 	"strings"
-	"mesos-framework-sdk/structures"
-	"net/http"
 )
 
 func CreateFrameworkInfo(config *scheduler.SchedulerConfiguration) *mesos_v1.FrameworkInfo {
@@ -50,7 +50,7 @@ func main() {
 
 	// API server
 	apiPort := flag.Int("server.api.port", 8080, "API server listen port")
-	apiSrv := api.NewApiServer(srvConfig, http.NewServeMux(), apiPort, "v1", lgr)
+	apiSrv := api.NewApiServer(srvConfig, http.NewServeMux(), apiPort, "v1", logger)
 
 	// Define our framework here
 	schedulerConfig := new(scheduler.SchedulerConfiguration).Initialize()
@@ -73,8 +73,8 @@ func main() {
 	) // Storage client
 	m := taskmanager.NewTaskManager(structures.NewConcurrentMap(100)) // Manages our tasks
 	r := manager.NewDefaultResourceManager()                          // Manages resources from the cluster
-	c := client.NewClient(schedulerConfig.MesosEndpoint, logger)         // Manages HTTP calls
-	s := sched.NewDefaultScheduler(c, frameworkInfo, logger)             // Manages how to route and schedule tasks.
+	c := client.NewClient(schedulerConfig.MesosEndpoint, logger)      // Manages HTTP calls
+	s := sched.NewDefaultScheduler(c, frameworkInfo, logger)          // Manages how to route and schedule tasks.
 	// Event controller manages scheduler events and how they are handled.
 	e := eventcontroller.NewSprintEventController(s, m, r, eventChan, kv, logger)
 

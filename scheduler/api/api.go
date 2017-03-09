@@ -3,17 +3,14 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"io/ioutil"
-	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/logging"
-	resourcebuilder "mesos-framework-sdk/resources"
 	"mesos-framework-sdk/server"
 	taskbuilder "mesos-framework-sdk/task"
-	"mesos-framework-sdk/utils"
 	"net/http"
 	"os"
 	"sprint/scheduler/events"
+	"sprint/task/builder"
 	"strconv"
 	"time"
 )
@@ -44,7 +41,7 @@ func NewApiServer(cfg server.Configuration, mux *http.ServeMux, port *int, versi
 		port:    port,
 		mux:     mux,
 		version: version,
-		logger:     lgr,
+		logger:  lgr,
 	}
 }
 
@@ -121,39 +118,7 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintf(w, err.Error())
 				return
 			}
-
-			// Allocate space for our resources.
-			var resources []*mesos_v1.Resource
-			var cpu = resourcebuilder.CreateCpu(m.Resources.Cpu, m.Resources.Role)
-			var mem = resourcebuilder.CreateMem(m.Resources.Mem, m.Resources.Role)
-
-			networks, err := taskbuilder.ParseNetworkJSON(m.Container.Network)
-			if err != nil {
-				// This isn't a fatal error so we can log this as debug and move along.
-				a.logger.Emit(logging.INFO, "No explicit network info passed in.")
-			}
-
-			resources = append(resources, cpu, mem)
-
-			uuid, err := utils.UuidToString(utils.Uuid())
-			if err != nil {
-				a.logger.Emit(logging.ERROR, err.Error())
-			}
-
-			container := resourcebuilder.CreateContainerInfoForMesos(
-				resourcebuilder.CreateImage(
-					*m.Container.ImageName, "", mesos_v1.Image_DOCKER.Enum(),
-				),
-			)
-
-			task := resourcebuilder.CreateTaskInfo(
-				proto.String(m.Name),
-				&mesos_v1.TaskID{Value: proto.String(uuid)},
-				resourcebuilder.CreateSimpleCommandInfo(m.Command.Cmd, nil),
-				resources,
-				resourcebuilder.CreateMesosContainerInfo(container, networks),
-			)
-
+			task := builder.Application(m, a.logger)
 			a.eventCtrl.TaskManager().Add(task)
 			a.eventCtrl.Scheduler().Revive()
 
@@ -191,37 +156,7 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			var resources []*mesos_v1.Resource
-
-			var cpu = resourcebuilder.CreateCpu(m.Resources.Cpu, "*")
-			var mem = resourcebuilder.CreateMem(m.Resources.Mem, "*")
-
-			networks, err := taskbuilder.ParseNetworkJSON(m.Container.Network)
-			if err != nil {
-				// This isn't a fatal error so we can log this as debug and move along.
-				a.logger.Emit(logging.INFO, "No explicit network info passed in.")
-			}
-
-			// append into our resources slice.
-			resources = append(resources, cpu, mem)
-
-			uuid, err := utils.UuidToString(utils.Uuid())
-			if err != nil {
-				a.logger.Emit(logging.INFO, err.Error())
-			}
-			container := resourcebuilder.CreateContainerInfoForMesos(
-				resourcebuilder.CreateImage(
-					*m.Container.ImageName, "", mesos_v1.Image_DOCKER.Enum(),
-				),
-			)
-
-			task := resourcebuilder.CreateTaskInfo(
-				proto.String(m.Name),
-				&mesos_v1.TaskID{Value: proto.String(uuid)},
-				resourcebuilder.CreateSimpleCommandInfo(m.Command.Cmd, nil),
-				resources,
-				resourcebuilder.CreateMesosContainerInfo(container, networks),
-			)
+			task := builder.Application(m, a.logger)
 
 			a.eventCtrl.TaskManager().Add(task)
 			a.eventCtrl.Scheduler().Revive()
