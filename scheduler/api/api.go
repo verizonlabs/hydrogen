@@ -4,10 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
 	"io/ioutil"
-	"log"
 	"mesos-framework-sdk/include/mesos"
+	"mesos-framework-sdk/logging"
 	resourcebuilder "mesos-framework-sdk/resources"
 	"mesos-framework-sdk/server"
 	taskbuilder "mesos-framework-sdk/task"
@@ -34,14 +33,16 @@ type ApiServer struct {
 	handle    map[string]http.HandlerFunc // route -> handler func for that route
 	eventCtrl *eventcontroller.SprintEventController
 	version   string
+	log       *logging.DefaultLogger
 }
 
-func NewApiServer(cfg server.Configuration, mux *http.ServeMux, port *int, version string) *ApiServer {
+func NewApiServer(cfg server.Configuration, mux *http.ServeMux, port *int, version string, lgr *logging.DefaultLogger) *ApiServer {
 	return &ApiServer{
 		cfg:     cfg,
 		port:    port,
 		mux:     mux,
 		version: version,
+		log:     lgr,
 	}
 }
 
@@ -59,14 +60,10 @@ func (a *ApiServer) setDefaultHandlers() {
 	a.handle[baseUrl+updateEndpoint] = a.update
 }
 
-func (a *ApiServer) setHandlers(handles map[string]http.HandlerFunc) error {
-	if handles != nil {
-		for route, handle := range handles {
-			a.handle[route] = handle
-		}
-		return nil
+func (a *ApiServer) setHandlers(handles map[string]http.HandlerFunc) {
+	for route, handle := range handles {
+		a.handle[route] = handle
 	}
-	return errors.New("Handle map passed in was nil")
 }
 
 func (a *ApiServer) setEventController(e *eventcontroller.SprintEventController) {
@@ -76,15 +73,11 @@ func (a *ApiServer) setEventController(e *eventcontroller.SprintEventController)
 // RunAPI takes the scheduler controller and sets up the configuration for the API.
 func (a *ApiServer) RunAPI(e *eventcontroller.SprintEventController, handlers map[string]http.HandlerFunc) {
 	if handlers != nil || len(handlers) == 0 {
-		if err := a.setHandlers(handlers); err != nil {
-			log.Println(err.Error())
-			log.Println("Setting default handlers instead.")
-			a.setDefaultHandlers()
-		}
+		a.setHandlers(handlers)
 	} else {
+		a.log.Emit(logging.INFO, "Setting default handlers instead since handlers passed in was nil or empty.")
 		a.setDefaultHandlers()
 	}
-	// Attempt to set custom handlers.
 
 	a.setEventController(e)
 
@@ -96,9 +89,9 @@ func (a *ApiServer) RunAPI(e *eventcontroller.SprintEventController, handlers ma
 	if a.cfg.TLS() {
 		a.cfg.Server().Handler = a.mux
 		a.cfg.Server().Addr = ":" + strconv.Itoa(*a.port)
-		log.Fatal(a.cfg.Server().ListenAndServeTLS(a.cfg.Cert(), a.cfg.Key()))
+		a.log.Emit(logging.ERROR, a.cfg.Server().ListenAndServeTLS(a.cfg.Cert(), a.cfg.Key()).Error())
 	} else {
-		log.Fatal(http.ListenAndServe(":"+strconv.Itoa(*a.port), a.mux))
+		a.log.Emit(logging.ERROR, http.ListenAndServe(":"+strconv.Itoa(*a.port), a.mux).Error())
 	}
 }
 
@@ -129,7 +122,7 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 			networks, err := taskbuilder.ParseNetworkJSON(m.Container.Network)
 			if err != nil {
 				// This isn't a fatal error so we can log this as debug and move along.
-				log.Println("No explicit network info passed in.")
+				a.log.Emit(logging.INFO, "No explicit network info passed in.")
 			}
 
 			// append into our resources slice.
@@ -137,7 +130,7 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 
 			uuid, err := utils.UuidToString(utils.Uuid())
 			if err != nil {
-				log.Println(err.Error())
+				a.log.Emit(logging.ERROR, err.Error())
 			}
 
 			task := &mesos_v1.TaskInfo{
@@ -204,7 +197,7 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 			networks, err := taskbuilder.ParseNetworkJSON(m.Container.Network)
 			if err != nil {
 				// This isn't a fatal error so we can log this as debug and move along.
-				log.Println("No explicit network info passed in.")
+				a.log.Emit(logging.INFO, "No explicit network info passed in.")
 			}
 
 			// append into our resources slice.
@@ -212,7 +205,7 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 
 			uuid, err := utils.UuidToString(utils.Uuid())
 			if err != nil {
-				log.Println(err.Error())
+				a.log.Emit(logging.ERROR, err.Error())
 			}
 
 			task := &mesos_v1.TaskInfo{
@@ -316,7 +309,6 @@ func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 				status = "task " + t.GetName() + " is launched."
 			}
 			fmt.Fprintf(w, "%v", status)
-
 		}
 	default:
 		{

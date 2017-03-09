@@ -9,6 +9,7 @@ import (
 	"log"
 	"mesos-framework-sdk/include/mesos"
 	sched "mesos-framework-sdk/include/scheduler"
+	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/persistence/drivers/etcd"
 	"mesos-framework-sdk/resources"
 	"mesos-framework-sdk/resources/manager"
@@ -26,15 +27,17 @@ type SprintEventController struct {
 	resourcemanager *manager.DefaultResourceManager
 	events          chan *sched.Event
 	kv              *etcd.Etcd
+	log             *logging.DefaultLogger
 }
 
-func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *taskmanager.SprintTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, kv *etcd.Etcd) *SprintEventController {
+func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *taskmanager.SprintTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, kv *etcd.Etcd, lgr *logging.DefaultLogger) *SprintEventController {
 	return &SprintEventController{
 		taskmanager:     manager,
 		scheduler:       scheduler,
 		events:          eventChan,
 		resourcemanager: resourceManager,
 		kv:              kv,
+		log:             lgr,
 	}
 }
 
@@ -57,7 +60,7 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	id := subEvent.GetFrameworkId()
 	idVal := id.GetValue()
 	s.scheduler.Info.Id = id
-	log.Printf("Subscribed with an ID of %s", idVal)
+	s.log.Emit(logging.INFO, "Subscribed with an ID of %s", idVal)
 
 	if err := s.kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout())); err != nil {
 		log.Printf("Failed to save framework ID of %s to persistent data store", idVal)
@@ -74,7 +77,7 @@ func (s *SprintEventController) Run() {
 		for {
 			err = s.scheduler.Subscribe(s.events)
 			if err != nil {
-				log.Printf("Failed to subscribe: %s", err.Error())
+				s.log.Emit(logging.INFO, "Failed to subscribe: %s", err.Error())
 				time.Sleep(time.Duration(subscribeRetry) * time.Second)
 			}
 		}
@@ -180,7 +183,7 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 	task, err := s.taskmanager.GetById(updateEvent.GetStatus().GetTaskId())
 	if err != nil {
 		// This task doesn't exist according to task manager so we can't update it's status.
-		log.Println(err.Error())
+		s.log.Emit(logging.ERROR, err.Error())
 		return
 	}
 
