@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	"io/ioutil"
 	"log"
 	"mesos-framework-sdk/include/mesos"
@@ -44,7 +45,7 @@ func NewApiServer(cfg server.Configuration, mux *http.ServeMux, port int, versio
 	}
 }
 
-//Getter to return our map of handles
+//Getter to return a map of handlers
 func (a *ApiServer) Handle() map[string]http.HandlerFunc {
 	return a.handle
 }
@@ -58,12 +59,34 @@ func (a *ApiServer) setDefaultHandlers() {
 	a.handle[baseUrl+updateEndpoint] = a.update
 }
 
-// RunAPI takes the scheduler controller and sets up the configuration for the API.
-func (a *ApiServer) RunAPI(e *eventcontroller.SprintEventController) {
-	// Set our default handlers here.
-	a.setDefaultHandlers()
+func (a *ApiServer) setHandlers(handles map[string]http.HandlerFunc) error {
+	if handles != nil {
+		for route, handle := range handles {
+			a.handle[route] = handle
+		}
+		return nil
+	}
+	return errors.New("Handle map passed in was nil")
+}
 
+func (a *ApiServer) setEventController(e *eventcontroller.SprintEventController) {
 	a.eventCtrl = e
+}
+
+// RunAPI takes the scheduler controller and sets up the configuration for the API.
+func (a *ApiServer) RunAPI(e *eventcontroller.SprintEventController, handlers map[string]http.HandlerFunc) {
+	if len(handlers) == 0 {
+		a.setDefaultHandlers()
+	} else {
+		// Attempt to set custom handlers.
+		if err := a.setHandlers(handlers); err != nil {
+			log.Println(err.Error())
+			log.Println("Setting default handlers instead.")
+			a.setDefaultHandlers()
+		}
+	}
+
+	a.setEventController(e)
 
 	// Iterate through all methods and setup endpoints.
 	for route, handle := range a.handle {
@@ -79,7 +102,7 @@ func (a *ApiServer) RunAPI(e *eventcontroller.SprintEventController) {
 	}
 }
 
-// Deploys a give application from parsed JSON
+// Deploys a given application from parsed JSON
 func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
