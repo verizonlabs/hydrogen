@@ -72,10 +72,11 @@ func (a *ApiServer) setEventController(e *eventcontroller.SprintEventController)
 
 // RunAPI takes the scheduler controller and sets up the configuration for the API.
 func (a *ApiServer) RunAPI(e *eventcontroller.SprintEventController, handlers map[string]http.HandlerFunc) {
-	if handlers != nil || len(handlers) == 0 {
+	if handlers != nil || len(handlers) != 0 {
+		a.logger.Emit(logging.INFO, "Setting custom handlers.")
 		a.setHandlers(handlers)
 	} else {
-		a.logger.Emit(logging.INFO, "Setting default handlers instead since handlers passed in was nil or empty.")
+		a.logger.Emit(logging.INFO, "Setting default handlers.")
 		a.setDefaultHandlers()
 	}
 
@@ -118,7 +119,11 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintf(w, err.Error())
 				return
 			}
-			task := builder.Application(m, a.logger)
+			task, err := builder.Application(&m, a.logger)
+			if err != nil {
+				fmt.Fprintf(w, err.Error())
+				return
+			}
 			a.eventCtrl.TaskManager().Add(task)
 			a.eventCtrl.Scheduler().Revive()
 
@@ -156,7 +161,7 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			task := builder.Application(m, a.logger)
+			task, err := builder.Application(&m, a.logger)
 
 			a.eventCtrl.TaskManager().Add(task)
 			a.eventCtrl.Scheduler().Revive()
