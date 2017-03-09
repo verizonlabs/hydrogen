@@ -9,6 +9,7 @@ import (
 	taskbuilder "mesos-framework-sdk/task"
 	"net/http"
 	"os"
+	"sprint/scheduler/api/response"
 	"sprint/scheduler/events"
 	"sprint/task/builder"
 	"strconv"
@@ -207,14 +208,15 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 			if m.Name != nil {
 				t, err := a.eventCtrl.TaskManager().Get(m.Name)
 				if err != nil {
+					json.NewEncoder(w).Encode(response.Kill{Status: response.NOTFOUND, TaskName: *m.Name})
+				} else {
+					fmt.Println("In kill.")
 					a.eventCtrl.TaskManager().Delete(t)
 					a.eventCtrl.Scheduler().Kill(t.GetTaskId(), t.GetAgentId())
-					status = "Task " + t.GetName() + " killed."
-				} else {
-					status = "Unable to retrieve task from task manager."
+					json.NewEncoder(w).Encode(response.Kill{Status: response.KILLED, TaskName: *m.Name})
 				}
 			} else {
-				status = "Task not found."
+				json.NewEncoder(w).Encode(response.Kill{Status: response.FAILED, TaskName: *m.Name})
 			}
 			fmt.Fprintf(w, "%v", status)
 		}
@@ -260,10 +262,10 @@ func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 			}
 			queued := a.eventCtrl.TaskManager().QueuedTasks()
 			var status string
-			if _, ok := queued[t.GetTaskId().GetValue()]; ok {
-				status = "task " + t.GetName() + " is queued."
+			if task, ok := queued[t.GetTaskId().GetValue()]; ok {
+				json.NewEncoder(w).Encode(response.Kill{Status: response.LAUNCHED, TaskName: task.GetName()})
 			} else {
-				status = "task " + t.GetName() + " is launched."
+				json.NewEncoder(w).Encode(response.Kill{Status: response.QUEUED, TaskName: task.GetName()})
 			}
 			fmt.Fprintf(w, "%v", status)
 
