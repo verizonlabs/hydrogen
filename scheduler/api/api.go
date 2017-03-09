@@ -36,7 +36,7 @@ type ApiServer struct {
 	version   string
 }
 
-func NewApiServer(cfg server.Configuration, mux *http.ServeMux, port int, version string) *ApiServer {
+func NewApiServer(cfg server.Configuration, mux *http.ServeMux, port *int, version string) *ApiServer {
 	return &ApiServer{
 		cfg:     cfg,
 		port:    port,

@@ -13,7 +13,7 @@ import (
 	"mesos-framework-sdk/resources"
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
-	"mesos-framework-sdk/task/manager"
+	taskmanager "sprint/task/manager"
 	"strconv"
 	"time"
 )
@@ -22,13 +22,13 @@ const subscribeRetry = 2
 
 type SprintEventController struct {
 	scheduler       *scheduler.DefaultScheduler
-	taskmanager     *task_manager.DefaultTaskManager
+	taskmanager     *taskmanager.SprintTaskManager
 	resourcemanager *manager.DefaultResourceManager
 	events          chan *sched.Event
 	kv              *etcd.Etcd
 }
 
-func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *task_manager.DefaultTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, kv *etcd.Etcd) *SprintEventController {
+func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *taskmanager.SprintTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, kv *etcd.Etcd) *SprintEventController {
 	return &SprintEventController{
 		taskmanager:     manager,
 		scheduler:       scheduler,
@@ -44,7 +44,7 @@ func (s *SprintEventController) Scheduler() *scheduler.DefaultScheduler {
 }
 
 // Getter function
-func (s *SprintEventController) TaskManager() *task_manager.DefaultTaskManager {
+func (s *SprintEventController) TaskManager() *taskmanager.SprintTaskManager {
 	return s.taskmanager
 }
 
@@ -177,18 +177,59 @@ func (s *SprintEventController) Rescind(rescindEvent *sched.Event_Rescind) {
 }
 
 func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
-	task := s.taskmanager.GetById(updateEvent.GetStatus().GetTaskId())
-	if task != nil {
-		if updateEvent.GetStatus().GetState() != mesos_v1.TaskState_TASK_FAILED {
-			s.taskmanager.SetTaskLaunched(task)
-		} else {
-			s.taskmanager.Delete(task)
-			id := task.TaskId.GetValue()
-			if err := s.kv.Delete("/task/" + id); err != nil {
-				log.Printf("Failed to delete task %s with name %s from persistent data store", id, task.GetName())
-			}
-		}
+	task, err := s.taskmanager.GetById(updateEvent.GetStatus().GetTaskId())
+	if err != nil {
+		// This task doesn't exist according to task manager so we can't update it's status.
+		log.Println(err.Error())
+		return
 	}
+
+	// Tasks are set to "LAUNCHED" in task manager.
+	switch updateEvent.GetStatus().GetState() {
+	case mesos_v1.TaskState_TASK_FAILED:
+		// TODO: Check task manager for task retry policy, then retry as given.
+		s.taskmanager.SetTaskLaunched(task)
+	case mesos_v1.TaskState_TASK_STAGING:
+		// NOP, keep task set to "launched".
+	case mesos_v1.TaskState_TASK_DROPPED:
+		// Transient error, we should retry launching. Taskinfo is fine.
+		s.taskmanager.SetTaskQueued(task)
+	case mesos_v1.TaskState_TASK_ERROR:
+		// TODO: Error with the taskinfo sent to the agent. Give verbose reasoning back.
+	case mesos_v1.TaskState_TASK_FINISHED:
+		s.taskmanager.Delete(task)
+		id := task.TaskId.GetValue()
+		if err := s.kv.Delete("/task/" + id); err != nil {
+			log.Printf("Failed to delete task %s with name %s from persistent data store", id, task.GetName())
+		}
+	case mesos_v1.TaskState_TASK_GONE:
+		// Agent is dead and task is lost.
+	case mesos_v1.TaskState_TASK_GONE_BY_OPERATOR:
+		// Agent might be dead, master is unsure. Will return to RUNNING state possibly or die.
+	case mesos_v1.TaskState_TASK_KILLED:
+		// Task was killed.
+		s.taskmanager.Delete(task)
+		id := task.TaskId.GetValue()
+		if err := s.kv.Delete("/task/" + id); err != nil {
+			log.Printf("Failed to delete task %s with name %s from persistent data store", id, task.GetName())
+		}
+	case mesos_v1.TaskState_TASK_KILLING:
+		// Task is in the process of catching a SIGNAL and shutting down.
+	case mesos_v1.TaskState_TASK_LOST:
+		// Task is unknown to the master and lost. Should reschedule.
+		s.taskmanager.SetTaskQueued(task)
+	case mesos_v1.TaskState_TASK_RUNNING:
+		// Task is healthy and running. NOOP
+	case mesos_v1.TaskState_TASK_STARTING:
+		// Task is still starting up. NOOP
+	case mesos_v1.TaskState_TASK_UNKNOWN:
+		// Task is unknown to the master. Should ignore.
+	case mesos_v1.TaskState_TASK_UNREACHABLE:
+		// Agent lost contact with master, could be a network error. No guarantee the task is still running.
+		// Should we reschedule after waiting a certain peroid of time?
+	default:
+	}
+
 	status := updateEvent.GetStatus()
 	s.scheduler.Acknowledge(status.GetAgentId(), status.GetTaskId(), status.GetUuid())
 }

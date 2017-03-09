@@ -63,6 +63,7 @@ func (m *SprintTaskManager) Tasks() *structures.ConcurrentMap {
 
 func (m *SprintTaskManager) SetTaskQueued(task *mesos_v1.TaskInfo) error {
 	if task != nil {
+		delete(m.launchedTasks, task.GetName())
 		m.queuedTasks[task.GetName()] = task
 		return nil
 	}
