@@ -166,7 +166,7 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 		for _, v := range offerEvent.GetOffers() {
 			ids = append(ids, v.GetId())
 		}
-		// Decline and supress offers until we're ready again.
+		// Decline and suppress offers until we're ready again.
 		s.logger.Emit(logging.INFO, "Declining %d offers", len(ids))
 		s.scheduler.Decline(ids, nil) // We want to make sure all offers are declined.
 		s.scheduler.Suppress()
