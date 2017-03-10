@@ -1,3 +1,6 @@
+// TODO if these are to be unit tests then we should have it in the same package as api.go.
+// Remove these comments if the plan is for these to be functional tests.
+// Also remove the _test suffix from the filename so that this isn't picked up with Go's testing command.
 package test
 
 import (
@@ -9,12 +12,13 @@ import (
 	"mesos-framework-sdk/client"
 	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/include/scheduler"
+	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/persistence/drivers/etcd"
 	"mesos-framework-sdk/resources/manager"
 	sched "mesos-framework-sdk/scheduler"
 	"mesos-framework-sdk/server"
 	"mesos-framework-sdk/server/file"
-	"mesos-framework-sdk/task/manager"
+	"mesos-framework-sdk/structures"
 	"net"
 	"net/http"
 	"os"
@@ -22,6 +26,7 @@ import (
 	"sprint/scheduler/api"
 	"sprint/scheduler/api/response"
 	"sprint/scheduler/events"
+	tmanager "sprint/task/manager"
 	"strings"
 	"testing"
 )
@@ -80,8 +85,9 @@ func SetupEnv() {
 
 	srvConfig := server.NewConfiguration(*cert, *key, *path, *port)
 	schedulerConfig := new(scheduler.SchedulerConfiguration).Initialize()
-	executorSrv := file.NewExecutorServer(srvConfig)
-	apiSrv := api.NewApiServer(srvConfig)
+	logger := logging.NewDefaultLogger()
+	executorSrv := file.NewExecutorServer(srvConfig, logger)
+	apiSrv := api.NewApiServer(srvConfig, http.NewServeMux(), port, "v1", logger)
 
 	// Parse here to catch flags defined in structures above.
 	flag.Parse()
@@ -101,17 +107,18 @@ func SetupEnv() {
 
 	eventChan := make(chan *mesos_v1_scheduler.Event)
 
+	// TODO need to mock the storage stuff, otherwise creating the client fails.
 	kv := etcd.NewClient(strings.Split(schedulerConfig.StorageEndpoints, ","), schedulerConfig.StorageTimeout)
-	man := task_manager.NewDefaultTaskManager()
-	c := client.NewClient(schedulerConfig.MesosEndpoint)
-	s := sched.NewDefaultScheduler(c, frameworkInfo)
+	man := tmanager.NewTaskManager(structures.NewConcurrentMap())
+	c := client.NewClient(schedulerConfig.MesosEndpoint, logger)
+	s := sched.NewDefaultScheduler(c, frameworkInfo, logger)
 	r := manager.NewDefaultResourceManager()
-	e := eventcontroller.NewSprintEventController(s, man, r, eventChan, kv)
+	e := eventcontroller.NewSprintEventController(s, man, r, eventChan, kv, logger)
 
 	log.Println("Starting API server...")
-	go apiSrv.RunAPI(e)
+	go apiSrv.RunAPI(e, nil) // TODO mock API for unit tests.
 
-	go e.Run()
+	go e.Run() // TODO mock what we can so that we don't really try and make a connection to Mesos.
 }
 
 func TestMain(m *testing.M) {
