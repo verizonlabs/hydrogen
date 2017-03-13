@@ -35,7 +35,6 @@ func CreateFrameworkInfo(config *scheduler.SchedulerConfiguration) *mesos_v1.Fra
 // Entry point for the scheduler.
 // Parses configuration from user-supplied flags and prepares the scheduler for execution.
 func main() {
-
 	logger := logging.NewDefaultLogger()
 
 	// Executor/API server configuration.
