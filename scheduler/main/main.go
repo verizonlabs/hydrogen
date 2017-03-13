@@ -57,6 +57,7 @@ func main() {
 	path := flag.String("server.executor.path", "executor", "Path to the executor binary")
 	port := flag.Int("server.executor.port", 8081, "Executor server listen port")
 	apiPort := flag.Int("server.api.port", 8080, "API server listen port")
+
 	// Define our framework here
 	schedulerConfig := new(scheduler.SchedulerConfiguration).Initialize()
 	frameworkInfo := CreateFrameworkInfo(schedulerConfig)
@@ -70,7 +71,6 @@ func main() {
 	executorSrv := file.NewExecutorServer(srvConfig, logger)
 
 	// API server
-
 	apiSrv := api.NewApiServer(srvConfig, http.NewServeMux(), apiPort, "v1", logger)
 
 	logger.Emit(logging.INFO, "Starting executor file server")
@@ -105,5 +105,4 @@ func main() {
 
 	// Run our event controller to subscribe to mesos master and start listening for events.
 	e.Run()
-
 }
