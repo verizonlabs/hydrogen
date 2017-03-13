@@ -42,20 +42,22 @@ func main() {
 	key := flag.String("server.key", "", "TLS key")
 	path := flag.String("server.executor.path", "executor", "Path to the executor binary")
 	port := flag.Int("server.executor.port", 8081, "Executor server listen port")
+	apiPort := flag.Int("server.api.port", 8080, "API server listen port")
+	// Define our framework here
+	schedulerConfig := new(scheduler.SchedulerConfiguration).Initialize()
+	frameworkInfo := CreateFrameworkInfo(schedulerConfig)
+
+	flag.Parse()
+
+	logger.Emit(logging.INFO, *path)
 
 	// Executor Server
 	srvConfig := server.NewConfiguration(*cert, *key, *path, *port)
 	executorSrv := file.NewExecutorServer(srvConfig, logger)
 
 	// API server
-	apiPort := flag.Int("server.api.port", 8080, "API server listen port")
+
 	apiSrv := api.NewApiServer(srvConfig, http.NewServeMux(), apiPort, "v1", logger)
-
-	// Define our framework here
-	schedulerConfig := new(scheduler.SchedulerConfiguration).Initialize()
-	frameworkInfo := CreateFrameworkInfo(schedulerConfig)
-
-	flag.Parse()
 
 	logger.Emit(logging.INFO, "Starting executor file server")
 	// Executor server serves up our custom executor binary, if any.

@@ -31,6 +31,9 @@ func main() {
 	if port == "" {
 		port = "5050"
 	}
+	if storageEndpoint == "" {
+		storageEndpoint = "localhost:2379"
+	}
 	etcdTimeout := 5 * time.Second
 	kv := etcd.NewClient(
 		strings.Split(storageEndpoint, ","),
