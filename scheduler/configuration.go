@@ -9,19 +9,20 @@ import (
 
 // Configuration for the scheduler, populated by user-supplied flags.
 type SchedulerConfiguration struct {
-	MesosEndpoint    string
-	Name             string
-	User             string
-	Role             string
-	Checkpointing    bool
-	Principal        string
-	ExecutorSrvCfg   server.Configuration
-	ExecutorName     string
-	ExecutorCmd      string
-	StorageEndpoints string
-	StorageTimeout   time.Duration
-	Failover         float64
-	Hostname         string
+	MesosEndpoint     string
+	Name              string
+	User              string
+	Role              string
+	Checkpointing     bool
+	Principal         string
+	ExecutorSrvCfg    server.Configuration
+	ExecutorName      string
+	ExecutorCmd       string
+	StorageEndpoints  string
+	StorageTimeout    time.Duration
+	Failover          float64
+	Hostname          string
+	ReconcileInterval time.Duration
 }
 
 // Applies values to the various configurations from user-supplied flags.
@@ -41,6 +42,7 @@ func (c *SchedulerConfiguration) Initialize() *SchedulerConfiguration {
 	flag.DurationVar(&c.StorageTimeout, "persistence.timeout", time.Second, "Storage request timeout")
 	flag.Float64Var(&c.Failover, "failover", time.Minute.Seconds(), "Framework failover timeout")
 	flag.StringVar(&c.Hostname, "hostname", "", "The framework's hostname")
+	flag.DurationVar(&c.ReconcileInterval, "reconcile.interval", 15*time.Minute, "How often periodic reconciling happens")
 
 	return c
 }
