@@ -64,8 +64,6 @@ func main() {
 
 	flag.Parse()
 
-	logger.Emit(logging.INFO, *path)
-
 	// Executor Server
 	srvConfig := server.NewConfiguration(*cert, *key, *path, *port)
 	executorSrv := file.NewExecutorServer(srvConfig, logger)
