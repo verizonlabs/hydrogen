@@ -62,6 +62,9 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	if err := s.kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout())); err != nil {
 		s.logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
 	}
+
+	// Reconcile after we subscribe in case we resubscribed due to a failure.
+	s.scheduler.Reconcile(s.taskmanager.SliceTasks())
 }
 
 func (s *SprintEventController) Run() {
