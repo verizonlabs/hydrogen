@@ -160,7 +160,7 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 
 				data := proto.MarshalTextString(t)
 				id := t.TaskId.GetValue()
-				if err := s.kv.Create("/task/"+id, data); err != nil {
+				if err := s.kv.Create("/tasks/"+id, data); err != nil {
 					s.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, t.GetName())
 				}
 			}
@@ -207,7 +207,7 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 	case mesos_v1.TaskState_TASK_FINISHED:
 		s.taskmanager.Delete(task)
 		id := task.TaskId.GetValue()
-		if err := s.kv.Delete("/task/" + id); err != nil {
+		if err := s.kv.Delete("/tasks/" + id); err != nil {
 			s.logger.Emit(logging.INFO, "Failed to delete task %s with name %s from persistent data store", id, task.GetName())
 		}
 	case mesos_v1.TaskState_TASK_GONE:
