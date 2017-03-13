@@ -1,4 +1,4 @@
-package eventcontroller
+package events
 
 /*
 Adapted from mesos-framework-sdk

@@ -113,7 +113,7 @@ func SetupEnv() {
 	c := client.NewClient(schedulerConfig.MesosEndpoint, logger)
 	s := sched.NewDefaultScheduler(c, frameworkInfo, logger)
 	r := manager.NewDefaultResourceManager()
-	e := eventcontroller.NewSprintEventController(s, man, r, eventChan, kv, logger)
+	e := events.NewSprintEventController(s, man, r, eventChan, kv, logger)
 
 	log.Println("Starting API server...")
 	go apiSrv.RunAPI(e, nil) // TODO mock API for unit tests.

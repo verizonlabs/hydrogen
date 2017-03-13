@@ -35,7 +35,7 @@ func CreateFrameworkInfo(config *scheduler.SchedulerConfiguration) *mesos_v1.Fra
 
 // Keep our state in check by periodically reconciling.
 // This is recommended by Mesos.
-func periodicReconcile(c *scheduler.SchedulerConfiguration, e *eventcontroller.SprintEventController) {
+func periodicReconcile(c *scheduler.SchedulerConfiguration, e *events.SprintEventController) {
 	ticker := time.NewTicker(c.ReconcileInterval)
 
 	for {
@@ -92,7 +92,7 @@ func main() {
 	s := sched.NewDefaultScheduler(c, frameworkInfo, logger)          // Manages how to route and schedule tasks.
 
 	// Event controller manages scheduler events and how they are handled.
-	e := eventcontroller.NewSprintEventController(s, m, r, eventChan, kv, logger)
+	e := events.NewSprintEventController(s, m, r, eventChan, kv, logger)
 
 	logger.Emit(logging.INFO, "Starting API server")
 
