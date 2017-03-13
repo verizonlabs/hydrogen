@@ -60,11 +60,26 @@ func Application(t *task.ApplicationJSON, lgr logging.Logger) (*mesos_v1.TaskInf
 		u = append(u, t)
 	}
 
+	labels := []*mesos_v1.Label{}
+
+	for _, labelList := range t.Labels {
+		for k, v := range labelList {
+			label := &mesos_v1.Label{
+				Key:   proto.String(k),
+				Value: proto.String(v),
+			}
+			labels = append(labels, label)
+		}
+	}
+
+	labelProto := &mesos_v1.Labels{Labels: labels}
+
 	return resourcebuilder.CreateTaskInfo(
 		proto.String(t.Name),
 		&mesos_v1.TaskID{Value: proto.String(uuid)},
-		resourcebuilder.CreateSimpleCommandInfo(t.Command.Cmd, u), // TODO: Change this to take any command info.
+		resourcebuilder.CreateSimpleCommandInfo(t.Command.Cmd, u),
 		resources,
 		resourcebuilder.CreateMesosContainerInfo(container, networks, vol, nil),
+		labelProto,
 	), nil
 }
