@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"github.com/golang/protobuf/proto"
 	"mesos-framework-sdk/client"
 	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/include/scheduler"
@@ -44,6 +45,23 @@ func periodicReconcile(c *scheduler.SchedulerConfiguration, e *events.SprintEven
 			e.Scheduler().Reconcile(e.TaskManager().SliceTasks())
 		}
 	}
+}
+
+// Get all of our persisted tasks, convert them back into TaskInfo's, and add them to our task manager.
+// If no tasks exist in the data store then we can consider this a fresh run and safely move on.
+func restoreTasks(kv *etcd.Etcd, t *taskmanager.SprintTaskManager) error {
+	tasks, err := kv.ReadAll("/tasks")
+	if err != nil {
+		return err
+	}
+
+	for _, value := range tasks {
+		var taskInfo mesos_v1.TaskInfo
+		proto.UnmarshalText(value, &taskInfo)
+		t.Add(&taskInfo)
+	}
+
+	return nil
 }
 
 // Entry point for the scheduler.
@@ -96,6 +114,12 @@ func main() {
 
 	// Run our API in a go routine to listen for user requests.
 	go apiSrv.RunAPI(e, nil) // nil means to use default handlers.
+
+	// Recover our state (if any) in the event we (or the server) go down.
+	logger.Emit(logging.INFO, "Restoring any persisted state from data store")
+	if err := restoreTasks(kv, m); err != nil {
+		logger.Emit(logging.ERROR, "Failed to restore tasks from persistent data store")
+	}
 
 	// Kick off our scheduled reconciling.
 	logger.Emit(logging.INFO, "Starting periodic reconciler thread with a %g minute interval", schedulerConfig.ReconcileInterval.Minutes())
