@@ -93,6 +93,8 @@ func (s *SprintEventController) Listen() {
 		select {
 		case t := <-s.events:
 			switch t.GetType() {
+			case sched.Event_SUBSCRIBED:
+				go s.Subscribe(t.GetSubscribed())
 			case sched.Event_ERROR:
 				go s.Error(t.GetError())
 			case sched.Event_FAILURE:
