@@ -50,10 +50,20 @@ func Application(t *task.ApplicationJSON, lgr logging.Logger) (*mesos_v1.TaskInf
 		return nil, errors.New("Container image name was not passed in. Please pass in a container name.")
 	}
 
+	u := []*mesos_v1.CommandInfo_URI{}
+	for _, uri := range t.Command.Uris {
+		t := &mesos_v1.CommandInfo_URI{
+			Value:      uri.Uri,
+			Executable: uri.Execute,
+			Extract:    uri.Extract,
+		}
+		u = append(u, t)
+	}
+
 	return resourcebuilder.CreateTaskInfo(
 		proto.String(t.Name),
 		&mesos_v1.TaskID{Value: proto.String(uuid)},
-		resourcebuilder.CreateSimpleCommandInfo(t.Command.Cmd, nil), // TODO: Change this to take any command info.
+		resourcebuilder.CreateSimpleCommandInfo(t.Command.Cmd, u), // TODO: Change this to take any command info.
 		resources,
 		resourcebuilder.CreateMesosContainerInfo(container, networks, vol, nil),
 	), nil

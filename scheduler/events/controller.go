@@ -184,6 +184,7 @@ func (s *SprintEventController) Rescind(rescindEvent *sched.Event_Rescind) {
 }
 
 func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
+	s.logger.Emit(logging.INFO, updateEvent.GetStatus().GetMessage())
 	task, err := s.taskmanager.GetById(updateEvent.GetStatus().GetTaskId())
 	if err != nil {
 		// This task doesn't exist according to task manager so we can't update it's status.
