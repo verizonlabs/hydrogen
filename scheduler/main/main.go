@@ -35,8 +35,8 @@ func CreateFrameworkInfo(config *scheduler.SchedulerConfiguration) *mesos_v1.Fra
 
 // Keep our state in check by periodically reconciling.
 // This is recommended by Mesos.
-func periodicReconcile(e *eventcontroller.SprintEventController) {
-	ticker := time.NewTicker(15 * time.Minute)
+func periodicReconcile(c *scheduler.SchedulerConfiguration, e *eventcontroller.SprintEventController) {
+	ticker := time.NewTicker(c.ReconcileInterval)
 
 	for {
 		select {
@@ -98,8 +98,8 @@ func main() {
 	go apiSrv.RunAPI(e, nil) // nil means to use default handlers.
 
 	// Kick off our scheduled reconciling.
-	logger.Emit(logging.INFO, "Starting periodic reconciler thread")
-	go periodicReconcile(e)
+	logger.Emit(logging.INFO, "Starting periodic reconciler thread with a %g minute interval", schedulerConfig.ReconcileInterval.Minutes())
+	go periodicReconcile(schedulerConfig, e)
 
 	// Run our event controller to subscribe to mesos master and start listening for events.
 	e.Run()
