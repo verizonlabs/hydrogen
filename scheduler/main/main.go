@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"github.com/golang/protobuf/proto"
 	"mesos-framework-sdk/client"
 	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/include/scheduler"
@@ -18,6 +19,7 @@ import (
 	"sprint/scheduler/events"
 	taskmanager "sprint/task/manager"
 	"strings"
+	"time"
 )
 
 func CreateFrameworkInfo(config *scheduler.SchedulerConfiguration) *mesos_v1.FrameworkInfo {
@@ -32,6 +34,36 @@ func CreateFrameworkInfo(config *scheduler.SchedulerConfiguration) *mesos_v1.Fra
 	}
 }
 
+// Keep our state in check by periodically reconciling.
+// This is recommended by Mesos.
+func periodicReconcile(c *scheduler.SchedulerConfiguration, e *events.SprintEventController) {
+	ticker := time.NewTicker(c.ReconcileInterval)
+
+	for {
+		select {
+		case <-ticker.C:
+			e.Scheduler().Reconcile(e.TaskManager().SliceTasks())
+		}
+	}
+}
+
+// Get all of our persisted tasks, convert them back into TaskInfo's, and add them to our task manager.
+// If no tasks exist in the data store then we can consider this a fresh run and safely move on.
+func restoreTasks(kv *etcd.Etcd, t *taskmanager.SprintTaskManager) error {
+	tasks, err := kv.ReadAll("/tasks")
+	if err != nil {
+		return err
+	}
+
+	for _, value := range tasks {
+		var taskInfo mesos_v1.TaskInfo
+		proto.UnmarshalText(value, &taskInfo)
+		t.Add(&taskInfo)
+	}
+
+	return nil
+}
+
 // Entry point for the scheduler.
 // Parses configuration from user-supplied flags and prepares the scheduler for execution.
 func main() {
@@ -43,23 +75,22 @@ func main() {
 	path := flag.String("server.executor.path", "executor", "Path to the executor binary")
 	port := flag.Int("server.executor.port", 8081, "Executor server listen port")
 	apiPort := flag.Int("server.api.port", 8080, "API server listen port")
+
 	// Define our framework here
 	schedulerConfig := new(scheduler.SchedulerConfiguration).Initialize()
 	frameworkInfo := CreateFrameworkInfo(schedulerConfig)
 
 	flag.Parse()
 
-	logger.Emit(logging.INFO, *path)
-
 	// Executor Server
 	srvConfig := server.NewConfiguration(*cert, *key, *path, *port)
 	executorSrv := file.NewExecutorServer(srvConfig, logger)
 
 	// API server
-
 	apiSrv := api.NewApiServer(srvConfig, http.NewServeMux(), apiPort, "v1", logger)
 
 	logger.Emit(logging.INFO, "Starting executor file server")
+
 	// Executor server serves up our custom executor binary, if any.
 	go executorSrv.Serve()
 
@@ -75,13 +106,25 @@ func main() {
 	r := manager.NewDefaultResourceManager()                          // Manages resources from the cluster
 	c := client.NewClient(schedulerConfig.MesosEndpoint, logger)      // Manages HTTP calls
 	s := sched.NewDefaultScheduler(c, frameworkInfo, logger)          // Manages how to route and schedule tasks.
+
 	// Event controller manages scheduler events and how they are handled.
-	e := eventcontroller.NewSprintEventController(s, m, r, eventChan, kv, logger)
+	e := events.NewSprintEventController(s, m, r, eventChan, kv, logger)
 
 	logger.Emit(logging.INFO, "Starting API server")
+
 	// Run our API in a go routine to listen for user requests.
 	go apiSrv.RunAPI(e, nil) // nil means to use default handlers.
+
+	// Recover our state (if any) in the event we (or the server) go down.
+	logger.Emit(logging.INFO, "Restoring any persisted state from data store")
+	if err := restoreTasks(kv, m); err != nil {
+		logger.Emit(logging.ERROR, "Failed to restore tasks from persistent data store")
+	}
+
+	// Kick off our scheduled reconciling.
+	logger.Emit(logging.INFO, "Starting periodic reconciler thread with a %g minute interval", schedulerConfig.ReconcileInterval.Minutes())
+	go periodicReconcile(schedulerConfig, e)
+
 	// Run our event controller to subscribe to mesos master and start listening for events.
 	e.Run()
-
 }

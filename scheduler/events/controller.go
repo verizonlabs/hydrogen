@@ -1,4 +1,4 @@
-package eventcontroller
+package events
 
 /*
 Adapted from mesos-framework-sdk
@@ -62,6 +62,9 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	if err := s.kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout())); err != nil {
 		s.logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
 	}
+
+	// Reconcile after we subscribe in case we resubscribed due to a failure.
+	s.scheduler.Reconcile(s.taskmanager.SliceTasks())
 }
 
 func (s *SprintEventController) Run() {
@@ -93,6 +96,8 @@ func (s *SprintEventController) Listen() {
 		select {
 		case t := <-s.events:
 			switch t.GetType() {
+			case sched.Event_SUBSCRIBED:
+				go s.Subscribe(t.GetSubscribed())
 			case sched.Event_ERROR:
 				go s.Error(t.GetError())
 			case sched.Event_FAILURE:
@@ -155,7 +160,7 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 
 				data := proto.MarshalTextString(t)
 				id := t.TaskId.GetValue()
-				if err := s.kv.Create("/task/"+id, data); err != nil {
+				if err := s.kv.Create("/tasks/"+id, data); err != nil {
 					s.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, t.GetName())
 				}
 			}
@@ -202,7 +207,7 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 	case mesos_v1.TaskState_TASK_FINISHED:
 		s.taskmanager.Delete(task)
 		id := task.TaskId.GetValue()
-		if err := s.kv.Delete("/task/" + id); err != nil {
+		if err := s.kv.Delete("/tasks/" + id); err != nil {
 			s.logger.Emit(logging.INFO, "Failed to delete task %s with name %s from persistent data store", id, task.GetName())
 		}
 	case mesos_v1.TaskState_TASK_GONE:

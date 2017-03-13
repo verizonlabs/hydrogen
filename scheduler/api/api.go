@@ -31,7 +31,7 @@ type ApiServer struct {
 	port      *int
 	mux       *http.ServeMux
 	handle    map[string]http.HandlerFunc // route -> handler func for that route
-	eventCtrl *eventcontroller.SprintEventController
+	eventCtrl *events.SprintEventController
 	version   string
 	logger    logging.Logger
 }
@@ -67,12 +67,12 @@ func (a *ApiServer) setHandlers(handles map[string]http.HandlerFunc) {
 	}
 }
 
-func (a *ApiServer) setEventController(e *eventcontroller.SprintEventController) {
+func (a *ApiServer) setEventController(e *events.SprintEventController) {
 	a.eventCtrl = e
 }
 
 // RunAPI takes the scheduler controller and sets up the configuration for the API.
-func (a *ApiServer) RunAPI(e *eventcontroller.SprintEventController, handlers map[string]http.HandlerFunc) {
+func (a *ApiServer) RunAPI(e *events.SprintEventController, handlers map[string]http.HandlerFunc) {
 	if handlers != nil || len(handlers) != 0 {
 		a.logger.Emit(logging.INFO, "Setting custom handlers.")
 		a.setHandlers(handlers)

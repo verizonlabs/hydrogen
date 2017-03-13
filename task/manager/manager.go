@@ -114,3 +114,15 @@ func (m *SprintTaskManager) QueuedTasks() map[string]*mesos_v1.TaskInfo {
 func (m *SprintTaskManager) LaunchedTasks() map[string]*mesos_v1.TaskInfo {
 	return m.launchedTasks
 }
+
+// Returns a slice of tasks to be used when reconciling.
+func (m *SprintTaskManager) SliceTasks() []*mesos_v1.TaskInfo {
+	tasks := make([]*mesos_v1.TaskInfo, 0, m.tasks.Length())
+
+	for info := range m.tasks.Iterate() {
+		task := info.Value.(mesos_v1.TaskInfo)
+		tasks = append(tasks, &task)
+	}
+
+	return tasks
+}
