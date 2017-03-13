@@ -18,6 +18,7 @@ import (
 	"sprint/scheduler/events"
 	taskmanager "sprint/task/manager"
 	"strings"
+	"time"
 )
 
 func CreateFrameworkInfo(config *scheduler.SchedulerConfiguration) *mesos_v1.FrameworkInfo {
@@ -32,10 +33,22 @@ func CreateFrameworkInfo(config *scheduler.SchedulerConfiguration) *mesos_v1.Fra
 	}
 }
 
+// Keep our state in check by periodically reconciling.
+// This is recommended by Mesos.
+func periodicReconcile(e *eventcontroller.SprintEventController) {
+	ticker := time.NewTicker(15 * time.Minute)
+
+	for {
+		select {
+		case <-ticker.C:
+			e.Scheduler().Reconcile(e.TaskManager().SliceTasks())
+		}
+	}
+}
+
 // Entry point for the scheduler.
 // Parses configuration from user-supplied flags and prepares the scheduler for execution.
 func main() {
-
 	logger := logging.NewDefaultLogger()
 
 	// Executor/API server configuration.
@@ -59,6 +72,7 @@ func main() {
 	flag.Parse()
 
 	logger.Emit(logging.INFO, "Starting executor file server")
+
 	// Executor server serves up our custom executor binary, if any.
 	go executorSrv.Serve()
 
@@ -74,12 +88,19 @@ func main() {
 	r := manager.NewDefaultResourceManager()                          // Manages resources from the cluster
 	c := client.NewClient(schedulerConfig.MesosEndpoint, logger)      // Manages HTTP calls
 	s := sched.NewDefaultScheduler(c, frameworkInfo, logger)          // Manages how to route and schedule tasks.
+
 	// Event controller manages scheduler events and how they are handled.
 	e := eventcontroller.NewSprintEventController(s, m, r, eventChan, kv, logger)
 
 	logger.Emit(logging.INFO, "Starting API server")
+
 	// Run our API in a go routine to listen for user requests.
 	go apiSrv.RunAPI(e, nil) // nil means to use default handlers.
+
+	// Kick off our scheduled reconciling.
+	logger.Emit(logging.INFO, "Starting periodic reconciler thread")
+	go periodicReconcile(e)
+
 	// Run our event controller to subscribe to mesos master and start listening for events.
 	e.Run()
 
