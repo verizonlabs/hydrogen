@@ -146,7 +146,7 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 
 func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
-	case "POST":
+	case "PUT":
 		{
 			dec, err := ioutil.ReadAll(r.Body)
 			if err != nil {
