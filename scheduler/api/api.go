@@ -125,6 +125,12 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintf(w, err.Error())
 				return
 			}
+
+			// If we have any filters, let the resource manager know.
+			if len(m.Filters) > 0 {
+				a.eventCtrl.ResourceManager().AddFilter(task, m.Filters)
+			}
+
 			a.eventCtrl.TaskManager().Add(task)
 			a.eventCtrl.Scheduler().Revive()
 

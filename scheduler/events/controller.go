@@ -135,10 +135,8 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 		for _, mesosTask := range s.taskmanager.QueuedTasks() {
 			// See if we have resources.
 			if s.resourcemanager.HasResources() {
-
 				offer, err := s.resourcemanager.Assign(mesosTask)
 				if err != nil {
-
 					// It didn't match any offers.
 					s.logger.Emit(logging.ERROR, err.Error())
 					continue // We should decline.
