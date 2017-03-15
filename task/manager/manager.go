@@ -111,7 +111,7 @@ func (m *SprintTaskManager) GetState(state mesos_v1.TaskState) ([]*mesos_v1.Task
 	}
 
 	if len(tasks) == 0 {
-		return nil, errors.New("No tasks found with specified state of " + state.String())
+		return nil, errors.New("No tasks found with state of " + state.String())
 	}
 
 	return tasks, nil
