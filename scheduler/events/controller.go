@@ -12,7 +12,8 @@ import (
 	"mesos-framework-sdk/resources"
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
-	taskmanager "sprint/task/manager"
+	"mesos-framework-sdk/task/manager"
+	sprintTaskManager "sprint/task/manager"
 	"time"
 )
 
@@ -20,14 +21,14 @@ const subscribeRetry = 2
 
 type SprintEventController struct {
 	scheduler       *scheduler.DefaultScheduler
-	taskmanager     *taskmanager.SprintTaskManager
+	taskmanager     *sprintTaskManager.SprintTaskManager
 	resourcemanager *manager.DefaultResourceManager
 	events          chan *sched.Event
 	kv              *etcd.Etcd
 	logger          logging.Logger
 }
 
-func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *taskmanager.SprintTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, kv *etcd.Etcd, logger logging.Logger) *SprintEventController {
+func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *sprintTaskManager.SprintTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, kv *etcd.Etcd, logger logging.Logger) *SprintEventController {
 	return &SprintEventController{
 		taskmanager:     manager,
 		scheduler:       scheduler,
@@ -44,7 +45,7 @@ func (s *SprintEventController) Scheduler() *scheduler.DefaultScheduler {
 }
 
 // Getter function
-func (s *SprintEventController) TaskManager() *taskmanager.SprintTaskManager {
+func (s *SprintEventController) TaskManager() *sprintTaskManager.SprintTaskManager {
 	return s.taskmanager
 }
 
@@ -62,13 +63,14 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	if err := s.kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout())); err != nil {
 		s.logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
 	}
-	recon := []*mesos_v1.TaskInfo{}
+
 	// Get all launched non-terminal tasks.
-	for _, v := range s.taskmanager.LaunchedTasks() {
-		recon = append(recon, v)
+	launched, err := s.taskmanager.GetState(taskmanager.LAUNCHED.Enum())
+	if err != nil {
+		s.logger.Emit(logging.INFO, err.Error())
 	}
 	// Reconcile after we subscribe in case we resubscribed due to a failure.
-	s.scheduler.Reconcile(recon)
+	s.scheduler.Reconcile(launched)
 }
 
 func (s *SprintEventController) Run() {
@@ -127,16 +129,18 @@ func (s *SprintEventController) Listen() {
 }
 
 func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
-
-	// Check task manager for any active tasks.
-	if s.taskmanager.HasQueuedTasks() {
+	queued, err := s.taskmanager.GetState(taskmanager.STAGING.Enum())
+	if err != nil {
+		s.logger.Emit(logging.INFO, "No tasks to launch.")
+	}
+	if len(queued) > 0 {
 		// Update our resources in the manager
 		s.resourcemanager.AddOffers(offerEvent.GetOffers())
 
 		offerIDs := []*mesos_v1.OfferID{}
 		operations := []*mesos_v1.Offer_Operation{}
 
-		for _, mesosTask := range s.taskmanager.QueuedTasks() {
+		for _, mesosTask := range queued {
 			// See if we have resources.
 			if s.resourcemanager.HasResources() {
 				offer, err := s.resourcemanager.Assign(mesosTask)
@@ -155,13 +159,14 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 					Resources: mesosTask.GetResources(),
 				}
 
-				s.TaskManager().SetTaskLaunched(t)
+				s.TaskManager().SetState(taskmanager.LAUNCHED.Enum(), t)
 
 				offerIDs = append(offerIDs, offer.Id)
 				operations = append(operations, resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
 
 				data := proto.MarshalTextString(t)
 				id := t.TaskId.GetValue()
+				// NOTE: We should refactor the storage stuff to utilize the storage interface.
 				if err := s.kv.Create("/tasks/"+id, data); err != nil {
 					s.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, t.GetName())
 				}
@@ -179,7 +184,7 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 }
 
 func (s *SprintEventController) Rescind(rescindEvent *sched.Event_Rescind) {
-	s.logger.Emit(logging.INFO, "Rescind event recieved.: %v", *rescindEvent)
+	s.logger.Emit(logging.INFO, "Rescind event recieved: %v", *rescindEvent)
 	rescindEvent.GetOfferId().GetValue()
 }
 
@@ -196,12 +201,12 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 	switch updateEvent.GetStatus().GetState() {
 	case mesos_v1.TaskState_TASK_FAILED:
 		// TODO: Check task manager for task retry policy, then retry as given.
-		s.taskmanager.SetTaskLaunched(task)
+		s.taskmanager.SetState(taskmanager.LAUNCHED.Enum(), task)
 	case mesos_v1.TaskState_TASK_STAGING:
 		// NOP, keep task set to "launched".
 	case mesos_v1.TaskState_TASK_DROPPED:
 		// Transient error, we should retry launching. Taskinfo is fine.
-		s.taskmanager.SetTaskQueued(task)
+		s.taskmanager.SetState(taskmanager.STAGING.Enum(), task)
 	case mesos_v1.TaskState_TASK_ERROR:
 		// TODO: Error with the taskinfo sent to the agent. Give verbose reasoning back.
 	case mesos_v1.TaskState_TASK_FINISHED:
@@ -225,7 +230,7 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 		// Task is in the process of catching a SIGNAL and shutting down.
 	case mesos_v1.TaskState_TASK_LOST:
 		// Task is unknown to the master and lost. Should reschedule.
-		s.taskmanager.SetTaskQueued(task)
+		s.taskmanager.SetState(taskmanager.STAGING.Enum(), task)
 	case mesos_v1.TaskState_TASK_RUNNING:
 		// Task is healthy and running. NOOP
 	case mesos_v1.TaskState_TASK_STARTING:

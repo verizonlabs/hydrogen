@@ -7,6 +7,7 @@ import (
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/server"
 	taskbuilder "mesos-framework-sdk/task"
+	"mesos-framework-sdk/task/manager"
 	"net/http"
 	"os"
 	"sprint/scheduler/api/response"
@@ -175,11 +176,16 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 
 			go func() {
 				for i := 0; i < retries; i++ {
-					launched := a.eventCtrl.TaskManager().LaunchedTasks()
-					if _, ok := launched[task.GetName()]; ok {
-						a.eventCtrl.TaskManager().Delete(taskToKill)
-						a.eventCtrl.Scheduler().Kill(taskToKill.GetTaskId(), taskToKill.GetAgentId())
-						return
+					launched, err := a.eventCtrl.TaskManager().GetState(taskmanager.LAUNCHED.Enum())
+					if err != nil {
+						a.logger.Emit(logging.ERROR, err.Error())
+					}
+					for _, task := range launched {
+						if task.GetName() == taskToKill.GetName() {
+							a.eventCtrl.TaskManager().Delete(taskToKill)
+							a.eventCtrl.Scheduler().Kill(taskToKill.GetTaskId(), taskToKill.GetAgentId())
+							return
+						}
 					}
 					time.Sleep(2 * time.Second) // Wait a pre-determined amount of time for polling.
 				}
@@ -261,19 +267,23 @@ func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 		{
 			name := r.URL.Query().Get("name")
 
-			t, err := a.eventCtrl.TaskManager().Get(&name)
+			_, err := a.eventCtrl.TaskManager().Get(&name)
 			if err != nil {
 				fmt.Fprintf(w, "Task not found, error %v", err.Error())
 				return
 			}
-			queued := a.eventCtrl.TaskManager().QueuedTasks()
-			var status string
-			if task, ok := queued[t.GetTaskId().GetValue()]; ok {
-				json.NewEncoder(w).Encode(response.Kill{Status: response.LAUNCHED, TaskName: task.GetName()})
-			} else {
-				json.NewEncoder(w).Encode(response.Kill{Status: response.QUEUED, TaskName: task.GetName()})
+			queued, err := a.eventCtrl.TaskManager().GetState(taskmanager.STAGING.Enum())
+			if err != nil {
+				a.logger.Emit(logging.INFO, err.Error())
 			}
-			fmt.Fprintf(w, "%v", status)
+
+			for _, task := range queued {
+				if task.GetName() == name {
+					json.NewEncoder(w).Encode(response.Kill{Status: response.QUEUED, TaskName: name})
+				}
+			}
+
+			json.NewEncoder(w).Encode(response.Kill{Status: response.LAUNCHED, TaskName: name})
 
 		}
 	default:
