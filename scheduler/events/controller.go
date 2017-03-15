@@ -62,9 +62,13 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	if err := s.kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout())); err != nil {
 		s.logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
 	}
-
+	recon := []*mesos_v1.TaskInfo{}
+	// Get all launched non-terminal tasks.
+	for _, v := range s.taskmanager.LaunchedTasks() {
+		recon = append(recon, v)
+	}
 	// Reconcile after we subscribe in case we resubscribed due to a failure.
-	s.scheduler.Reconcile(s.taskmanager.SliceTasks())
+	s.scheduler.Reconcile(recon)
 }
 
 func (s *SprintEventController) Run() {
@@ -169,9 +173,7 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 		for _, v := range offerEvent.GetOffers() {
 			ids = append(ids, v.GetId())
 		}
-		// Decline and suppress offers until we're ready again.
-		s.logger.Emit(logging.INFO, "Declining %d offers", len(ids))
-		s.scheduler.Decline(ids, nil) // We want to make sure all offers are declined.
+		s.scheduler.Decline(ids, nil)
 		s.scheduler.Suppress()
 	}
 }
