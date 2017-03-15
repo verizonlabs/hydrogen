@@ -7,7 +7,7 @@ import (
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/server"
 	taskbuilder "mesos-framework-sdk/task"
-	"mesos-framework-sdk/task/manager"
+	sdkTaskManager "mesos-framework-sdk/task/manager"
 	"net/http"
 	"os"
 	"sprint/scheduler/api/response"
@@ -176,7 +176,7 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 
 			go func() {
 				for i := 0; i < retries; i++ {
-					launched, err := a.eventCtrl.TaskManager().GetState(taskmanager.LAUNCHED.Enum())
+					launched, err := a.eventCtrl.TaskManager().GetState(sdkTaskManager.LAUNCHED)
 					if err != nil {
 						a.logger.Emit(logging.ERROR, err.Error())
 					}
@@ -272,7 +272,7 @@ func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintf(w, "Task not found, error %v", err.Error())
 				return
 			}
-			queued, err := a.eventCtrl.TaskManager().GetState(taskmanager.STAGING.Enum())
+			queued, err := a.eventCtrl.TaskManager().GetState(sdkTaskManager.STAGING)
 			if err != nil {
 				a.logger.Emit(logging.INFO, err.Error())
 			}

@@ -13,7 +13,7 @@ import (
 	"mesos-framework-sdk/server"
 	"mesos-framework-sdk/server/file"
 	"mesos-framework-sdk/structures"
-	"mesos-framework-sdk/task/manager"
+	sdkTaskManager "mesos-framework-sdk/task/manager"
 	"net/http"
 	"sprint/scheduler"
 	"sprint/scheduler/api"
@@ -46,7 +46,7 @@ func periodicReconcile(c *scheduler.SchedulerConfiguration, e *events.SprintEven
 		select {
 		case <-ticker.C:
 
-			recon, err := e.TaskManager().GetState(taskmanager.LAUNCHED.Enum())
+			recon, err := e.TaskManager().GetState(sdkTaskManager.LAUNCHED)
 			if err != nil {
 				// log here.
 				continue
