@@ -68,7 +68,9 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	launched, err := s.taskmanager.GetState(sdkTaskManager.LAUNCHED)
 	if err != nil {
 		s.logger.Emit(logging.INFO, err.Error())
+		return
 	}
+
 	// Reconcile after we subscribe in case we resubscribed due to a failure.
 	s.scheduler.Reconcile(launched)
 }
@@ -129,7 +131,7 @@ func (s *SprintEventController) Listen() {
 }
 
 func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
-	queued, err := s.taskmanager.GetState(sdkTaskManager.STAGING)
+	queued, err := s.taskmanager.GetState(sdkTaskManager.UNKNOWN)
 	if err != nil {
 		s.logger.Emit(logging.INFO, "No tasks to launch.")
 	}
