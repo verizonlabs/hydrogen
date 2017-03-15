@@ -10,38 +10,40 @@ import (
 /*
 Satisfies the TaskManager interface in sdk
 */
+
+type task struct {
+	info  *mesos_v1.TaskInfo
+	state mesos_v1.TaskState
+}
+
 type SprintTaskManager struct {
-	tasks    *structures.ConcurrentMap
-	launched map[string]*mesos_v1.TaskInfo
-	queued   map[string]*mesos_v1.TaskInfo
+	tasks *structures.ConcurrentMap
 }
 
 func NewTaskManager(cmap *structures.ConcurrentMap) *SprintTaskManager {
 	return &SprintTaskManager{
-		tasks:    cmap,
-		launched: make(map[string]*mesos_v1.TaskInfo),
-		queued:   make(map[string]*mesos_v1.TaskInfo),
+		tasks: cmap,
 	}
 }
 
-func (m *SprintTaskManager) Add(task *mesos_v1.TaskInfo) {
-	m.tasks.Set(task.GetName(), *task)
-	m.setTaskQueued(task)
+func (m *SprintTaskManager) Add(t *mesos_v1.TaskInfo) {
+	m.tasks.Set(t.GetName(), task{
+		state: manager.UNKNOWN,
+		info:  t,
+	})
 }
 
 func (m *SprintTaskManager) Delete(task *mesos_v1.TaskInfo) {
 	m.tasks.Delete(task.GetName())
-	delete(m.queued, task.GetName())
-	delete(m.launched, task.GetName())
 }
 
 func (m *SprintTaskManager) Get(name *string) (*mesos_v1.TaskInfo, error) {
 	ret := m.tasks.Get(*name)
 	if ret != nil {
-		r := ret.(mesos_v1.TaskInfo)
-		return &r, nil
+		return ret.(task).info, nil
 	}
-	return &mesos_v1.TaskInfo{}, errors.New("Could not find task.")
+
+	return nil, errors.New("Could not find task.")
 }
 
 // Check to see if any tasks we have match the id passed in.
@@ -49,12 +51,14 @@ func (m *SprintTaskManager) GetById(id *mesos_v1.TaskID) (*mesos_v1.TaskInfo, er
 	if m.tasks.Length() == 0 {
 		return nil, errors.New("Task manager is empty.")
 	}
+
 	for v := range m.tasks.Iterate() {
-		task := v.Value.(mesos_v1.TaskInfo)
-		if task.GetTaskId().GetValue() == id.GetValue() {
-			return &task, nil
+		task := v.Value.(task)
+		if task.info.GetTaskId().GetValue() == id.GetValue() {
+			return task.info, nil
 		}
 	}
+
 	return nil, errors.New("Could not find task by id: " + id.GetValue())
 }
 
@@ -63,6 +67,7 @@ func (m *SprintTaskManager) HasTask(task *mesos_v1.TaskInfo) bool {
 	if ret == nil {
 		return false
 	}
+
 	return true
 }
 
@@ -74,101 +79,33 @@ func (m *SprintTaskManager) Tasks() *structures.ConcurrentMap {
 	return m.tasks
 }
 
-func (m *SprintTaskManager) SetState(state *mesos_v1.TaskState, task *mesos_v1.TaskInfo) error {
+func (m *SprintTaskManager) SetState(state *mesos_v1.TaskState, t *mesos_v1.TaskInfo) {
+	m.tasks.Set(t.GetName(), task{
+		info:  t,
+		state: *state,
+	})
+
 	switch *state {
-	case taskmanager.LAUNCHED:
-		m.setTaskLaunched(task)
-	case taskmanager.LOST:
-		m.setTaskQueued(task)
-	case taskmanager.DROPPED:
-		m.setTaskQueued(task)
-	case taskmanager.ERROR:
-	case taskmanager.UNREACHABLE:
-	case taskmanager.UNKNOWN:
-	case taskmanager.STARTING:
-	case taskmanager.STAGING:
-	case taskmanager.FINISHED:
-		m.Delete(task)
-	case taskmanager.KILLED:
-		m.Delete(task)
-	case taskmanager.KILLING:
-	case taskmanager.GONE:
-		m.setTaskQueued(task)
-	case taskmanager.GONE_BY_OPERATOR:
-	case taskmanager.FAILED:
-		m.setTaskQueued(task)
+	case manager.FINISHED:
+		m.Delete(t)
+	case manager.KILLED:
+		m.Delete(t)
 	}
-	return nil
 }
 
 // Get's all tasks within a certain state.
 func (m *SprintTaskManager) GetState(state *mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
-	// TODO: can refactor the for loops into a private method.
-	ret := []*mesos_v1.TaskInfo{}
-	switch *state {
-	case taskmanager.LAUNCHED:
-		for _, v := range m.launched {
-			ret = append(ret, v)
-		}
-	case taskmanager.LOST:
-	case taskmanager.DROPPED:
-	case taskmanager.ERROR:
-	case taskmanager.UNREACHABLE:
-	case taskmanager.UNKNOWN:
-	case taskmanager.STARTING:
-	case taskmanager.STAGING:
-		for _, v := range m.queued {
-			ret = append(ret, v)
-		}
-	case taskmanager.FINISHED:
-	case taskmanager.KILLED:
-	case taskmanager.KILLING:
-	case taskmanager.GONE:
-	case taskmanager.GONE_BY_OPERATOR:
-	case taskmanager.FAILED:
-		for _, v := range m.queued {
-			ret = append(ret, v)
-		}
-	}
-	return ret, nil
-}
-
-func (m *SprintTaskManager) setTaskQueued(task *mesos_v1.TaskInfo) error {
-	if task != nil {
-		delete(m.launched, task.GetName())
-		m.queued[task.GetName()] = task
-		return nil
-	}
-	return errors.New("Task passed into SetTaskQueued is nil")
-}
-
-func (m *SprintTaskManager) setTaskLaunched(task *mesos_v1.TaskInfo) error {
-	if _, ok := m.queued[task.GetName()]; ok {
-		delete(m.queued, task.GetName())  // Delete it from queue.
-		m.launched[task.GetName()] = task // Add to launched tasks.
-		return nil
-	}
-	// This task isn't queued up, reject.
-	return errors.New("Task is not in queue, cannot set to launching.")
-}
-
-func (m *SprintTaskManager) hasQueuedTasks() bool {
-	if m.tasks.Length() == 0 {
-		return false
-	}
+	tasks := []*mesos_v1.TaskInfo{}
 	for v := range m.tasks.Iterate() {
-		task := v.Value.(mesos_v1.TaskInfo)
-		if _, ok := m.queued[task.GetName()]; ok {
-			return true
+		task := v.Value.(task)
+		if task.state == *state {
+			tasks = append(tasks, task.info)
 		}
 	}
-	return false
-}
 
-func (m *SprintTaskManager) queuedTasks() map[string]*mesos_v1.TaskInfo {
-	return m.queued
-}
+	if len(tasks) == 0 {
+		return nil, errors.New("No tasks found with specified state of " + state.String())
+	}
 
-func (m *SprintTaskManager) launchedTasks() map[string]*mesos_v1.TaskInfo {
-	return m.launched
+	return tasks, nil
 }
