@@ -22,6 +22,7 @@ import (
 	"time"
 )
 
+// NOTE: This should be refactored out of the main file.
 func CreateFrameworkInfo(config *scheduler.SchedulerConfiguration) *mesos_v1.FrameworkInfo {
 	return &mesos_v1.FrameworkInfo{
 		User:            &config.User,
@@ -34,6 +35,7 @@ func CreateFrameworkInfo(config *scheduler.SchedulerConfiguration) *mesos_v1.Fra
 	}
 }
 
+// NOTE: This should be in the event manager.
 // Keep our state in check by periodically reconciling.
 // This is recommended by Mesos.
 func periodicReconcile(c *scheduler.SchedulerConfiguration, e *events.SprintEventController) {
@@ -42,11 +44,16 @@ func periodicReconcile(c *scheduler.SchedulerConfiguration, e *events.SprintEven
 	for {
 		select {
 		case <-ticker.C:
-			e.Scheduler().Reconcile(e.TaskManager().SliceTasks())
+			recon := []*mesos_v1.TaskInfo{}
+			for _, v := range e.TaskManager().LaunchedTasks() {
+				recon = append(recon, v)
+			}
+			e.Scheduler().Reconcile(recon)
 		}
 	}
 }
 
+// NOTE: This should be in the event manager.
 // Get all of our persisted tasks, convert them back into TaskInfo's, and add them to our task manager.
 // If no tasks exist in the data store then we can consider this a fresh run and safely move on.
 func restoreTasks(kv *etcd.Etcd, t *taskmanager.SprintTaskManager) error {
