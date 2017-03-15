@@ -26,7 +26,11 @@ func NewTaskManager(cmap *structures.ConcurrentMap) *SprintTaskManager {
 	}
 }
 
-func (m *SprintTaskManager) Add(t *mesos_v1.TaskInfo) {
+func (m *SprintTaskManager) Add(t *mesos_v1.TaskInfo) error {
+	if m.tasks.Get(t.GetName()) != nil {
+		return errors.New("Task " + name + " already exists")
+	}
+
 	m.tasks.Set(t.GetName(), task{
 		state: manager.UNKNOWN,
 		info:  t,
