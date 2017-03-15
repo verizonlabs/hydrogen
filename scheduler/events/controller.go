@@ -4,7 +4,9 @@ package events
 Adapted from mesos-framework-sdk
 */
 import (
-	"github.com/golang/protobuf/proto"
+	"bytes"
+	"encoding/base64"
+	"encoding/gob"
 	"mesos-framework-sdk/include/mesos"
 	sched "mesos-framework-sdk/include/scheduler"
 	"mesos-framework-sdk/logging"
@@ -176,10 +178,22 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 			offerIDs = append(offerIDs, offer.Id)
 			operations = append(operations, resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
 
-			data := proto.MarshalTextString(t)
+			// TODO this should be broken out somewhere, maybe in the task manager once it handles persistence.
+			var b bytes.Buffer
+			e := gob.NewEncoder(&b)
+			task, err := s.TaskManager().Get(t.Name)
+			if err != nil {
+				s.logger.Emit(logging.ERROR, "Failed to get task for encoding")
+			}
+
+			err = e.Encode(task)
+			if err != nil {
+				s.logger.Emit(logging.ERROR, "Failed to encode task")
+			}
+
 			id := t.TaskId.GetValue()
-			// NOTE: We should refactor the storage stuff to utilize the storage interface.
-			if err := s.kv.Create("/tasks/"+id, data); err != nil {
+			// TODO: We should refactor the storage stuff to utilize the storage interface.
+			if err := s.kv.Create("/tasks/"+id, base64.StdEncoding.EncodeToString(b.Bytes())); err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, t.GetName())
 			}
 		}
