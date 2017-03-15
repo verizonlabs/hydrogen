@@ -134,55 +134,57 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 	queued, err := s.taskmanager.GetState(sdkTaskManager.UNKNOWN)
 	if err != nil {
 		s.logger.Emit(logging.INFO, "No tasks to launch.")
-	}
-	if len(queued) > 0 {
-		// Update our resources in the manager
-		s.resourcemanager.AddOffers(offerEvent.GetOffers())
 
-		offerIDs := []*mesos_v1.OfferID{}
-		operations := []*mesos_v1.Offer_Operation{}
-
-		for _, mesosTask := range queued {
-			// See if we have resources.
-			if s.resourcemanager.HasResources() {
-				offer, err := s.resourcemanager.Assign(mesosTask)
-				if err != nil {
-					// It didn't match any offers.
-					s.logger.Emit(logging.ERROR, err.Error())
-					continue // We should decline.
-				}
-
-				t := &mesos_v1.TaskInfo{
-					Name:      mesosTask.Name,
-					TaskId:    mesosTask.GetTaskId(),
-					AgentId:   offer.GetAgentId(),
-					Command:   mesosTask.GetCommand(),
-					Container: mesosTask.GetContainer(),
-					Resources: mesosTask.GetResources(),
-				}
-
-				s.TaskManager().SetState(sdkTaskManager.LAUNCHED, t)
-
-				offerIDs = append(offerIDs, offer.Id)
-				operations = append(operations, resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
-
-				data := proto.MarshalTextString(t)
-				id := t.TaskId.GetValue()
-				// NOTE: We should refactor the storage stuff to utilize the storage interface.
-				if err := s.kv.Create("/tasks/"+id, data); err != nil {
-					s.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, t.GetName())
-				}
-			}
-		}
-		s.scheduler.Accept(offerIDs, operations, nil)
-	} else {
 		var ids []*mesos_v1.OfferID
 		for _, v := range offerEvent.GetOffers() {
 			ids = append(ids, v.GetId())
 		}
+
 		s.scheduler.Decline(ids, nil)
 		s.scheduler.Suppress()
+
+		return
 	}
+
+	// Update our resources in the manager
+	s.resourcemanager.AddOffers(offerEvent.GetOffers())
+
+	offerIDs := []*mesos_v1.OfferID{}
+	operations := []*mesos_v1.Offer_Operation{}
+
+	for _, mesosTask := range queued {
+		// See if we have resources.
+		if s.resourcemanager.HasResources() {
+			offer, err := s.resourcemanager.Assign(mesosTask)
+			if err != nil {
+				// It didn't match any offers.
+				s.logger.Emit(logging.ERROR, err.Error())
+				continue // We should decline.
+			}
+
+			t := &mesos_v1.TaskInfo{
+				Name:      mesosTask.Name,
+				TaskId:    mesosTask.GetTaskId(),
+				AgentId:   offer.GetAgentId(),
+				Command:   mesosTask.GetCommand(),
+				Container: mesosTask.GetContainer(),
+				Resources: mesosTask.GetResources(),
+			}
+
+			s.TaskManager().SetState(sdkTaskManager.LAUNCHED, t)
+
+			offerIDs = append(offerIDs, offer.Id)
+			operations = append(operations, resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
+
+			data := proto.MarshalTextString(t)
+			id := t.TaskId.GetValue()
+			// NOTE: We should refactor the storage stuff to utilize the storage interface.
+			if err := s.kv.Create("/tasks/"+id, data); err != nil {
+				s.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, t.GetName())
+			}
+		}
+	}
+	s.scheduler.Accept(offerIDs, operations, nil)
 }
 
 func (s *SprintEventController) Rescind(rescindEvent *sched.Event_Rescind) {
