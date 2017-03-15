@@ -13,11 +13,12 @@ import (
 	"mesos-framework-sdk/server"
 	"mesos-framework-sdk/server/file"
 	"mesos-framework-sdk/structures"
+	"mesos-framework-sdk/task/manager"
 	"net/http"
 	"sprint/scheduler"
 	"sprint/scheduler/api"
 	"sprint/scheduler/events"
-	taskmanager "sprint/task/manager"
+	sprintTaskManager "sprint/task/manager"
 	"strings"
 	"time"
 )
@@ -44,9 +45,11 @@ func periodicReconcile(c *scheduler.SchedulerConfiguration, e *events.SprintEven
 	for {
 		select {
 		case <-ticker.C:
-			recon := []*mesos_v1.TaskInfo{}
-			for _, v := range e.TaskManager().LaunchedTasks() {
-				recon = append(recon, v)
+
+			recon, err := e.TaskManager().GetState(taskmanager.LAUNCHED.Enum())
+			if err != nil {
+				// log here.
+				continue
 			}
 			e.Scheduler().Reconcile(recon)
 		}
@@ -56,7 +59,7 @@ func periodicReconcile(c *scheduler.SchedulerConfiguration, e *events.SprintEven
 // NOTE: This should be in the event manager.
 // Get all of our persisted tasks, convert them back into TaskInfo's, and add them to our task manager.
 // If no tasks exist in the data store then we can consider this a fresh run and safely move on.
-func restoreTasks(kv *etcd.Etcd, t *taskmanager.SprintTaskManager) error {
+func restoreTasks(kv *etcd.Etcd, t *sprintTaskManager.SprintTaskManager) error {
 	tasks, err := kv.ReadAll("/tasks")
 	if err != nil {
 		return err
@@ -109,10 +112,10 @@ func main() {
 		strings.Split(schedulerConfig.StorageEndpoints, ","),
 		schedulerConfig.StorageTimeout,
 	) // Storage client
-	m := taskmanager.NewTaskManager(structures.NewConcurrentMap(100)) // Manages our tasks
-	r := manager.NewDefaultResourceManager()                          // Manages resources from the cluster
-	c := client.NewClient(schedulerConfig.MesosEndpoint, logger)      // Manages HTTP calls
-	s := sched.NewDefaultScheduler(c, frameworkInfo, logger)          // Manages how to route and schedule tasks.
+	m := sprintTaskManager.NewTaskManager(structures.NewConcurrentMap(100)) // Manages our tasks
+	r := manager.NewDefaultResourceManager()                                // Manages resources from the cluster
+	c := client.NewClient(schedulerConfig.MesosEndpoint, logger)            // Manages HTTP calls
+	s := sched.NewDefaultScheduler(c, frameworkInfo, logger)                // Manages how to route and schedule tasks.
 
 	// Event controller manages scheduler events and how they are handled.
 	e := events.NewSprintEventController(s, m, r, eventChan, kv, logger)
