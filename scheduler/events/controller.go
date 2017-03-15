@@ -12,7 +12,7 @@ import (
 	"mesos-framework-sdk/resources"
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
-	"mesos-framework-sdk/task/manager"
+	sdkTaskManager "mesos-framework-sdk/task/manager"
 	sprintTaskManager "sprint/task/manager"
 	"time"
 )
@@ -65,7 +65,7 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	}
 
 	// Get all launched non-terminal tasks.
-	launched, err := s.taskmanager.GetState(taskmanager.LAUNCHED.Enum())
+	launched, err := s.taskmanager.GetState(sdkTaskManager.LAUNCHED)
 	if err != nil {
 		s.logger.Emit(logging.INFO, err.Error())
 	}
@@ -129,7 +129,7 @@ func (s *SprintEventController) Listen() {
 }
 
 func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
-	queued, err := s.taskmanager.GetState(taskmanager.STAGING.Enum())
+	queued, err := s.taskmanager.GetState(sdkTaskManager.STAGING)
 	if err != nil {
 		s.logger.Emit(logging.INFO, "No tasks to launch.")
 	}
@@ -159,7 +159,7 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 					Resources: mesosTask.GetResources(),
 				}
 
-				s.TaskManager().SetState(taskmanager.LAUNCHED.Enum(), t)
+				s.TaskManager().SetState(sdkTaskManager.LAUNCHED, t)
 
 				offerIDs = append(offerIDs, offer.Id)
 				operations = append(operations, resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
@@ -201,12 +201,12 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 	switch updateEvent.GetStatus().GetState() {
 	case mesos_v1.TaskState_TASK_FAILED:
 		// TODO: Check task manager for task retry policy, then retry as given.
-		s.taskmanager.SetState(taskmanager.LAUNCHED.Enum(), task)
+		s.taskmanager.SetState(sdkTaskManager.LAUNCHED, task)
 	case mesos_v1.TaskState_TASK_STAGING:
 		// NOP, keep task set to "launched".
 	case mesos_v1.TaskState_TASK_DROPPED:
 		// Transient error, we should retry launching. Taskinfo is fine.
-		s.taskmanager.SetState(taskmanager.STAGING.Enum(), task)
+		s.taskmanager.SetState(sdkTaskManager.STAGING, task)
 	case mesos_v1.TaskState_TASK_ERROR:
 		// TODO: Error with the taskinfo sent to the agent. Give verbose reasoning back.
 	case mesos_v1.TaskState_TASK_FINISHED:
@@ -230,7 +230,7 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 		// Task is in the process of catching a SIGNAL and shutting down.
 	case mesos_v1.TaskState_TASK_LOST:
 		// Task is unknown to the master and lost. Should reschedule.
-		s.taskmanager.SetState(taskmanager.STAGING.Enum(), task)
+		s.taskmanager.SetState(sdkTaskManager.STAGING, task)
 	case mesos_v1.TaskState_TASK_RUNNING:
 		// Task is healthy and running. NOOP
 	case mesos_v1.TaskState_TASK_STARTING:

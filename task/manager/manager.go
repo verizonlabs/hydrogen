@@ -79,13 +79,13 @@ func (m *SprintTaskManager) Tasks() *structures.ConcurrentMap {
 	return m.tasks
 }
 
-func (m *SprintTaskManager) SetState(state *mesos_v1.TaskState, t *mesos_v1.TaskInfo) {
+func (m *SprintTaskManager) SetState(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) {
 	m.tasks.Set(t.GetName(), task{
 		info:  t,
-		state: *state,
+		state: state,
 	})
 
-	switch *state {
+	switch state {
 	case manager.FINISHED:
 		m.Delete(t)
 	case manager.KILLED:
@@ -94,11 +94,11 @@ func (m *SprintTaskManager) SetState(state *mesos_v1.TaskState, t *mesos_v1.Task
 }
 
 // Get's all tasks within a certain state.
-func (m *SprintTaskManager) GetState(state *mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
+func (m *SprintTaskManager) GetState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
 	tasks := []*mesos_v1.TaskInfo{}
 	for v := range m.tasks.Iterate() {
 		task := v.Value.(task)
-		if task.state == *state {
+		if task.state == state {
 			tasks = append(tasks, task.info)
 		}
 	}
