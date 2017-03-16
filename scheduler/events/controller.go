@@ -208,7 +208,7 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 	// TODO this should be broken out somewhere, maybe in the task manager once it handles persistence.
 	var b bytes.Buffer
 	e := gob.NewEncoder(&b)
-	err = e.Encode(sprintTaskManager.Task{
+	err = e.Encode(sdkTaskManager.Task{
 		Info:  task,
 		State: state,
 	})

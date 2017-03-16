@@ -68,7 +68,7 @@ func restoreTasks(kv *etcd.Etcd, t *sprintTaskManager.SprintTaskManager, logger 
 	}
 
 	for _, value := range tasks {
-		var task sprintTaskManager.Task
+		var task sdkTaskManager.Task
 		data, err := base64.StdEncoding.DecodeString(value)
 		if err != nil {
 			logger.Emit(logging.ERROR, err.Error())
