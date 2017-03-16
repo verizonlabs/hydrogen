@@ -11,9 +11,10 @@ import (
 Satisfies the TaskManager interface in sdk
 */
 
-type task struct {
-	info  *mesos_v1.TaskInfo
-	state mesos_v1.TaskState
+// Task and its fields should be public so that we can encode/decode this.
+type Task struct {
+	Info  *mesos_v1.TaskInfo
+	State mesos_v1.TaskState
 }
 
 type SprintTaskManager struct {
@@ -32,9 +33,9 @@ func (m *SprintTaskManager) Add(t *mesos_v1.TaskInfo) error {
 		return errors.New("Task " + name + " already exists")
 	}
 
-	m.tasks.Set(t.GetName(), task{
-		state: manager.UNKNOWN,
-		info:  t,
+	m.tasks.Set(t.GetName(), Task{
+		State: manager.UNKNOWN,
+		Info:  t,
 	})
 
 	return nil
@@ -47,7 +48,7 @@ func (m *SprintTaskManager) Delete(task *mesos_v1.TaskInfo) {
 func (m *SprintTaskManager) Get(name *string) (*mesos_v1.TaskInfo, error) {
 	ret := m.tasks.Get(*name)
 	if ret != nil {
-		return ret.(task).info, nil
+		return ret.(Task).Info, nil
 	}
 
 	return nil, errors.New("Could not find task.")
@@ -60,9 +61,9 @@ func (m *SprintTaskManager) GetById(id *mesos_v1.TaskID) (*mesos_v1.TaskInfo, er
 	}
 
 	for v := range m.tasks.Iterate() {
-		task := v.Value.(task)
-		if task.info.GetTaskId().GetValue() == id.GetValue() {
-			return task.info, nil
+		task := v.Value.(Task)
+		if task.Info.GetTaskId().GetValue() == id.GetValue() {
+			return task.Info, nil
 		}
 	}
 
@@ -87,9 +88,9 @@ func (m *SprintTaskManager) Tasks() *structures.ConcurrentMap {
 }
 
 func (m *SprintTaskManager) SetState(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) {
-	m.tasks.Set(t.GetName(), task{
-		info:  t,
-		state: state,
+	m.tasks.Set(t.GetName(), Task{
+		Info:  t,
+		State: state,
 	})
 
 	switch state {
@@ -104,9 +105,9 @@ func (m *SprintTaskManager) SetState(state mesos_v1.TaskState, t *mesos_v1.TaskI
 func (m *SprintTaskManager) GetState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
 	tasks := []*mesos_v1.TaskInfo{}
 	for v := range m.tasks.Iterate() {
-		task := v.Value.(task)
-		if task.state == state {
-			tasks = append(tasks, task.info)
+		task := v.Value.(Task)
+		if task.State == state {
+			tasks = append(tasks, task.Info)
 		}
 	}
 

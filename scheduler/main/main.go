@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
+	"encoding/base64"
+	"encoding/gob"
 	"flag"
-	"github.com/golang/protobuf/proto"
 	"mesos-framework-sdk/client"
 	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/include/scheduler"
@@ -59,16 +61,28 @@ func periodicReconcile(c *scheduler.SchedulerConfiguration, e *events.SprintEven
 // NOTE: This should be in the event manager.
 // Get all of our persisted tasks, convert them back into TaskInfo's, and add them to our task manager.
 // If no tasks exist in the data store then we can consider this a fresh run and safely move on.
-func restoreTasks(kv *etcd.Etcd, t *sprintTaskManager.SprintTaskManager) error {
+func restoreTasks(kv *etcd.Etcd, t *sprintTaskManager.SprintTaskManager, logger logging.Logger) error {
 	tasks, err := kv.ReadAll("/tasks")
 	if err != nil {
 		return err
 	}
 
 	for _, value := range tasks {
-		var taskInfo mesos_v1.TaskInfo
-		proto.UnmarshalText(value, &taskInfo)
-		t.Add(&taskInfo)
+		var task sprintTaskManager.Task
+		data, err := base64.StdEncoding.DecodeString(value)
+		if err != nil {
+			logger.Emit(logging.ERROR, err.Error())
+		}
+
+		var b bytes.Buffer
+		b.Write(data)
+		d := gob.NewDecoder(&b)
+		err = d.Decode(&task)
+		if err != nil {
+			logger.Emit(logging.ERROR, err.Error())
+		}
+
+		t.Add(task.Info)
 	}
 
 	return nil
@@ -127,7 +141,7 @@ func main() {
 
 	// Recover our state (if any) in the event we (or the server) go down.
 	logger.Emit(logging.INFO, "Restoring any persisted state from data store")
-	if err := restoreTasks(kv, m); err != nil {
+	if err := restoreTasks(kv, m, logger); err != nil {
 		logger.Emit(logging.ERROR, "Failed to restore tasks from persistent data store")
 	}
 

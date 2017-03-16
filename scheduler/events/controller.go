@@ -181,12 +181,11 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 			// TODO this should be broken out somewhere, maybe in the task manager once it handles persistence.
 			var b bytes.Buffer
 			e := gob.NewEncoder(&b)
-			task, err := s.TaskManager().Get(t.Name)
-			if err != nil {
-				s.logger.Emit(logging.ERROR, "Failed to get task for encoding")
-			}
+			err = e.Encode(sprintTaskManager.Task{
+				Info:  t,
+				State: sdkTaskManager.LAUNCHED,
+			})
 
-			err = e.Encode(task)
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to encode task")
 			}
