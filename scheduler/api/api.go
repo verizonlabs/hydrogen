@@ -2,20 +2,18 @@ package api
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"io/ioutil"
-	"log"
-	"mesos-framework-sdk/include/mesos"
-	resourcebuilder "mesos-framework-sdk/resources"
-	taskbuilder "mesos-framework-sdk/resources/task"
+	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/server"
-	"mesos-framework-sdk/utils"
+	taskbuilder "mesos-framework-sdk/task"
+	sdkTaskManager "mesos-framework-sdk/task/manager"
 	"net/http"
+	"os"
+	"sprint/scheduler/api/response"
 	"sprint/scheduler/events"
+	"sprint/task/builder"
 	"strconv"
-	"time"
 )
 
 const (
@@ -24,6 +22,7 @@ const (
 	statusEndpoint = "/status"
 	killEndpoint   = "/kill"
 	updateEndpoint = "/update"
+	statsEndpoint  = "/stats"
 	retries        = 20
 )
 
@@ -32,16 +31,18 @@ type ApiServer struct {
 	port      *int
 	mux       *http.ServeMux
 	handle    map[string]http.HandlerFunc // route -> handler func for that route
-	eventCtrl *eventcontroller.SprintEventController
+	eventCtrl *events.SprintEventController
 	version   string
+	logger    logging.Logger
 }
 
-func NewApiServer(cfg server.Configuration) *ApiServer {
+func NewApiServer(cfg server.Configuration, mux *http.ServeMux, port *int, version string, lgr *logging.DefaultLogger) *ApiServer {
 	return &ApiServer{
 		cfg:     cfg,
-		port:    flag.Int("server.api.port", 8080, "API server listen port"),
-		mux:     http.NewServeMux(),
-		version: "v1",
+		port:    port,
+		mux:     mux,
+		version: version,
+		logger:  lgr,
 	}
 }
 
@@ -52,19 +53,35 @@ func (a *ApiServer) Handle() map[string]http.HandlerFunc {
 
 //Set our default API handler routes here.
 func (a *ApiServer) setDefaultHandlers() {
-	a.handle = make(map[string]http.HandlerFunc, 4)
+	a.handle = make(map[string]http.HandlerFunc, 5)
 	a.handle[baseUrl+deployEndpoint] = a.deploy
 	a.handle[baseUrl+statusEndpoint] = a.state
 	a.handle[baseUrl+killEndpoint] = a.kill
 	a.handle[baseUrl+updateEndpoint] = a.update
+	a.handle[baseUrl+statsEndpoint] = a.stats
+}
+
+func (a *ApiServer) setHandlers(handles map[string]http.HandlerFunc) {
+	for route, handle := range handles {
+		a.handle[route] = handle
+	}
+}
+
+func (a *ApiServer) setEventController(e *events.SprintEventController) {
+	a.eventCtrl = e
 }
 
 // RunAPI takes the scheduler controller and sets up the configuration for the API.
-func (a *ApiServer) RunAPI(e *eventcontroller.SprintEventController) {
-	// Set our default handlers here.
-	a.setDefaultHandlers()
+func (a *ApiServer) RunAPI(e *events.SprintEventController, handlers map[string]http.HandlerFunc) {
+	if handlers != nil || len(handlers) != 0 {
+		a.logger.Emit(logging.INFO, "Setting custom handlers.")
+		a.setHandlers(handlers)
+	} else {
+		a.logger.Emit(logging.INFO, "Setting default handlers.")
+		a.setDefaultHandlers()
+	}
 
-	a.eventCtrl = e
+	a.setEventController(e)
 
 	// Iterate through all methods and setup endpoints.
 	for route, handle := range a.handle {
@@ -74,13 +91,19 @@ func (a *ApiServer) RunAPI(e *eventcontroller.SprintEventController) {
 	if a.cfg.TLS() {
 		a.cfg.Server().Handler = a.mux
 		a.cfg.Server().Addr = ":" + strconv.Itoa(*a.port)
-		log.Fatal(a.cfg.Server().ListenAndServeTLS(a.cfg.Cert(), a.cfg.Key()))
+		if err := a.cfg.Server().ListenAndServeTLS(a.cfg.Cert(), a.cfg.Key()); err != nil {
+			a.logger.Emit(logging.ERROR, err.Error())
+			os.Exit(1)
+		}
 	} else {
-		log.Fatal(http.ListenAndServe(":"+strconv.Itoa(*a.port), a.mux))
+		if err := http.ListenAndServe(":"+strconv.Itoa(*a.port), a.mux); err != nil {
+			a.logger.Emit(logging.ERROR, err.Error())
+			os.Exit(1)
+		}
 	}
 }
 
-// Deploys a give application from parsed JSON
+// Deploys a given application from parsed JSON
 func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
@@ -97,47 +120,21 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintf(w, err.Error())
 				return
 			}
-
-			// Allocate space for our resources.
-			var resources []*mesos_v1.Resource
-
-			var cpu = resourcebuilder.CreateCpu(m.Resources.Cpu, "*")
-			var mem = resourcebuilder.CreateMem(m.Resources.Mem, "*")
-
-			networks, err := taskbuilder.ParseNetworkJSON(m.Container.Network)
+			task, err := builder.Application(&m, a.logger)
 			if err != nil {
-				// This isn't a fatal error so we can log this as debug and move along.
-				log.Println("No explicit network info passed in.")
+				fmt.Fprintf(w, err.Error())
+				return
 			}
 
-			// append into our resources slice.
-			resources = append(resources, cpu, mem)
-
-			uuid, err := utils.UuidToString(utils.Uuid())
-			if err != nil {
-				log.Println(err.Error())
+			// If we have any filters, let the resource manager know.
+			if len(m.Filters) > 0 {
+				a.eventCtrl.ResourceManager().AddFilter(task, m.Filters)
 			}
 
-			task := &mesos_v1.TaskInfo{
-				Name:      proto.String(m.Name),
-				TaskId:    &mesos_v1.TaskID{Value: proto.String(uuid)},
-				Command:   resourcebuilder.CreateSimpleCommandInfo(m.Command.Cmd, nil),
-				Resources: resources,
-				Container: &mesos_v1.ContainerInfo{
-					Type: mesos_v1.ContainerInfo_MESOS.Enum(),
-					Mesos: &mesos_v1.ContainerInfo_MesosInfo{
-						Image: &mesos_v1.Image{
-							Type: mesos_v1.Image_DOCKER.Enum(),
-							Docker: &mesos_v1.Image_Docker{
-								Name: m.Container.ImageName,
-							},
-						},
-					},
-					NetworkInfos: networks,
-				},
+			if err := a.eventCtrl.TaskManager().Add(task); err != nil {
+				fmt.Fprintln(w, err.Error())
+				return
 			}
-
-			a.eventCtrl.TaskManager().Add(task)
 			a.eventCtrl.Scheduler().Revive()
 
 			fmt.Fprintf(w, "%v", task)
@@ -152,7 +149,7 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 
 func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
-	case "POST":
+	case "PUT":
 		{
 			dec, err := ioutil.ReadAll(r.Body)
 			if err != nil {
@@ -174,58 +171,12 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			var resources []*mesos_v1.Resource
+			task, err := builder.Application(&m, a.logger)
 
-			var cpu = resourcebuilder.CreateCpu(m.Resources.Cpu, "*")
-			var mem = resourcebuilder.CreateMem(m.Resources.Mem, "*")
-
-			networks, err := taskbuilder.ParseNetworkJSON(m.Container.Network)
-			if err != nil {
-				// This isn't a fatal error so we can log this as debug and move along.
-				log.Println("No explicit network info passed in.")
-			}
-
-			// append into our resources slice.
-			resources = append(resources, cpu, mem)
-
-			uuid, err := utils.UuidToString(utils.Uuid())
-			if err != nil {
-				log.Println(err.Error())
-			}
-
-			task := &mesos_v1.TaskInfo{
-				Name:      proto.String(m.Name),
-				TaskId:    &mesos_v1.TaskID{Value: proto.String(uuid)},
-				Command:   resourcebuilder.CreateSimpleCommandInfo(m.Command.Cmd, nil),
-				Resources: resources,
-				Container: &mesos_v1.ContainerInfo{
-					Type: mesos_v1.ContainerInfo_MESOS.Enum(),
-					Mesos: &mesos_v1.ContainerInfo_MesosInfo{
-						Image: &mesos_v1.Image{
-							Type: mesos_v1.Image_DOCKER.Enum(),
-							Docker: &mesos_v1.Image_Docker{
-								Name: m.Container.ImageName,
-							},
-						},
-					},
-					NetworkInfos: networks,
-				},
-			}
-			a.eventCtrl.TaskManager().Add(task)
+			a.eventCtrl.TaskManager().Set(sdkTaskManager.UNKNOWN, task)
+			a.eventCtrl.Scheduler().Kill(taskToKill.GetTaskId(), taskToKill.GetAgentId())
 			a.eventCtrl.Scheduler().Revive()
 
-			go func() {
-				for i := 0; i < retries; i++ {
-					launched := a.eventCtrl.TaskManager().LaunchedTasks()
-					if _, ok := launched[task.GetName()]; ok {
-						a.eventCtrl.TaskManager().Delete(taskToKill)
-						a.eventCtrl.Scheduler().Kill(taskToKill.GetTaskId(), taskToKill.GetAgentId())
-						return
-					}
-					time.Sleep(2 * time.Second) // Wait a pre-determined amount of time for polling.
-				}
-				return
-			}()
 			fmt.Fprintf(w, "Updating %v", task.GetName())
 		}
 	default:
@@ -255,14 +206,15 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 			if m.Name != nil {
 				t, err := a.eventCtrl.TaskManager().Get(m.Name)
 				if err != nil {
+					json.NewEncoder(w).Encode(response.Kill{Status: response.NOTFOUND, TaskName: *m.Name})
+				} else {
+					fmt.Println("In kill.")
 					a.eventCtrl.TaskManager().Delete(t)
 					a.eventCtrl.Scheduler().Kill(t.GetTaskId(), t.GetAgentId())
-					status = "Task " + t.GetName() + " killed."
-				} else {
-					status = "Unable to retrieve task from task manager."
+					json.NewEncoder(w).Encode(response.Kill{Status: response.KILLED, TaskName: *m.Name})
 				}
 			} else {
-				status = "Task not found."
+				json.NewEncoder(w).Encode(response.Kill{Status: response.FAILED, TaskName: *m.Name})
 			}
 			fmt.Fprintf(w, "%v", status)
 		}
@@ -274,6 +226,26 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "GET":
+		{
+			name := r.URL.Query().Get("name")
+
+			_, err := a.eventCtrl.TaskManager().Get(&name)
+			if err != nil {
+				fmt.Fprintf(w, "Task not found, error %v", err.Error())
+				return
+			}
+			// get the task from task queue to
+		}
+	default:
+		{
+			fmt.Fprintf(w, r.Method+" is not allowed on this endpoint.")
+		}
+	}
+}
+
 // Status endpoint lets the end-user know about the TASK_STATUS of their task.
 func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
@@ -281,19 +253,23 @@ func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 		{
 			name := r.URL.Query().Get("name")
 
-			t, err := a.eventCtrl.TaskManager().Get(&name)
+			_, err := a.eventCtrl.TaskManager().Get(&name)
 			if err != nil {
 				fmt.Fprintf(w, "Task not found, error %v", err.Error())
 				return
 			}
-			queued := a.eventCtrl.TaskManager().QueuedTasks()
-			var status string
-			if _, ok := queued[t.GetTaskId().GetValue()]; ok {
-				status = "task " + t.GetName() + " is queued."
-			} else {
-				status = "task " + t.GetName() + " is launched."
+			queued, err := a.eventCtrl.TaskManager().GetState(sdkTaskManager.STAGING)
+			if err != nil {
+				a.logger.Emit(logging.INFO, err.Error())
 			}
-			fmt.Fprintf(w, "%v", status)
+
+			for _, task := range queued {
+				if task.GetName() == name {
+					json.NewEncoder(w).Encode(response.Kill{Status: response.QUEUED, TaskName: name})
+				}
+			}
+
+			json.NewEncoder(w).Encode(response.Kill{Status: response.LAUNCHED, TaskName: name})
 
 		}
 	default:

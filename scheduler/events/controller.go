@@ -1,20 +1,21 @@
-package eventcontroller
+package events
 
 /*
 Adapted from mesos-framework-sdk
 */
 import (
-	"fmt"
-	"github.com/golang/protobuf/proto"
-	"log"
+	"bytes"
+	"encoding/base64"
+	"encoding/gob"
 	"mesos-framework-sdk/include/mesos"
 	sched "mesos-framework-sdk/include/scheduler"
+	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/persistence/drivers/etcd"
 	"mesos-framework-sdk/resources"
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
-	"mesos-framework-sdk/task_manager"
-	"strconv"
+	sdkTaskManager "mesos-framework-sdk/task/manager"
+	sprintTaskManager "sprint/task/manager"
 	"time"
 )
 
@@ -22,19 +23,21 @@ const subscribeRetry = 2
 
 type SprintEventController struct {
 	scheduler       *scheduler.DefaultScheduler
-	taskmanager     *task_manager.DefaultTaskManager
+	taskmanager     *sprintTaskManager.SprintTaskManager
 	resourcemanager *manager.DefaultResourceManager
 	events          chan *sched.Event
 	kv              *etcd.Etcd
+	logger          logging.Logger
 }
 
-func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *task_manager.DefaultTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, kv *etcd.Etcd) *SprintEventController {
+func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *sprintTaskManager.SprintTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, kv *etcd.Etcd, logger logging.Logger) *SprintEventController {
 	return &SprintEventController{
 		taskmanager:     manager,
 		scheduler:       scheduler,
 		events:          eventChan,
 		resourcemanager: resourceManager,
 		kv:              kv,
+		logger:          logger,
 	}
 }
 
@@ -44,7 +47,7 @@ func (s *SprintEventController) Scheduler() *scheduler.DefaultScheduler {
 }
 
 // Getter function
-func (s *SprintEventController) TaskManager() *task_manager.DefaultTaskManager {
+func (s *SprintEventController) TaskManager() *sprintTaskManager.SprintTaskManager {
 	return s.taskmanager
 }
 
@@ -57,11 +60,21 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	id := subEvent.GetFrameworkId()
 	idVal := id.GetValue()
 	s.scheduler.Info.Id = id
-	log.Printf("Subscribed with an ID of %s", idVal)
+	s.logger.Emit(logging.INFO, "Subscribed with an ID of %s", idVal)
 
 	if err := s.kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout())); err != nil {
-		log.Printf("Failed to save framework ID of %s to persistent data store", idVal)
+		s.logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
 	}
+
+	// Get all launched non-terminal tasks.
+	launched, err := s.taskmanager.GetState(sdkTaskManager.RUNNING)
+	if err != nil {
+		s.logger.Emit(logging.INFO, "Not reconciling: %s", err.Error())
+		return
+	}
+
+	// Reconcile after we subscribe in case we resubscribed due to a failure.
+	s.scheduler.Reconcile(launched)
 }
 
 func (s *SprintEventController) Run() {
@@ -74,7 +87,7 @@ func (s *SprintEventController) Run() {
 		for {
 			err = s.scheduler.Subscribe(s.events)
 			if err != nil {
-				log.Printf("Failed to subscribe: %s", err.Error())
+				s.logger.Emit(logging.ERROR, "Failed to subscribe: %s", err.Error())
 				time.Sleep(time.Duration(subscribeRetry) * time.Second)
 			}
 		}
@@ -93,6 +106,8 @@ func (s *SprintEventController) Listen() {
 		select {
 		case t := <-s.events:
 			switch t.GetType() {
+			case sched.Event_SUBSCRIBED:
+				go s.Subscribe(t.GetSubscribed())
 			case sched.Event_ERROR:
 				go s.Error(t.GetError())
 			case sched.Event_FAILURE:
@@ -111,104 +126,165 @@ func (s *SprintEventController) Listen() {
 				go s.Update(t.GetUpdate())
 			case sched.Event_HEARTBEAT:
 			case sched.Event_UNKNOWN:
-				fmt.Println("Unknown event recieved.")
+				s.logger.Emit(logging.ALARM, "Unknown event received")
 			}
 		}
 	}
 }
 
 func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
+	queued, err := s.taskmanager.GetState(sdkTaskManager.UNKNOWN)
+	if err != nil {
+		s.logger.Emit(logging.INFO, "No tasks to launch.")
 
-	// Check task manager for any active tasks.
-	if s.taskmanager.HasQueuedTasks() {
-		// Update our resources in the manager
-		s.resourcemanager.AddOffers(offerEvent.GetOffers())
-
-		offerIDs := []*mesos_v1.OfferID{}
-		operations := []*mesos_v1.Offer_Operation{}
-
-		for _, mesosTask := range s.taskmanager.QueuedTasks() {
-			// See if we have resources.
-			if s.resourcemanager.HasResources() {
-
-				offer, err := s.resourcemanager.Assign(mesosTask)
-				if err != nil {
-					// It didn't match any offers.
-					log.Println(err.Error())
-				}
-
-				t := &mesos_v1.TaskInfo{
-					Name:      mesosTask.Name,
-					TaskId:    mesosTask.GetTaskId(),
-					AgentId:   offer.GetAgentId(),
-					Command:   mesosTask.GetCommand(),
-					Container: mesosTask.GetContainer(),
-					Resources: mesosTask.GetResources(),
-				}
-
-				s.TaskManager().SetTaskLaunched(t)
-
-				offerIDs = append(offerIDs, offer.Id)
-				operations = append(operations, resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
-
-				data := proto.MarshalTextString(t)
-				id := t.TaskId.GetValue()
-				if err := s.kv.Create("/task/"+id, data); err != nil {
-					log.Printf("Failed to save task %s with name %s to persistent data store", id, t.GetName())
-				}
-			}
-		}
-		s.scheduler.Accept(offerIDs, operations, nil)
-	} else {
 		var ids []*mesos_v1.OfferID
 		for _, v := range offerEvent.GetOffers() {
 			ids = append(ids, v.GetId())
 		}
-		// decline offers.
-		fmt.Println("Declining offers.")
-		s.scheduler.Decline(ids, nil) // We want to make sure all offers are declined.
+
+		s.scheduler.Decline(ids, nil)
 		s.scheduler.Suppress()
+
+		return
 	}
+
+	// Update our resources in the manager
+	s.resourcemanager.AddOffers(offerEvent.GetOffers())
+
+	offerIDs := []*mesos_v1.OfferID{}
+	operations := []*mesos_v1.Offer_Operation{}
+
+	for _, mesosTask := range queued {
+
+		// See if we have resources.
+		if s.resourcemanager.HasResources() {
+			offer, err := s.resourcemanager.Assign(mesosTask)
+			if err != nil {
+				// It didn't match any offers.
+				s.logger.Emit(logging.ERROR, err.Error())
+				continue // We should decline.
+			}
+
+			t := &mesos_v1.TaskInfo{
+				Name:      mesosTask.Name,
+				TaskId:    mesosTask.GetTaskId(),
+				AgentId:   offer.GetAgentId(),
+				Command:   mesosTask.GetCommand(),
+				Container: mesosTask.GetContainer(),
+				Resources: mesosTask.GetResources(),
+			}
+
+			// TODO investigate this state further as it might cause side effects.
+			// TODO this is artifically set to STAGING, it does not correspond to when Mesos sets this task as STAGING.
+			// TODO for example other parts of the codebase may check for STAGING and this would cause it to be set too early.
+			s.TaskManager().Set(sdkTaskManager.STAGING, t)
+
+			offerIDs = append(offerIDs, offer.Id)
+			operations = append(operations, resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
+		}
+	}
+	s.scheduler.Accept(offerIDs, operations, nil)
 }
 
 func (s *SprintEventController) Rescind(rescindEvent *sched.Event_Rescind) {
-	fmt.Printf("Rescind event recieved.: %v\n", *rescindEvent)
+	s.logger.Emit(logging.INFO, "Rescind event recieved: %v", *rescindEvent)
 	rescindEvent.GetOfferId().GetValue()
 }
 
 func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
-	task := s.taskmanager.GetById(updateEvent.GetStatus().GetTaskId())
-	if task != nil {
-		if updateEvent.GetStatus().GetState() != mesos_v1.TaskState_TASK_FAILED {
-			s.taskmanager.SetTaskLaunched(task)
-		} else {
-			s.taskmanager.Delete(task)
-			id := task.TaskId.GetValue()
-			if err := s.kv.Delete("/task/" + id); err != nil {
-				log.Printf("Failed to delete task %s with name %s from persistent data store", id, task.GetName())
-			}
-		}
+	s.logger.Emit(logging.INFO, updateEvent.GetStatus().GetMessage())
+	task, err := s.taskmanager.GetById(updateEvent.GetStatus().GetTaskId())
+	if err != nil {
+		// This task doesn't exist according to task manager so we can't update it's status.
+		s.logger.Emit(logging.ERROR, err.Error())
+		return
 	}
+
+	state := updateEvent.GetStatus().GetState()
+	s.taskmanager.Set(state, task)
+
+	// We only know our real state once we get an update about our task.
+	// This also keeps our state in memory in sync with our persistent data store.
+	// TODO this should be broken out somewhere, maybe in the task manager once it handles persistence.
+	var b bytes.Buffer
+	e := gob.NewEncoder(&b)
+	err = e.Encode(sdkTaskManager.Task{
+		Info:  task,
+		State: state,
+	})
+
+	if err != nil {
+		s.logger.Emit(logging.ERROR, "Failed to encode task")
+	}
+
+	id := task.TaskId.GetValue()
+	// TODO: We should refactor the storage stuff to utilize the storage interface.
+	if err := s.kv.Create("/tasks/"+id, base64.StdEncoding.EncodeToString(b.Bytes())); err != nil {
+		s.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, task.GetName())
+	}
+
+	// TODO we can probably remove a bunch of these cases since most of them only set the status like we do above.
+	switch state {
+	case mesos_v1.TaskState_TASK_FAILED:
+		// TODO: Check task manager for task retry policy, then retry as given.
+	case mesos_v1.TaskState_TASK_STAGING:
+		// NOP, keep task set to "launched".
+	case mesos_v1.TaskState_TASK_DROPPED:
+		// Transient error, we should retry launching. Taskinfo is fine.
+	case mesos_v1.TaskState_TASK_ERROR:
+		// TODO: Error with the taskinfo sent to the agent. Give verbose reasoning back.
+	case mesos_v1.TaskState_TASK_FINISHED:
+		s.taskmanager.Delete(task)
+		id := task.TaskId.GetValue()
+		if err := s.kv.Delete("/tasks/" + id); err != nil {
+			s.logger.Emit(logging.INFO, "Failed to delete task %s with name %s from persistent data store", id, task.GetName())
+		}
+	case mesos_v1.TaskState_TASK_GONE:
+		// Agent is dead and task is lost.
+	case mesos_v1.TaskState_TASK_GONE_BY_OPERATOR:
+		// Agent might be dead, master is unsure. Will return to RUNNING state possibly or die.
+	case mesos_v1.TaskState_TASK_KILLED:
+		// Task was killed.
+		s.taskmanager.Delete(task)
+		id := task.TaskId.GetValue()
+		if err := s.kv.Delete("/task/" + id); err != nil {
+			s.logger.Emit(logging.INFO, "Failed to delete task %s with name %s from persistent data store", id, task.GetName())
+		}
+	case mesos_v1.TaskState_TASK_KILLING:
+		// Task is in the process of catching a SIGNAL and shutting down.
+	case mesos_v1.TaskState_TASK_LOST:
+		// Task is unknown to the master and lost. Should reschedule.
+	case mesos_v1.TaskState_TASK_RUNNING:
+	case mesos_v1.TaskState_TASK_STARTING:
+		// Task is still starting up. NOOP
+	case mesos_v1.TaskState_TASK_UNKNOWN:
+		// Task is unknown to the master. Should ignore.
+	case mesos_v1.TaskState_TASK_UNREACHABLE:
+		// Agent lost contact with master, could be a network error. No guarantee the task is still running.
+		// Should we reschedule after waiting a certain peroid of time?
+	default:
+	}
+
 	status := updateEvent.GetStatus()
 	s.scheduler.Acknowledge(status.GetAgentId(), status.GetTaskId(), status.GetUuid())
 }
 
 func (s *SprintEventController) Message(msg *sched.Event_Message) {
-	fmt.Printf("Message event recieved: %v\n", *msg)
+	s.logger.Emit(logging.INFO, "Message event recieved: %v", *msg)
 }
 
 func (s *SprintEventController) Failure(fail *sched.Event_Failure) {
-	log.Println("Executor " + fail.GetExecutorId().GetValue() + " failed with status " + strconv.Itoa(int(fail.GetStatus())))
+	s.logger.Emit(logging.ERROR, "Executor %s failed with status %d", fail.GetExecutorId().GetValue(), fail.GetStatus())
 }
 
 func (s *SprintEventController) Error(err *sched.Event_Error) {
-	fmt.Printf("Error event recieved: %v\n", err)
+	s.logger.Emit(logging.INFO, "Error event recieved: %v", err)
 }
 
 func (s *SprintEventController) InverseOffer(ioffers *sched.Event_InverseOffers) {
-	fmt.Printf("Inverse Offer event recieved: %v\n", ioffers)
+	s.logger.Emit(logging.INFO, "Inverse Offer event recieved: %v", ioffers)
 }
 
 func (s *SprintEventController) RescindInverseOffer(rioffers *sched.Event_RescindInverseOffer) {
-	fmt.Printf("Rescind Inverse Offer event recieved: %v\n", rioffers)
+	s.logger.Emit(logging.INFO, "Rescind Inverse Offer event recieved: %v", rioffers)
 }
