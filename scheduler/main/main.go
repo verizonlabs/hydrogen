@@ -48,7 +48,7 @@ func periodicReconcile(c *scheduler.SchedulerConfiguration, e *events.SprintEven
 		select {
 		case <-ticker.C:
 
-			recon, err := e.TaskManager().GetState(sdkTaskManager.LAUNCHED)
+			recon, err := e.TaskManager().GetState(sdkTaskManager.RUNNING)
 			if err != nil {
 				// log here.
 				continue
