@@ -132,7 +132,7 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 				a.eventCtrl.ResourceManager().AddFilter(task, m.Filters)
 			}
 
-			if err := a.eventCtrl.TaskManager().Add(task); err != nil {
+			if err := a.eventCtrl.TaskManager().Add(task, sdkTaskManager.UNKNOWN); err != nil {
 				fmt.Fprintln(w, err.Error())
 				return
 			}
@@ -174,7 +174,7 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 
 			task, err := builder.Application(&m, a.logger)
 
-			if err := a.eventCtrl.TaskManager().Add(task); err != nil {
+			if err := a.eventCtrl.TaskManager().Add(task, sdkTaskManager.UNKNOWN); err != nil {
 				fmt.Fprintln(w, err.Error())
 				return
 			}
