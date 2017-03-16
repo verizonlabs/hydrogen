@@ -67,9 +67,9 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	}
 
 	// Get all launched non-terminal tasks.
-	launched, err := s.taskmanager.GetState(sdkTaskManager.LAUNCHED)
+	launched, err := s.taskmanager.GetState(sdkTaskManager.RUNNING)
 	if err != nil {
-		s.logger.Emit(logging.INFO, err.Error())
+		s.logger.Emit(logging.INFO, "Not reconciling: %s", err.Error())
 		return
 	}
 
@@ -173,28 +173,8 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 				Resources: mesosTask.GetResources(),
 			}
 
-			s.TaskManager().SetState(sdkTaskManager.LAUNCHED, t)
-
 			offerIDs = append(offerIDs, offer.Id)
 			operations = append(operations, resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
-
-			// TODO this should be broken out somewhere, maybe in the task manager once it handles persistence.
-			var b bytes.Buffer
-			e := gob.NewEncoder(&b)
-			err = e.Encode(sprintTaskManager.Task{
-				Info:  t,
-				State: sdkTaskManager.LAUNCHED,
-			})
-
-			if err != nil {
-				s.logger.Emit(logging.ERROR, "Failed to encode task")
-			}
-
-			id := t.TaskId.GetValue()
-			// TODO: We should refactor the storage stuff to utilize the storage interface.
-			if err := s.kv.Create("/tasks/"+id, base64.StdEncoding.EncodeToString(b.Bytes())); err != nil {
-				s.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, t.GetName())
-			}
 		}
 	}
 	s.scheduler.Accept(offerIDs, operations, nil)
@@ -214,16 +194,37 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 		return
 	}
 
-	// Tasks are set to "LAUNCHED" in task manager.
-	switch updateEvent.GetStatus().GetState() {
+	state := updateEvent.GetStatus().GetState()
+	s.taskmanager.Set(state, task)
+
+	// We only know our real state once we get an update about our task.
+	// This also keeps our state in memory in sync with our persistent data store.
+	// TODO this should be broken out somewhere, maybe in the task manager once it handles persistence.
+	var b bytes.Buffer
+	e := gob.NewEncoder(&b)
+	err = e.Encode(sprintTaskManager.Task{
+		Info:  task,
+		State: state,
+	})
+
+	if err != nil {
+		s.logger.Emit(logging.ERROR, "Failed to encode task")
+	}
+
+	id := task.TaskId.GetValue()
+	// TODO: We should refactor the storage stuff to utilize the storage interface.
+	if err := s.kv.Create("/tasks/"+id, base64.StdEncoding.EncodeToString(b.Bytes())); err != nil {
+		s.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, task.GetName())
+	}
+
+	// TODO we can probably remove a bunch of these cases since most of them only set the status like we do above.
+	switch state {
 	case mesos_v1.TaskState_TASK_FAILED:
 		// TODO: Check task manager for task retry policy, then retry as given.
-		s.taskmanager.SetState(sdkTaskManager.LAUNCHED, task)
 	case mesos_v1.TaskState_TASK_STAGING:
 		// NOP, keep task set to "launched".
 	case mesos_v1.TaskState_TASK_DROPPED:
 		// Transient error, we should retry launching. Taskinfo is fine.
-		s.taskmanager.SetState(sdkTaskManager.STAGING, task)
 	case mesos_v1.TaskState_TASK_ERROR:
 		// TODO: Error with the taskinfo sent to the agent. Give verbose reasoning back.
 	case mesos_v1.TaskState_TASK_FINISHED:
@@ -247,9 +248,7 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 		// Task is in the process of catching a SIGNAL and shutting down.
 	case mesos_v1.TaskState_TASK_LOST:
 		// Task is unknown to the master and lost. Should reschedule.
-		s.taskmanager.SetState(sdkTaskManager.STAGING, task)
 	case mesos_v1.TaskState_TASK_RUNNING:
-		// Task is healthy and running. NOOP
 	case mesos_v1.TaskState_TASK_STARTING:
 		// Task is still starting up. NOOP
 	case mesos_v1.TaskState_TASK_UNKNOWN:
