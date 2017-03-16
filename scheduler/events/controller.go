@@ -4,7 +4,9 @@ package events
 Adapted from mesos-framework-sdk
 */
 import (
-	"github.com/golang/protobuf/proto"
+	"bytes"
+	"encoding/base64"
+	"encoding/gob"
 	"mesos-framework-sdk/include/mesos"
 	sched "mesos-framework-sdk/include/scheduler"
 	"mesos-framework-sdk/logging"
@@ -12,7 +14,7 @@ import (
 	"mesos-framework-sdk/resources"
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
-	"mesos-framework-sdk/task/manager"
+	sdkTaskManager "mesos-framework-sdk/task/manager"
 	sprintTaskManager "sprint/task/manager"
 	"time"
 )
@@ -65,10 +67,12 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	}
 
 	// Get all launched non-terminal tasks.
-	launched, err := s.taskmanager.GetState(taskmanager.LAUNCHED.Enum())
+	launched, err := s.taskmanager.GetState(sdkTaskManager.RUNNING)
 	if err != nil {
-		s.logger.Emit(logging.INFO, err.Error())
+		s.logger.Emit(logging.INFO, "Not reconciling: %s", err.Error())
+		return
 	}
+
 	// Reconcile after we subscribe in case we resubscribed due to a failure.
 	s.scheduler.Reconcile(launched)
 }
@@ -129,58 +133,57 @@ func (s *SprintEventController) Listen() {
 }
 
 func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
-	queued, err := s.taskmanager.GetState(taskmanager.STAGING.Enum())
+	queued, err := s.taskmanager.GetState(sdkTaskManager.UNKNOWN)
 	if err != nil {
 		s.logger.Emit(logging.INFO, "No tasks to launch.")
-	}
-	if len(queued) > 0 {
-		// Update our resources in the manager
-		s.resourcemanager.AddOffers(offerEvent.GetOffers())
 
-		offerIDs := []*mesos_v1.OfferID{}
-		operations := []*mesos_v1.Offer_Operation{}
-
-		for _, mesosTask := range queued {
-			// See if we have resources.
-			if s.resourcemanager.HasResources() {
-				offer, err := s.resourcemanager.Assign(mesosTask)
-				if err != nil {
-					// It didn't match any offers.
-					s.logger.Emit(logging.ERROR, err.Error())
-					continue // We should decline.
-				}
-
-				t := &mesos_v1.TaskInfo{
-					Name:      mesosTask.Name,
-					TaskId:    mesosTask.GetTaskId(),
-					AgentId:   offer.GetAgentId(),
-					Command:   mesosTask.GetCommand(),
-					Container: mesosTask.GetContainer(),
-					Resources: mesosTask.GetResources(),
-				}
-
-				s.TaskManager().SetState(taskmanager.LAUNCHED.Enum(), t)
-
-				offerIDs = append(offerIDs, offer.Id)
-				operations = append(operations, resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
-
-				data := proto.MarshalTextString(t)
-				id := t.TaskId.GetValue()
-				// NOTE: We should refactor the storage stuff to utilize the storage interface.
-				if err := s.kv.Create("/tasks/"+id, data); err != nil {
-					s.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, t.GetName())
-				}
-			}
-		}
-		s.scheduler.Accept(offerIDs, operations, nil)
-	} else {
 		var ids []*mesos_v1.OfferID
 		for _, v := range offerEvent.GetOffers() {
 			ids = append(ids, v.GetId())
 		}
+
 		s.scheduler.Decline(ids, nil)
 		s.scheduler.Suppress()
+
+		return
 	}
+
+	// Update our resources in the manager
+	s.resourcemanager.AddOffers(offerEvent.GetOffers())
+
+	offerIDs := []*mesos_v1.OfferID{}
+	operations := []*mesos_v1.Offer_Operation{}
+
+	for _, mesosTask := range queued {
+
+		// See if we have resources.
+		if s.resourcemanager.HasResources() {
+			offer, err := s.resourcemanager.Assign(mesosTask)
+			if err != nil {
+				// It didn't match any offers.
+				s.logger.Emit(logging.ERROR, err.Error())
+				continue // We should decline.
+			}
+
+			t := &mesos_v1.TaskInfo{
+				Name:      mesosTask.Name,
+				TaskId:    mesosTask.GetTaskId(),
+				AgentId:   offer.GetAgentId(),
+				Command:   mesosTask.GetCommand(),
+				Container: mesosTask.GetContainer(),
+				Resources: mesosTask.GetResources(),
+			}
+
+			// TODO investigate this state further as it might cause side effects.
+			// TODO this is artifically set to STAGING, it does not correspond to when Mesos sets this task as STAGING.
+			// TODO for example other parts of the codebase may check for STAGING and this would cause it to be set too early.
+			s.TaskManager().Set(sdkTaskManager.STAGING, t)
+
+			offerIDs = append(offerIDs, offer.Id)
+			operations = append(operations, resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
+		}
+	}
+	s.scheduler.Accept(offerIDs, operations, nil)
 }
 
 func (s *SprintEventController) Rescind(rescindEvent *sched.Event_Rescind) {
@@ -197,16 +200,37 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 		return
 	}
 
-	// Tasks are set to "LAUNCHED" in task manager.
-	switch updateEvent.GetStatus().GetState() {
+	state := updateEvent.GetStatus().GetState()
+	s.taskmanager.Set(state, task)
+
+	// We only know our real state once we get an update about our task.
+	// This also keeps our state in memory in sync with our persistent data store.
+	// TODO this should be broken out somewhere, maybe in the task manager once it handles persistence.
+	var b bytes.Buffer
+	e := gob.NewEncoder(&b)
+	err = e.Encode(sdkTaskManager.Task{
+		Info:  task,
+		State: state,
+	})
+
+	if err != nil {
+		s.logger.Emit(logging.ERROR, "Failed to encode task")
+	}
+
+	id := task.TaskId.GetValue()
+	// TODO: We should refactor the storage stuff to utilize the storage interface.
+	if err := s.kv.Create("/tasks/"+id, base64.StdEncoding.EncodeToString(b.Bytes())); err != nil {
+		s.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, task.GetName())
+	}
+
+	// TODO we can probably remove a bunch of these cases since most of them only set the status like we do above.
+	switch state {
 	case mesos_v1.TaskState_TASK_FAILED:
 		// TODO: Check task manager for task retry policy, then retry as given.
-		s.taskmanager.SetState(taskmanager.LAUNCHED.Enum(), task)
 	case mesos_v1.TaskState_TASK_STAGING:
 		// NOP, keep task set to "launched".
 	case mesos_v1.TaskState_TASK_DROPPED:
 		// Transient error, we should retry launching. Taskinfo is fine.
-		s.taskmanager.SetState(taskmanager.STAGING.Enum(), task)
 	case mesos_v1.TaskState_TASK_ERROR:
 		// TODO: Error with the taskinfo sent to the agent. Give verbose reasoning back.
 	case mesos_v1.TaskState_TASK_FINISHED:
@@ -230,9 +254,7 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 		// Task is in the process of catching a SIGNAL and shutting down.
 	case mesos_v1.TaskState_TASK_LOST:
 		// Task is unknown to the master and lost. Should reschedule.
-		s.taskmanager.SetState(taskmanager.STAGING.Enum(), task)
 	case mesos_v1.TaskState_TASK_RUNNING:
-		// Task is healthy and running. NOOP
 	case mesos_v1.TaskState_TASK_STARTING:
 		// Task is still starting up. NOOP
 	case mesos_v1.TaskState_TASK_UNKNOWN:

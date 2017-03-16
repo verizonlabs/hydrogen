@@ -7,14 +7,13 @@ import (
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/server"
 	taskbuilder "mesos-framework-sdk/task"
-	"mesos-framework-sdk/task/manager"
+	sdkTaskManager "mesos-framework-sdk/task/manager"
 	"net/http"
 	"os"
 	"sprint/scheduler/api/response"
 	"sprint/scheduler/events"
 	"sprint/task/builder"
 	"strconv"
-	"time"
 )
 
 const (
@@ -132,7 +131,10 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 				a.eventCtrl.ResourceManager().AddFilter(task, m.Filters)
 			}
 
-			a.eventCtrl.TaskManager().Add(task)
+			if err := a.eventCtrl.TaskManager().Add(task); err != nil {
+				fmt.Fprintln(w, err.Error())
+				return
+			}
 			a.eventCtrl.Scheduler().Revive()
 
 			fmt.Fprintf(w, "%v", task)
@@ -171,26 +173,10 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 
 			task, err := builder.Application(&m, a.logger)
 
-			a.eventCtrl.TaskManager().Add(task)
+			a.eventCtrl.TaskManager().Set(sdkTaskManager.UNKNOWN, task)
+			a.eventCtrl.Scheduler().Kill(taskToKill.GetTaskId(), taskToKill.GetAgentId())
 			a.eventCtrl.Scheduler().Revive()
 
-			go func() {
-				for i := 0; i < retries; i++ {
-					launched, err := a.eventCtrl.TaskManager().GetState(taskmanager.LAUNCHED.Enum())
-					if err != nil {
-						a.logger.Emit(logging.ERROR, err.Error())
-					}
-					for _, task := range launched {
-						if task.GetName() == taskToKill.GetName() {
-							a.eventCtrl.TaskManager().Delete(taskToKill)
-							a.eventCtrl.Scheduler().Kill(taskToKill.GetTaskId(), taskToKill.GetAgentId())
-							return
-						}
-					}
-					time.Sleep(2 * time.Second) // Wait a pre-determined amount of time for polling.
-				}
-				return
-			}()
 			fmt.Fprintf(w, "Updating %v", task.GetName())
 		}
 	default:
@@ -272,7 +258,7 @@ func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintf(w, "Task not found, error %v", err.Error())
 				return
 			}
-			queued, err := a.eventCtrl.TaskManager().GetState(taskmanager.STAGING.Enum())
+			queued, err := a.eventCtrl.TaskManager().GetState(sdkTaskManager.STAGING)
 			if err != nil {
 				a.logger.Emit(logging.INFO, err.Error())
 			}
