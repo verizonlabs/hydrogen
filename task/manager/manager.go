@@ -45,6 +45,7 @@ func (m *SprintTaskManager) Delete(task *mesos_v1.TaskInfo) {
 	m.tasks.Delete(task.GetName())
 }
 
+// TODO make param a TaskInfo to be consistent with all other methods that take a TaskInfo.
 func (m *SprintTaskManager) Get(name *string) (*mesos_v1.TaskInfo, error) {
 	ret := m.tasks.Get(*name)
 	if ret != nil {
@@ -87,7 +88,7 @@ func (m *SprintTaskManager) Tasks() *structures.ConcurrentMap {
 	return m.tasks
 }
 
-func (m *SprintTaskManager) SetState(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) {
+func (m *SprintTaskManager) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) {
 	m.tasks.Set(t.GetName(), Task{
 		Info:  t,
 		State: state,
