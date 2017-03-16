@@ -82,7 +82,7 @@ func restoreTasks(kv *etcd.Etcd, t *sprintTaskManager.SprintTaskManager, logger 
 			logger.Emit(logging.ERROR, err.Error())
 		}
 
-		t.Add(task.Info, task.State)
+		t.Set(task.State, task.Info)
 	}
 
 	return nil
