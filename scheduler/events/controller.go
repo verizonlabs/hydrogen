@@ -175,6 +175,7 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 			}
 
 			// TODO investigate this state further as it might cause side effects.
+			// TODO this is artifically set to STAGING, it does not correspond to when Mesos sets this task as STAGING.
 			// TODO for example other parts of the codebase may check for STAGING and this would cause it to be set too early.
 			s.TaskManager().Set(sdkTaskManager.STAGING, t)
 
