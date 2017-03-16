@@ -155,6 +155,7 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 	operations := []*mesos_v1.Offer_Operation{}
 
 	for _, mesosTask := range queued {
+
 		// See if we have resources.
 		if s.resourcemanager.HasResources() {
 			offer, err := s.resourcemanager.Assign(mesosTask)
@@ -172,6 +173,10 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 				Container: mesosTask.GetContainer(),
 				Resources: mesosTask.GetResources(),
 			}
+
+			// TODO investigate this state further as it might cause side effects.
+			// TODO for example other parts of the codebase may check for STAGING and this would cause it to be set too early.
+			s.TaskManager().Set(sdkTaskManager.STAGING, t)
 
 			offerIDs = append(offerIDs, offer.Id)
 			operations = append(operations, resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
