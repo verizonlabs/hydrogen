@@ -15,8 +15,10 @@ import (
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
 	sdkTaskManager "mesos-framework-sdk/task/manager"
+	"mesos-framework-sdk/utils"
 	sprintSched "sprint/scheduler"
 	sprintTaskManager "sprint/task/manager"
+	"strings"
 	"time"
 )
 
@@ -66,7 +68,11 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	s.scheduler.Info.Id = id
 	s.logger.Emit(logging.INFO, "Subscribed with an ID of %s", idVal)
 
-	if err := s.kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout())); err != nil {
+	// TODO this is only called once assuming we subscribe and don't fail soon afterwards
+	// TODO it's possible that we can fail long after our lease length
+	// TODO if this is the case our failover in Mesos will start long after the lease has expired
+	// TODO we should continually refresh this lease on every heart beat event
+	if err := s.kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout()), false); err != nil {
 		s.logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
 	}
 
@@ -104,9 +110,21 @@ func (s *SprintEventController) Run() {
 	s.Listen()
 }
 
+// Atomically set leader information.
+func (s *SprintEventController) setLeader() {
+	ips, err := utils.GetIP(s.config.NetworkInterface)
+	if err != nil {
+		s.logger.Emit(logging.ERROR, err.Error())
+		return
+	}
+
+	s.kv.CreateWithLease("/leader", strings.Join(ips, " "), int64(s.config.LeaderTTL.Seconds()), true)
+}
+
 // Main event loop that listens on channels forever until framework terminates.
 func (s *SprintEventController) Listen() {
 	for {
+		// TODO evaluate if spinning these off in goroutines helps or hurts us.
 		select {
 		case t := <-s.events:
 			switch t.GetType() {
@@ -129,6 +147,7 @@ func (s *SprintEventController) Listen() {
 			case sched.Event_UPDATE:
 				go s.Update(t.GetUpdate())
 			case sched.Event_HEARTBEAT:
+				go s.setLeader()
 			case sched.Event_UNKNOWN:
 				s.logger.Emit(logging.ALARM, "Unknown event received")
 			}
