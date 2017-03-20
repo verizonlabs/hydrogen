@@ -111,15 +111,15 @@ func (s *SprintEventController) Run() {
 }
 
 // Atomically set leader information.
-func (s *SprintEventController) setLeader() {
+func (s *SprintEventController) SetLeader() {
 	ips, err := utils.GetIP(s.config.NetworkInterface)
 	if err != nil {
 		s.logger.Emit(logging.ERROR, err.Error())
 		return
 	}
 
-	if err := s.kv.CreateWithLease("/leader", strings.Join(ips, " "), int64(s.config.LeaderTTL.Seconds()), true); err != nil {
-		s.logger.Emit(logging.ERROR, err.Error())
+	if err := s.kv.Create("/leader", strings.Join(ips, " ")); err != nil {
+		s.logger.Emit(logging.ERROR, "Failed to set leader information: "+err.Error())
 	}
 }
 
@@ -149,7 +149,6 @@ func (s *SprintEventController) Listen() {
 			case sched.Event_UPDATE:
 				go s.Update(t.GetUpdate())
 			case sched.Event_HEARTBEAT:
-				go s.setLeader()
 			case sched.Event_UNKNOWN:
 				s.logger.Emit(logging.ALARM, "Unknown event received")
 			}

@@ -24,7 +24,6 @@ type SchedulerConfiguration struct {
 	Hostname          string
 	ReconcileInterval time.Duration
 	NetworkInterface  string
-	LeaderTTL         time.Duration
 }
 
 // Applies values to the various configurations from user-supplied flags.
@@ -46,7 +45,6 @@ func (c *SchedulerConfiguration) Initialize() *SchedulerConfiguration {
 	flag.StringVar(&c.Hostname, "hostname", "", "The framework's hostname")
 	flag.DurationVar(&c.ReconcileInterval, "reconcile.interval", 15*time.Minute, "How often periodic reconciling happens")
 	flag.StringVar(&c.NetworkInterface, "ha.election.interface", "", "Interface to use for determining the leader IP")
-	flag.DurationVar(&c.LeaderTTL, "ha.election.ttl", 5*time.Second, "TTL for leader expiration")
 
 	return c
 }

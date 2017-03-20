@@ -133,6 +133,7 @@ func main() {
 
 	// Event controller manages scheduler events and how they are handled.
 	e := events.NewSprintEventController(schedulerConfig, s, m, r, eventChan, kv, logger)
+	e.SetLeader()
 
 	logger.Emit(logging.INFO, "Starting API server")
 
