@@ -136,6 +136,7 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			a.eventCtrl.Scheduler().Revive()
+			a.eventCtrl.Cleaner <- "kill" // Tell the cleaner to stop.
 
 			fmt.Fprintf(w, "%v", task)
 		}

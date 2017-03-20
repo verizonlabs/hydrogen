@@ -26,7 +26,7 @@ type SprintEventController struct {
 	taskmanager     *sprintTaskManager.SprintTaskManager
 	resourcemanager *manager.DefaultResourceManager
 	events          chan *sched.Event
-	cleaner         chan string
+	Cleaner         chan string
 	kv              *etcd.Etcd
 	logger          logging.Logger
 	isCleaning      bool
@@ -40,7 +40,7 @@ func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *sp
 		resourcemanager: resourceManager,
 		kv:              kv,
 		logger:          logger,
-		cleaner:         make(chan string),
+		Cleaner:         make(chan string),
 		isCleaning:      false,
 	}
 }
@@ -152,7 +152,7 @@ func (s *SprintEventController) clean(offers []*mesos_v1.Offer) {
 				}
 				s.scheduler.Decline(ids, nil)
 			}
-		case k := <-s.cleaner:
+		case k := <-s.Cleaner:
 			switch k {
 			case "kill":
 				s.isCleaning = false
