@@ -132,7 +132,7 @@ func main() {
 	s := sched.NewDefaultScheduler(c, frameworkInfo, logger)                // Manages how to route and schedule tasks.
 
 	// Event controller manages scheduler events and how they are handled.
-	e := events.NewSprintEventController(s, m, r, eventChan, kv, logger)
+	e := events.NewSprintEventController(schedulerConfig, s, m, r, eventChan, kv, logger)
 
 	logger.Emit(logging.INFO, "Starting API server")
 

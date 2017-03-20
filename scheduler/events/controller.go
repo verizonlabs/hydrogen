@@ -15,6 +15,7 @@ import (
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
 	sdkTaskManager "mesos-framework-sdk/task/manager"
+	sprintSched "sprint/scheduler"
 	sprintTaskManager "sprint/task/manager"
 	"time"
 )
@@ -22,6 +23,7 @@ import (
 const subscribeRetry = 2
 
 type SprintEventController struct {
+	config          *sprintSched.SchedulerConfiguration
 	scheduler       *scheduler.DefaultScheduler
 	taskmanager     *sprintTaskManager.SprintTaskManager
 	resourcemanager *manager.DefaultResourceManager
@@ -30,8 +32,10 @@ type SprintEventController struct {
 	logger          logging.Logger
 }
 
-func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *sprintTaskManager.SprintTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, kv *etcd.Etcd, logger logging.Logger) *SprintEventController {
+// TODO tons of params, make this cleaner...?
+func NewSprintEventController(config *sprintSched.SchedulerConfiguration, scheduler *scheduler.DefaultScheduler, manager *sprintTaskManager.SprintTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, kv *etcd.Etcd, logger logging.Logger) *SprintEventController {
 	return &SprintEventController{
+		config:          config,
 		taskmanager:     manager,
 		scheduler:       scheduler,
 		events:          eventChan,
