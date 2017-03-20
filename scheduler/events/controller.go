@@ -26,8 +26,10 @@ type SprintEventController struct {
 	taskmanager     *sprintTaskManager.SprintTaskManager
 	resourcemanager *manager.DefaultResourceManager
 	events          chan *sched.Event
+	cleaner         chan string
 	kv              *etcd.Etcd
 	logger          logging.Logger
+	isCleaning      bool
 }
 
 func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *sprintTaskManager.SprintTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, kv *etcd.Etcd, logger logging.Logger) *SprintEventController {
@@ -38,6 +40,8 @@ func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *sp
 		resourcemanager: resourceManager,
 		kv:              kv,
 		logger:          logger,
+		cleaner:         make(chan string),
+		isCleaning:      false,
 	}
 }
 
@@ -132,18 +136,44 @@ func (s *SprintEventController) Listen() {
 	}
 }
 
+// Little function that helps clean up offers after our Suppress call.
+func (s *SprintEventController) clean(offers []*mesos_v1.Offer) {
+	s.isCleaning = true // We only need one cleaner.
+	for {
+		// We clean up forever until a revive call happens.
+		// NOTE: Do we want to set some sort of timer to kill this anyways if the framework is silent for a while?
+		select {
+		case t := <-s.events:
+			switch t.GetType() {
+			case sched.Event_OFFERS:
+				var ids []*mesos_v1.OfferID
+				for _, v := range offers {
+					ids = append(ids, v.GetId())
+				}
+				s.scheduler.Decline(ids, nil)
+			}
+		case k := <-s.cleaner:
+			switch k {
+			case "kill":
+				s.isCleaning = false
+				return
+			default:
+				s.isCleaning = false
+				return
+			}
+		}
+	}
+}
+
 func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 	queued, err := s.taskmanager.GetState(sdkTaskManager.UNKNOWN)
 	if err != nil {
 		s.logger.Emit(logging.INFO, "No tasks to launch.")
-
-		var ids []*mesos_v1.OfferID
-		for _, v := range offerEvent.GetOffers() {
-			ids = append(ids, v.GetId())
-		}
-
-		s.scheduler.Decline(ids, nil)
+		// We call suppress, then run the cleaner if one's not already running.
 		s.scheduler.Suppress()
+		if !s.isCleaning {
+			go s.clean(offerEvent.GetOffers())
+		}
 
 		return
 	}
