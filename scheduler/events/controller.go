@@ -118,7 +118,9 @@ func (s *SprintEventController) setLeader() {
 		return
 	}
 
-	s.kv.CreateWithLease("/leader", strings.Join(ips, " "), int64(s.config.LeaderTTL.Seconds()), true)
+	if err := s.kv.CreateWithLease("/leader", strings.Join(ips, " "), int64(s.config.LeaderTTL.Seconds()), true); err != nil {
+		s.logger.Emit(logging.ERROR, err.Error())
+	}
 }
 
 // Main event loop that listens on channels forever until framework terminates.
