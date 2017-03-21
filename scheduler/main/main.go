@@ -16,11 +16,14 @@ import (
 	"mesos-framework-sdk/server/file"
 	"mesos-framework-sdk/structures"
 	sdkTaskManager "mesos-framework-sdk/task/manager"
+	"mesos-framework-sdk/utils"
+	"net"
 	"net/http"
 	"sprint/scheduler"
 	"sprint/scheduler/api"
 	"sprint/scheduler/events"
 	sprintTaskManager "sprint/task/manager"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -88,6 +91,23 @@ func restoreTasks(kv *etcd.Etcd, t *sprintTaskManager.SprintTaskManager, logger 
 	return nil
 }
 
+// Handles connections from other framework instances that try and determine the state of the leader.
+// Used in coordination with other HA mechanisms.
+func leaderServer(c *scheduler.SchedulerConfiguration, logger logging.Logger) error {
+	l, err := net.Listen("tcp", ":"+strconv.Itoa(c.LeaderServerPort))
+	if err != nil {
+		return err
+	}
+
+	for {
+		_, err := l.Accept()
+		if err != nil {
+			logger.Emit(logging.ERROR, err.Error())
+			continue
+		}
+	}
+}
+
 // Entry point for the scheduler.
 // Parses configuration from user-supplied flags and prepares the scheduler for execution.
 func main() {
@@ -134,6 +154,25 @@ func main() {
 	// Event controller manages scheduler events and how they are handled.
 	e := events.NewSprintEventController(schedulerConfig, s, m, r, eventChan, kv, logger)
 	e.SetLeader()
+
+	logger.Emit(logging.INFO, "Starting leader election socket server")
+	go leaderServer(schedulerConfig, logger)
+
+	leader, err := e.GetLeader()
+	if err != nil {
+		logger.Emit(logging.ERROR, err.Error())
+		return
+	}
+
+	ips, err := utils.GetIP(schedulerConfig.NetworkInterface)
+	if err != nil {
+		logger.Emit(logging.ERROR, err.Error())
+		return
+	}
+
+	if leader != strings.Join(ips, " ") {
+
+	}
 
 	logger.Emit(logging.INFO, "Starting API server")
 

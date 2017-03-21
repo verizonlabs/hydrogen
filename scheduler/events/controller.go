@@ -62,6 +62,28 @@ func (s *SprintEventController) ResourceManager() *manager.DefaultResourceManage
 	return s.resourcemanager
 }
 
+// Atomically set leader information.
+func (s *SprintEventController) SetLeader() {
+	ips, err := utils.GetIP(s.config.NetworkInterface)
+	if err != nil {
+		s.logger.Emit(logging.ERROR, err.Error())
+	}
+
+	if err := s.kv.Create("/leader", strings.Join(ips, " ")); err != nil {
+		s.logger.Emit(logging.ERROR, "Failed to set leader information: "+err.Error())
+	}
+}
+
+// Atomically get leader information.
+func (s *SprintEventController) GetLeader() (string, error) {
+	leader, err := s.kv.Read("/leader")
+	if err != nil {
+		return "", err
+	}
+
+	return leader, nil
+}
+
 func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	id := subEvent.GetFrameworkId()
 	idVal := id.GetValue()
@@ -108,19 +130,6 @@ func (s *SprintEventController) Run() {
 		s.Subscribe(e.GetSubscribed())
 	}
 	s.Listen()
-}
-
-// Atomically set leader information.
-func (s *SprintEventController) SetLeader() {
-	ips, err := utils.GetIP(s.config.NetworkInterface)
-	if err != nil {
-		s.logger.Emit(logging.ERROR, err.Error())
-		return
-	}
-
-	if err := s.kv.Create("/leader", strings.Join(ips, " ")); err != nil {
-		s.logger.Emit(logging.ERROR, "Failed to set leader information: "+err.Error())
-	}
 }
 
 // Main event loop that listens on channels forever until framework terminates.
