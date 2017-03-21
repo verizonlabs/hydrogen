@@ -217,10 +217,15 @@ func main() {
 
 			// Block here until we lose connection to the leader.
 			// Once the connection has been lost elect a new leader.
-			leaderClient(schedulerConfig, leader).Error()
-			logger.Emit(logging.ERROR, "Lost connection to leader")
+			err := leaderClient(schedulerConfig, leader)
 
-			kv.Delete("/leader")
+			// Only delete the key if we've lost the connection, not timed out.
+			if err, ok := err.(net.Error); ok && err.Timeout() {
+				logger.Emit(logging.ERROR, "Timed out connecting to leader")
+			} else {
+				logger.Emit(logging.ERROR, "Lost connection to leader")
+				kv.Delete("/leader")
+			}
 		} else {
 
 			// We are the leader, exit the loop and start the scheduler/API.
