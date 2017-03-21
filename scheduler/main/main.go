@@ -112,9 +112,12 @@ func leaderServer(c *scheduler.SchedulerConfiguration, logger logging.Logger) {
 	}
 
 	for {
+
+		// Block here until we get a new connection.
+		// We don't want to do anything with the stream so move on without spawning a thread to handle the connection.
 		conn, err := tcp.AcceptTCP()
 		if err != nil {
-			logger.Emit(logging.ERROR, err.Error())
+			logger.Emit(logging.ERROR, "Failed to accept client: %s", err.Error())
 			time.Sleep(1 * time.Second) // TODO should this be configurable?
 			continue
 		}
