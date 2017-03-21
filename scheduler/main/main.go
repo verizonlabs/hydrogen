@@ -220,6 +220,7 @@ func main() {
 			err := leaderClient(schedulerConfig, leader)
 
 			// Only delete the key if we've lost the connection, not timed out.
+			// This conditional requires Go 1.6+
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				logger.Emit(logging.ERROR, "Timed out connecting to leader")
 			} else {
