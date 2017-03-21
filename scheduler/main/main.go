@@ -92,18 +92,55 @@ func restoreTasks(kv *etcd.Etcd, t *sprintTaskManager.SprintTaskManager, logger 
 }
 
 // Handles connections from other framework instances that try and determine the state of the leader.
-// Used in coordination with other HA mechanisms.
-func leaderServer(c *scheduler.SchedulerConfiguration, logger logging.Logger) error {
-	l, err := net.Listen("tcp", ":"+strconv.Itoa(c.LeaderServerPort))
+// Used in coordination with determining if and when we need to perform leader election.
+func leaderServer(c *scheduler.SchedulerConfiguration, logger logging.Logger) {
+	addr, err := net.ResolveTCPAddr("tcp", ":"+strconv.Itoa(c.LeaderServerPort))
+	if err != nil {
+		logger.Emit(logging.ERROR, "Leader server exiting: "+err.Error())
+		return
+	}
+
+	tcp, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		logger.Emit(logging.ERROR, "Leader server exiting: "+err.Error())
+		return
+	}
+
+	for {
+		conn, err := tcp.AcceptTCP()
+		if err != nil {
+			logger.Emit(logging.ERROR, err.Error())
+			time.Sleep(1 * time.Second)
+			continue
+		}
+
+		if err := conn.SetKeepAlive(true); err != nil {
+			logger.Emit(logging.ERROR, "Failed to set keep alive: "+err.Error())
+		}
+	}
+}
+
+// Connects to the leader and determines if and when we should start the leader election process.
+func leaderClient(c *scheduler.SchedulerConfiguration, logger logging.Logger) error {
+	addr, err := net.ResolveTCPAddr("tcp", "10.0.2.2:"+strconv.Itoa(c.LeaderServerPort))
 	if err != nil {
 		return err
 	}
 
+	tcp, err := net.DialTCP("tcp", nil, addr)
+	if err != nil {
+		return err
+	}
+
+	if err := tcp.SetKeepAlive(true); err != nil {
+		return err
+	}
+
+	buffer := make([]byte, 1)
 	for {
-		_, err := l.Accept()
+		_, err := tcp.Read(buffer)
 		if err != nil {
-			logger.Emit(logging.ERROR, err.Error())
-			continue
+			return err
 		}
 	}
 }
@@ -171,7 +208,8 @@ func main() {
 	}
 
 	if leader != strings.Join(ips, " ") {
-
+		logger.Emit(logging.INFO, "Connecting to leader and waiting for when we need to wake up and perform leader election")
+		leaderClient(schedulerConfig, logger).Error()
 	}
 
 	logger.Emit(logging.INFO, "Starting API server")
