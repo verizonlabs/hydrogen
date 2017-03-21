@@ -127,16 +127,12 @@ func leaderServer(c *scheduler.SchedulerConfiguration, logger logging.Logger) {
 
 // Connects to the leader and determines if and when we should start the leader election process.
 func leaderClient(c *scheduler.SchedulerConfiguration, leader string) error {
-	addr, err := net.ResolveTCPAddr(c.LeaderAddressFamily, "["+leader+"]:"+strconv.Itoa(c.LeaderServerPort))
+	conn, err := net.DialTimeout(c.LeaderAddressFamily, "["+leader+"]:"+strconv.Itoa(c.LeaderServerPort), 2*time.Second) // TODO make this configurable?
 	if err != nil {
 		return err
 	}
 
-	tcp, err := net.DialTCP(c.LeaderAddressFamily, nil, addr)
-	if err != nil {
-		return err
-	}
-
+	tcp := conn.(*net.TCPConn)
 	if err := tcp.SetKeepAlive(true); err != nil {
 		return err
 	}
