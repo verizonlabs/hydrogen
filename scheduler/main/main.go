@@ -96,18 +96,18 @@ func restoreTasks(kv *etcd.Etcd, t *sprintTaskManager.SprintTaskManager, logger 
 func leaderServer(c *scheduler.SchedulerConfiguration, logger logging.Logger) {
 	ips, err := utils.GetIPs(c.NetworkInterface)
 	if err != nil {
-		logger.Emit(logging.ERROR, "Leader server exiting: "+err.Error())
+		logger.Emit(logging.ERROR, "Leader server exiting: %s", err.Error())
 	}
 
 	addr, err := net.ResolveTCPAddr(c.LeaderAddressFamily, "["+ips[c.LeaderAddressFamily]+"]:"+strconv.Itoa(c.LeaderServerPort))
 	if err != nil {
-		logger.Emit(logging.ERROR, "Leader server exiting: "+err.Error())
+		logger.Emit(logging.ERROR, "Leader server exiting: %s", err.Error())
 		return
 	}
 
 	tcp, err := net.ListenTCP(c.LeaderAddressFamily, addr)
 	if err != nil {
-		logger.Emit(logging.ERROR, "Leader server exiting: "+err.Error())
+		logger.Emit(logging.ERROR, "Leader server exiting: %s", err.Error())
 		return
 	}
 
@@ -115,12 +115,12 @@ func leaderServer(c *scheduler.SchedulerConfiguration, logger logging.Logger) {
 		conn, err := tcp.AcceptTCP()
 		if err != nil {
 			logger.Emit(logging.ERROR, err.Error())
-			time.Sleep(1 * time.Second)
+			time.Sleep(1 * time.Second) // TODO should this be configurable?
 			continue
 		}
 
 		if err := conn.SetKeepAlive(true); err != nil {
-			logger.Emit(logging.ERROR, "Failed to set keep alive: "+err.Error())
+			logger.Emit(logging.ERROR, "Failed to set keep alive: %s", err.Error())
 		}
 	}
 }
@@ -195,26 +195,41 @@ func main() {
 
 	// Event controller manages scheduler events and how they are handled.
 	e := events.NewSprintEventController(schedulerConfig, s, m, r, eventChan, kv, logger)
-	e.SetLeader()
 
 	logger.Emit(logging.INFO, "Starting leader election socket server")
 	go leaderServer(schedulerConfig, logger)
 
-	leader, err := e.GetLeader()
-	if err != nil {
-		logger.Emit(logging.ERROR, err.Error())
-		return
-	}
+	for {
+		e.SetLeader()
 
-	ips, err := utils.GetIPs(schedulerConfig.NetworkInterface)
-	if err != nil {
-		logger.Emit(logging.ERROR, err.Error())
-		return
-	}
+		leader, err := e.GetLeader()
+		if err != nil {
+			logger.Emit(logging.ERROR, "Couldn't get leader: %s", err.Error())
+			time.Sleep(1 * time.Second) // TODO should this be configurable?
+			continue
+		}
 
-	if leader != ips[schedulerConfig.LeaderAddressFamily] {
-		logger.Emit(logging.INFO, "Connecting to leader to determine when we need to wake up and perform leader election")
-		logger.Emit(logging.ERROR, "Lost connection to leader: %s", leaderClient(schedulerConfig, leader).Error())
+		ips, err := utils.GetIPs(schedulerConfig.NetworkInterface)
+		if err != nil {
+			logger.Emit(logging.ERROR, "Couldn't determine IPs for interface: %s", err.Error())
+			time.Sleep(1 * time.Second) // TODO should this be configurable?
+			continue
+		}
+
+		if leader != ips[schedulerConfig.LeaderAddressFamily] {
+			logger.Emit(logging.INFO, "Connecting to leader to determine when we need to wake up and perform leader election")
+
+			// Block here until we lose connection to the leader.
+			// Once the connection has been lost elect a new leader.
+			leaderClient(schedulerConfig, leader).Error()
+			logger.Emit(logging.ERROR, "Lost connection to leader")
+
+			kv.Delete("/leader")
+		} else {
+
+			// We are the leader, exit the loop and start the scheduler/API.
+			break
+		}
 	}
 
 	logger.Emit(logging.INFO, "Starting API server")
