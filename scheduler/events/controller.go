@@ -18,7 +18,6 @@ import (
 	"mesos-framework-sdk/utils"
 	sprintSched "sprint/scheduler"
 	sprintTaskManager "sprint/task/manager"
-	"strings"
 	"time"
 )
 
@@ -64,12 +63,12 @@ func (s *SprintEventController) ResourceManager() *manager.DefaultResourceManage
 
 // Atomically set leader information.
 func (s *SprintEventController) SetLeader() {
-	ips, err := utils.GetIP(s.config.NetworkInterface)
+	ips, err := utils.GetIPs(s.config.NetworkInterface)
 	if err != nil {
 		s.logger.Emit(logging.ERROR, err.Error())
 	}
 
-	if err := s.kv.Create("/leader", strings.Join(ips, " ")); err != nil {
+	if err := s.kv.Create("/leader", ips[s.config.LeaderAddressFamily]); err != nil {
 		s.logger.Emit(logging.ERROR, "Failed to set leader information: "+err.Error())
 	}
 }

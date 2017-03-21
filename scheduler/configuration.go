@@ -9,22 +9,23 @@ import (
 
 // Configuration for the scheduler, populated by user-supplied flags.
 type SchedulerConfiguration struct {
-	MesosEndpoint     string
-	Name              string
-	User              string
-	Role              string
-	Checkpointing     bool
-	Principal         string
-	ExecutorSrvCfg    server.Configuration
-	ExecutorName      string
-	ExecutorCmd       string
-	StorageEndpoints  string
-	StorageTimeout    time.Duration
-	Failover          float64
-	Hostname          string
-	ReconcileInterval time.Duration
-	NetworkInterface  string
-	LeaderServerPort  int
+	MesosEndpoint       string
+	Name                string
+	User                string
+	Role                string
+	Checkpointing       bool
+	Principal           string
+	ExecutorSrvCfg      server.Configuration
+	ExecutorName        string
+	ExecutorCmd         string
+	StorageEndpoints    string
+	StorageTimeout      time.Duration
+	Failover            float64
+	Hostname            string
+	ReconcileInterval   time.Duration
+	NetworkInterface    string
+	LeaderServerPort    int
+	LeaderAddressFamily string
 }
 
 // Applies values to the various configurations from user-supplied flags.
@@ -47,6 +48,7 @@ func (c *SchedulerConfiguration) Initialize() *SchedulerConfiguration {
 	flag.DurationVar(&c.ReconcileInterval, "reconcile.interval", 15*time.Minute, "How often periodic reconciling happens")
 	flag.StringVar(&c.NetworkInterface, "ha.leader.interface", "", "Interface to use for determining the leader IP")
 	flag.IntVar(&c.LeaderServerPort, "ha.leader.server.port", 8082, "Port that the leader server listens on")
+	flag.StringVar(&c.LeaderAddressFamily, "ha.leader.address.family", "tcp4", "tcp4, tcp6, or tcp for dual stack")
 
 	return c
 }
