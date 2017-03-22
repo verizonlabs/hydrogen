@@ -61,7 +61,7 @@ func (s *SprintEventController) ResourceManager() *manager.DefaultResourceManage
 }
 
 // Atomically set leader information.
-func (s *SprintEventController) SetLeader() {
+func (s *SprintEventController) CreateLeader() {
 	if err := s.kv.Create("/leader", s.config.LeaderIP); err != nil {
 		s.logger.Emit(logging.ERROR, "Failed to set leader information: "+err.Error())
 	}

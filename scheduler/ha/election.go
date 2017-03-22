@@ -12,7 +12,9 @@ import (
 // Performs leader election or becomes a standby if it's determined that there's already a leader.
 func LeaderElection(c *scheduler.SchedulerConfiguration, e *events.SprintEventController, kv persistence.KVStorage, l logging.Logger) {
 	for {
-		e.SetLeader()
+
+		// This will only set us as the leader if there isn't an already existing leader.
+		e.CreateLeader()
 
 		leader, err := e.GetLeader()
 		if err != nil {
