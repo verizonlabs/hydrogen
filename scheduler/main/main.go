@@ -122,6 +122,7 @@ func leaderServer(c *scheduler.SchedulerConfiguration, logger logging.Logger) {
 			continue
 		}
 
+		// TODO build out some config to use for setting the keep alive period here
 		if err := conn.SetKeepAlive(true); err != nil {
 			logger.Emit(logging.ERROR, "Failed to set keep alive: %s", err.Error())
 		}
@@ -135,6 +136,7 @@ func leaderClient(c *scheduler.SchedulerConfiguration, leader string) error {
 		return err
 	}
 
+	// TODO build out some config to use for setting the keep alive period here
 	tcp := conn.(*net.TCPConn)
 	if err := tcp.SetKeepAlive(true); err != nil {
 		return err
