@@ -23,7 +23,7 @@ type SchedulerConfiguration struct {
 	Failover            float64
 	Hostname            string
 	ReconcileInterval   time.Duration
-	NetworkInterface    string
+	LeaderIP            string
 	LeaderServerPort    int
 	LeaderAddressFamily string
 	LeaderRetryInterval time.Duration
@@ -47,7 +47,7 @@ func (c *SchedulerConfiguration) Initialize() *SchedulerConfiguration {
 	flag.Float64Var(&c.Failover, "failover", time.Minute.Seconds(), "Framework failover timeout")
 	flag.StringVar(&c.Hostname, "hostname", "", "The framework's hostname")
 	flag.DurationVar(&c.ReconcileInterval, "reconcile.interval", 15*time.Minute, "How often periodic reconciling happens")
-	flag.StringVar(&c.NetworkInterface, "ha.leader.interface", "", "Interface to use for determining the leader IP")
+	flag.StringVar(&c.LeaderIP, "ha.leader.ip", "", "IP address of the node where this framework is running")
 	flag.IntVar(&c.LeaderServerPort, "ha.leader.server.port", 8082, "Port that the leader server listens on")
 	flag.StringVar(&c.LeaderAddressFamily, "ha.leader.address.family", "tcp4", "tcp4, tcp6, or tcp for dual stack")
 	flag.DurationVar(&c.LeaderRetryInterval, "ha.leader.retry", 1*time.Second, "How long to wait before retrying the leader election process")

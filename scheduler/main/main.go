@@ -16,7 +16,6 @@ import (
 	"mesos-framework-sdk/server/file"
 	"mesos-framework-sdk/structures"
 	sdkTaskManager "mesos-framework-sdk/task/manager"
-	"mesos-framework-sdk/utils"
 	"net"
 	"net/http"
 	"sprint/scheduler"
@@ -94,12 +93,7 @@ func restoreTasks(kv *etcd.Etcd, t *sprintTaskManager.SprintTaskManager, logger 
 // Handles connections from other framework instances that try and determine the state of the leader.
 // Used in coordination with determining if and when we need to perform leader election.
 func leaderServer(c *scheduler.SchedulerConfiguration, logger logging.Logger) {
-	ips, err := utils.GetIPs(c.NetworkInterface)
-	if err != nil {
-		logger.Emit(logging.ERROR, "Leader server exiting: %s", err.Error())
-	}
-
-	addr, err := net.ResolveTCPAddr(c.LeaderAddressFamily, "["+ips[c.LeaderAddressFamily]+"]:"+strconv.Itoa(c.LeaderServerPort))
+	addr, err := net.ResolveTCPAddr(c.LeaderAddressFamily, "["+c.LeaderIP+"]:"+strconv.Itoa(c.LeaderServerPort))
 	if err != nil {
 		logger.Emit(logging.ERROR, "Leader server exiting: %s", err.Error())
 		return
@@ -210,14 +204,13 @@ func main() {
 			continue
 		}
 
-		ips, err := utils.GetIPs(schedulerConfig.NetworkInterface)
 		if err != nil {
 			logger.Emit(logging.ERROR, "Couldn't determine IPs for interface: %s", err.Error())
 			time.Sleep(schedulerConfig.LeaderRetryInterval)
 			continue
 		}
 
-		if leader != ips[schedulerConfig.LeaderAddressFamily] {
+		if leader != schedulerConfig.LeaderIP {
 			logger.Emit(logging.INFO, "Connecting to leader to determine when we need to wake up and perform leader election")
 
 			// Block here until we lose connection to the leader.
