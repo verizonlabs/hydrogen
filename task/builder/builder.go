@@ -14,7 +14,7 @@ import (
 
 func Application(t *task.ApplicationJSON, lgr logging.Logger) (*mesos_v1.TaskInfo, error) {
 	// Allocate space for our resources.
-	var resources []*mesos_v1.Resource
+	resources := make([]*mesos_v1.Resource, 0)
 	var cpu = resourcebuilder.CreateCpu(t.Resources.Cpu, t.Resources.Role)
 	var mem = resourcebuilder.CreateMem(t.Resources.Mem, t.Resources.Role)
 
@@ -23,7 +23,7 @@ func Application(t *task.ApplicationJSON, lgr logging.Logger) (*mesos_v1.TaskInf
 		// This isn't a fatal error so we can log this as debug and move along.
 		lgr.Emit(logging.INFO, "No explicit network info passed in, using default host networking.")
 	}
-	var vol []*mesos_v1.Volume
+	vol := make([]*mesos_v1.Volume, 0)
 	if len(t.Container.Volumes) > 0 {
 		vol, err = volume.ParseVolumeJSON(t.Container.Volumes)
 		if err != nil {
@@ -50,28 +50,31 @@ func Application(t *task.ApplicationJSON, lgr logging.Logger) (*mesos_v1.TaskInf
 		return nil, errors.New("Container image name was not passed in. Please pass in a container name.")
 	}
 
-	u := []*mesos_v1.CommandInfo_URI{}
-	for _, uri := range t.Command.Uris {
-		t := &mesos_v1.CommandInfo_URI{
-			Value:      uri.Uri,
-			Executable: uri.Execute,
-			Extract:    uri.Extract,
-		}
-		u = append(u, t)
-	}
+	u := make([]*mesos_v1.CommandInfo_URI, 0)
 
-	labels := []*mesos_v1.Label{}
-
-	for _, labelList := range t.Labels {
-		for k, v := range labelList {
-			label := &mesos_v1.Label{
-				Key:   proto.String(k),
-				Value: proto.String(v),
+	if t.Command != nil && len(t.Command.Uris) > 0 {
+		for _, uri := range t.Command.Uris {
+			t := &mesos_v1.CommandInfo_URI{
+				Value:      uri.Uri,
+				Executable: uri.Execute,
+				Extract:    uri.Extract,
 			}
-			labels = append(labels, label)
+			u = append(u, t)
 		}
 	}
 
+	labels := make([]*mesos_v1.Label, 0)
+	if t.Labels != nil {
+		for _, labelList := range t.Labels {
+			for k, v := range labelList {
+				label := &mesos_v1.Label{
+					Key:   proto.String(k),
+					Value: proto.String(v),
+				}
+				labels = append(labels, label)
+			}
+		}
+	}
 	labelProto := &mesos_v1.Labels{Labels: labels}
 
 	return resourcebuilder.CreateTaskInfo(
