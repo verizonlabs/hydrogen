@@ -105,21 +105,6 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 }
 
 func (s *SprintEventController) Run() {
-	leader, err := s.kv.Read("/leader")
-	if err != nil {
-		s.logger.Emit(logging.ERROR, "Failed to find the leader: %s", err.Error())
-		os.Exit(1)
-	}
-
-	// We should only ever reach here if we hit a network partition and the standbys lose connection to the leader.
-	// If this happens we need to check if there really is another leader alive that we just can't reach.
-	// If we wrongly think we are the leader and try to subscribe when there's already a leader then we will disconnect the leader.
-	// Both the leader and the incorrectly determined new leader will continue to disconnect each other.
-	if leader != s.config.LeaderIP {
-		s.logger.Emit(logging.ERROR, "We are not the leader yet we are trying to subscribe")
-		os.Exit(1)
-	}
-
 	id, err := s.kv.Read("/frameworkId")
 	if err == nil {
 		s.scheduler.Info.Id = &mesos_v1.FrameworkID{Value: &id}
@@ -127,6 +112,22 @@ func (s *SprintEventController) Run() {
 
 	go func() {
 		for {
+			leader, err := s.kv.Read("/leader")
+			if err != nil {
+				s.logger.Emit(logging.ERROR, "Failed to find the leader: %s", err.Error())
+				os.Exit(1)
+			}
+
+			// We should only ever reach here if we hit a network partition and the standbys lose connection to the leader.
+			// If this happens we need to check if there really is another leader alive that we just can't reach.
+			// If we wrongly think we are the leader and try to subscribe when there's already a leader then we will disconnect the leader.
+			// Both the leader and the incorrectly determined new leader will continue to disconnect each other.
+			if leader != s.config.LeaderIP {
+				s.logger.Emit(logging.ERROR, "We are not the leader so we should not be subscribing")
+				s.logger.Emit(logging.ERROR, "This is most likely caused by a network partition between the leader and standbys")
+				os.Exit(1)
+			}
+
 			err = s.scheduler.Subscribe(s.events)
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to subscribe: %s", err.Error())
