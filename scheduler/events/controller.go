@@ -21,8 +21,6 @@ import (
 	"time"
 )
 
-const subscribeRetry = 2
-
 type SprintEventController struct {
 	config          *sprintSched.SchedulerConfiguration
 	scheduler       *scheduler.DefaultScheduler
@@ -131,7 +129,7 @@ func (s *SprintEventController) Run() {
 			err = s.scheduler.Subscribe(s.events)
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to subscribe: %s", err.Error())
-				time.Sleep(time.Duration(subscribeRetry) * time.Second)
+				time.Sleep(time.Duration(s.config.SubscribeRetry))
 			}
 		}
 	}()

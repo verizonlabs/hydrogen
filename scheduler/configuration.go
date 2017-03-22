@@ -27,6 +27,7 @@ type SchedulerConfiguration struct {
 	LeaderServerPort    int
 	LeaderAddressFamily string
 	LeaderRetryInterval time.Duration
+	SubscribeRetry      time.Duration
 }
 
 // Applies values to the various configurations from user-supplied flags.
@@ -46,6 +47,7 @@ func (c *SchedulerConfiguration) Initialize() *SchedulerConfiguration {
 	flag.DurationVar(&c.StorageTimeout, "persistence.timeout", time.Second, "Storage request timeout")
 	flag.Float64Var(&c.Failover, "failover", time.Minute.Seconds(), "Framework failover timeout")
 	flag.StringVar(&c.Hostname, "hostname", "", "The framework's hostname")
+	flag.DurationVar(&c.SubscribeRetry, "subscribe.retry", 2*time.Second, "Controls the interval at which subscribe calls will be retried")
 	flag.DurationVar(&c.ReconcileInterval, "reconcile.interval", 15*time.Minute, "How often periodic reconciling happens")
 	flag.StringVar(&c.LeaderIP, "ha.leader.ip", "", "IP address of the node where this framework is running")
 	flag.IntVar(&c.LeaderServerPort, "ha.leader.server.port", 8082, "Port that the leader server listens on")
