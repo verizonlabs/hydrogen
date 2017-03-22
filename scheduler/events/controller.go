@@ -15,6 +15,7 @@ import (
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
 	sdkTaskManager "mesos-framework-sdk/task/manager"
+	"os"
 	sprintSched "sprint/scheduler"
 	sprintTaskManager "sprint/task/manager"
 	"time"
@@ -77,6 +78,7 @@ func (s *SprintEventController) GetLeader() (string, error) {
 	return leader, nil
 }
 
+// TODO think about renaming this to subscribed since the scheduler from the SDK is really handling the subscribe call.
 func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	id := subEvent.GetFrameworkId()
 	idVal := id.GetValue()
@@ -103,6 +105,21 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 }
 
 func (s *SprintEventController) Run() {
+	leader, err := s.kv.Read("/leader")
+	if err != nil {
+		s.logger.Emit(logging.ERROR, "Failed to find the leader: %s", err.Error())
+		os.Exit(1)
+	}
+
+	// We should only ever reach here if we hit a network partition and the standbys lose connection to the leader.
+	// If this happens we need to check if there really is another leader alive that we just can't reach.
+	// If we wrongly think we are the leader and try to subscribe when there's already a leader then we will disconnect the leader.
+	// Both the leader and the incorrectly determined new leader will continue to disconnect each other.
+	if leader != s.config.LeaderIP {
+		s.logger.Emit(logging.ERROR, "We are not the leader yet we are trying to subscribe")
+		os.Exit(1)
+	}
+
 	id, err := s.kv.Read("/frameworkId")
 	if err == nil {
 		s.scheduler.Info.Id = &mesos_v1.FrameworkID{Value: &id}
