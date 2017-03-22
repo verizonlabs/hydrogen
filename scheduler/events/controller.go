@@ -134,7 +134,6 @@ func (s *SprintEventController) Run() {
 // Main event loop that listens on channels forever until framework terminates.
 func (s *SprintEventController) Listen() {
 	for {
-		// TODO evaluate if spinning these off in goroutines helps or hurts us.
 		select {
 		case t := <-s.events:
 			switch t.GetType() {
