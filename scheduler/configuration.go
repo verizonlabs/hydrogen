@@ -26,6 +26,7 @@ type SchedulerConfiguration struct {
 	NetworkInterface    string
 	LeaderServerPort    int
 	LeaderAddressFamily string
+	LeaderRetryInterval time.Duration
 }
 
 // Applies values to the various configurations from user-supplied flags.
@@ -49,6 +50,7 @@ func (c *SchedulerConfiguration) Initialize() *SchedulerConfiguration {
 	flag.StringVar(&c.NetworkInterface, "ha.leader.interface", "", "Interface to use for determining the leader IP")
 	flag.IntVar(&c.LeaderServerPort, "ha.leader.server.port", 8082, "Port that the leader server listens on")
 	flag.StringVar(&c.LeaderAddressFamily, "ha.leader.address.family", "tcp4", "tcp4, tcp6, or tcp for dual stack")
+	flag.DurationVar(&c.LeaderRetryInterval, "ha.leader.retry", 1*time.Second, "How long to wait before retrying the leader election process")
 
 	return c
 }

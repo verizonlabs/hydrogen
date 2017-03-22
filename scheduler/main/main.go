@@ -206,14 +206,14 @@ func main() {
 		leader, err := e.GetLeader()
 		if err != nil {
 			logger.Emit(logging.ERROR, "Couldn't get leader: %s", err.Error())
-			time.Sleep(1 * time.Second) // TODO should this be configurable?
+			time.Sleep(schedulerConfig.LeaderRetryInterval)
 			continue
 		}
 
 		ips, err := utils.GetIPs(schedulerConfig.NetworkInterface)
 		if err != nil {
 			logger.Emit(logging.ERROR, "Couldn't determine IPs for interface: %s", err.Error())
-			time.Sleep(1 * time.Second) // TODO should this be configurable?
+			time.Sleep(schedulerConfig.LeaderRetryInterval)
 			continue
 		}
 
