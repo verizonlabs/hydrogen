@@ -16,13 +16,12 @@ import (
 	"mesos-framework-sdk/server/file"
 	"mesos-framework-sdk/structures"
 	sdkTaskManager "mesos-framework-sdk/task/manager"
-	"net"
 	"net/http"
 	"sprint/scheduler"
 	"sprint/scheduler/api"
 	"sprint/scheduler/events"
+	"sprint/scheduler/ha"
 	sprintTaskManager "sprint/task/manager"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -90,61 +89,6 @@ func restoreTasks(kv *etcd.Etcd, t *sprintTaskManager.SprintTaskManager, logger 
 	return nil
 }
 
-// Handles connections from other framework instances that try and determine the state of the leader.
-// Used in coordination with determining if and when we need to perform leader election.
-func leaderServer(c *scheduler.SchedulerConfiguration, logger logging.Logger) {
-	addr, err := net.ResolveTCPAddr(c.LeaderAddressFamily, "["+c.LeaderIP+"]:"+strconv.Itoa(c.LeaderServerPort))
-	if err != nil {
-		logger.Emit(logging.ERROR, "Leader server exiting: %s", err.Error())
-		return
-	}
-
-	tcp, err := net.ListenTCP(c.LeaderAddressFamily, addr)
-	if err != nil {
-		logger.Emit(logging.ERROR, "Leader server exiting: %s", err.Error())
-		return
-	}
-
-	for {
-
-		// Block here until we get a new connection.
-		// We don't want to do anything with the stream so move on without spawning a thread to handle the connection.
-		conn, err := tcp.AcceptTCP()
-		if err != nil {
-			logger.Emit(logging.ERROR, "Failed to accept client: %s", err.Error())
-			time.Sleep(1 * time.Second) // TODO should this be configurable?
-			continue
-		}
-
-		// TODO build out some config to use for setting the keep alive period here
-		if err := conn.SetKeepAlive(true); err != nil {
-			logger.Emit(logging.ERROR, "Failed to set keep alive: %s", err.Error())
-		}
-	}
-}
-
-// Connects to the leader and determines if and when we should start the leader election process.
-func leaderClient(c *scheduler.SchedulerConfiguration, leader string) error {
-	conn, err := net.DialTimeout(c.LeaderAddressFamily, "["+leader+"]:"+strconv.Itoa(c.LeaderServerPort), 2*time.Second) // TODO make this configurable?
-	if err != nil {
-		return err
-	}
-
-	// TODO build out some config to use for setting the keep alive period here
-	tcp := conn.(*net.TCPConn)
-	if err := tcp.SetKeepAlive(true); err != nil {
-		return err
-	}
-
-	buffer := make([]byte, 1)
-	for {
-		_, err := tcp.Read(buffer)
-		if err != nil {
-			return err
-		}
-	}
-}
-
 // Entry point for the scheduler.
 // Parses configuration from user-supplied flags and prepares the scheduler for execution.
 func main() {
@@ -192,45 +136,12 @@ func main() {
 	e := events.NewSprintEventController(schedulerConfig, s, m, r, eventChan, kv, logger)
 
 	logger.Emit(logging.INFO, "Starting leader election socket server")
-	go leaderServer(schedulerConfig, logger)
+	go ha.LeaderServer(schedulerConfig, logger)
 
-	for {
-		e.SetLeader()
-
-		leader, err := e.GetLeader()
-		if err != nil {
-			logger.Emit(logging.ERROR, "Couldn't get leader: %s", err.Error())
-			time.Sleep(schedulerConfig.LeaderRetryInterval)
-			continue
-		}
-
-		if err != nil {
-			logger.Emit(logging.ERROR, "Couldn't determine IPs for interface: %s", err.Error())
-			time.Sleep(schedulerConfig.LeaderRetryInterval)
-			continue
-		}
-
-		if leader != schedulerConfig.LeaderIP {
-			logger.Emit(logging.INFO, "Connecting to leader to determine when we need to wake up and perform leader election")
-
-			// Block here until we lose connection to the leader.
-			// Once the connection has been lost elect a new leader.
-			err := leaderClient(schedulerConfig, leader)
-
-			// Only delete the key if we've lost the connection, not timed out.
-			// This conditional requires Go 1.6+
-			if err, ok := err.(net.Error); ok && err.Timeout() {
-				logger.Emit(logging.ERROR, "Timed out connecting to leader")
-			} else {
-				logger.Emit(logging.ERROR, "Lost connection to leader")
-				kv.Delete("/leader")
-			}
-		} else {
-
-			// We are the leader, exit the loop and start the scheduler/API.
-			break
-		}
-	}
+	// Block here until we either become a leader or a standby.
+	// If we are the leader we break out and continue to execute the rest of the scheduler.
+	// If we are a standby then we connect to the leader and wait for the process to start over again.
+	ha.LeaderElection(schedulerConfig, e, kv, logger)
 
 	logger.Emit(logging.INFO, "Starting API server")
 
