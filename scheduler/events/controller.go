@@ -20,7 +20,10 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
-const subscribeRetry = 2
+const (
+	subscribeRetry = 2
+	refuseSeconds = 128.0
+)
 
 type SprintEventController struct {
 	scheduler       *scheduler.DefaultScheduler
@@ -147,12 +150,13 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 	queued, err := s.taskmanager.GetState(sdkTaskManager.UNKNOWN)
 	if err != nil {
 		s.logger.Emit(logging.INFO, "No tasks to launch.")
-		// NOTE (tim): we might want to do a singleton here with sync.Once since this
-		// gets called several times on a bigger cluster before Suppress is processed
-		// by the master.
-		s.scheduler.Suppress()
+		// Scheduler keeps track of suppression state.
+		// Ensures we don't send more than one suppression request.
+		if !s.Scheduler().IsSuppressed {
+			s.scheduler.Suppress()
+		}
 
-		s.declineOffers(offerEvent.GetOffers(), 128) // All offers to decline.
+		s.declineOffers(offerEvent.GetOffers(), refuseSeconds) // All offers to decline.
 		return
 	}
 
@@ -188,6 +192,7 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 			s.TaskManager().Set(sdkTaskManager.STAGING, t)
 
 			offerIDs = append(offerIDs, offer.Id)
+			// TODO (tim) The offer operations will need to be parsed for volume mounting and etc.
 			operations = append(operations, resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
 		}
 	}
@@ -195,7 +200,7 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 	s.scheduler.Accept(offerIDs, operations, nil)
 	// Resource manager pops offers when they are accepted
 	// Offers() returns a list of what is left, therefore whatever is to be rejected.
-	s.declineOffers(s.ResourceManager().Offers(), 128.0)
+	s.declineOffers(s.ResourceManager().Offers(), refuseSeconds)
 }
 
 func (s *SprintEventController) Rescind(rescindEvent *sched.Event_Rescind) {
@@ -230,12 +235,11 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 	}
 
 	id := task.TaskId.GetValue()
-	// TODO: We should refactor the storage stuff to utilize the storage interface.
+	// TODO (tim): We should refactor the storage stuff to utilize the storage interface.
 	if err := s.kv.Create("/tasks/"+id, base64.StdEncoding.EncodeToString(b.Bytes())); err != nil {
 		s.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, task.GetName())
 	}
 
-	// TODO we can probably remove a bunch of these cases since most of them only set the status like we do above.
 	switch state {
 	case mesos_v1.TaskState_TASK_FAILED:
 		// TODO: Check task manager for task retry policy, then retry as given.
