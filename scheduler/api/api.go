@@ -30,7 +30,7 @@ type ApiServer struct {
 	cfg       server.Configuration
 	port      *int
 	mux       *http.ServeMux
-	handle    map[string]http.HandlerFunc // route -> handler func for that route
+	handle    map[string]http.HandlerFunc
 	eventCtrl *events.SprintEventController
 	version   string
 	logger    logging.Logger
@@ -120,6 +120,7 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintf(w, err.Error())
 				return
 			}
+
 			task, err := builder.Application(&m, a.logger)
 			if err != nil {
 				fmt.Fprintf(w, err.Error())
