@@ -30,7 +30,7 @@ func LeaderServer(c *scheduler.SchedulerConfiguration, logger logging.Logger) {
 		conn, err := tcp.AcceptTCP()
 		if err != nil {
 			logger.Emit(logging.ERROR, "Failed to accept client: %s", err.Error())
-			time.Sleep(1 * time.Second) // TODO should this be configurable?
+			time.Sleep(c.LeaderServerRetry)
 			continue
 		}
 

@@ -27,6 +27,7 @@ type SchedulerConfiguration struct {
 	LeaderServerPort    int
 	LeaderAddressFamily string
 	LeaderRetryInterval time.Duration
+	LeaderServerRetry   time.Duration
 	SubscribeRetry      time.Duration
 }
 
@@ -53,6 +54,7 @@ func (c *SchedulerConfiguration) Initialize() *SchedulerConfiguration {
 	flag.IntVar(&c.LeaderServerPort, "ha.leader.server.port", 8082, "Port that the leader server listens on")
 	flag.StringVar(&c.LeaderAddressFamily, "ha.leader.address.family", "tcp4", "tcp4, tcp6, or tcp for dual stack")
 	flag.DurationVar(&c.LeaderRetryInterval, "ha.leader.retry", 1*time.Second, "How long to wait before retrying the leader election process")
+	flag.DurationVar(&c.LeaderServerRetry, "ha.leader.server.retry", 1*time.Second, "How long to wait before accepting connections from clients after an error")
 
 	return c
 }
