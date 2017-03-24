@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/gob"
+	"github.com/golang/protobuf/proto"
 	"mesos-framework-sdk/include/mesos"
 	sched "mesos-framework-sdk/include/scheduler"
 	"mesos-framework-sdk/logging"
@@ -17,12 +18,11 @@ import (
 	sdkTaskManager "mesos-framework-sdk/task/manager"
 	sprintTaskManager "sprint/task/manager"
 	"time"
-	"github.com/gogo/protobuf/proto"
 )
 
 const (
 	subscribeRetry = 2
-	refuseSeconds = 128.0
+	refuseSeconds  = 128.0
 )
 
 type SprintEventController struct {
@@ -139,7 +139,7 @@ func (s *SprintEventController) Listen() {
 func (s *SprintEventController) declineOffers(offers []*mesos_v1.Offer, refuseSeconds float64) {
 	declineIDs := []*mesos_v1.OfferID{}
 	// Decline whatever offers are left over
-	for _, id := range offers{
+	for _, id := range offers {
 		declineIDs = append(declineIDs, id.GetId())
 	}
 

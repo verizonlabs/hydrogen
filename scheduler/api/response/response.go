@@ -7,7 +7,7 @@ const (
 	KILLED   = "Killed"
 	NOTFOUND = "Not Found"
 	QUEUED   = "Queued"
-	UPDATE  = "Updated"
+	UPDATE   = "Updated"
 )
 
 type Deploy struct {
