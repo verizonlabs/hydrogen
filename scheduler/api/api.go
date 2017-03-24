@@ -138,15 +138,15 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 			a.eventCtrl.Scheduler().Revive()
 
 			json.NewEncoder(w).Encode(response.Deploy{
-				Status: response.QUEUED,
+				Status:   response.QUEUED,
 				TaskName: task.GetName(),
 			})
 		}
 	default:
 		{
 			json.NewEncoder(w).Encode(response.Deploy{
-				Status: response.FAILED,
-				Message: r.Method+" is not allowed on this endpoint.",
+				Status:  response.FAILED,
+				Message: r.Method + " is not allowed on this endpoint.",
 			})
 		}
 	}
@@ -184,15 +184,15 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 			a.eventCtrl.Scheduler().Revive()
 
 			json.NewEncoder(w).Encode(response.Deploy{
-				Status: response.UPDATE,
+				Status:  response.UPDATE,
 				Message: fmt.Sprintf("Updating %v", task.GetName()),
 			})
 		}
 	default:
 		{
 			json.NewEncoder(w).Encode(response.Deploy{
-				Status: response.FAILED,
-				Message: r.Method+" is not allowed on this endpoint.",
+				Status:  response.FAILED,
+				Message: r.Method + " is not allowed on this endpoint.",
 			})
 		}
 	}
@@ -230,8 +230,8 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 	default:
 		{
 			json.NewEncoder(w).Encode(response.Deploy{
-				Status: response.FAILED,
-				Message: r.Method+" is not allowed on this endpoint.",
+				Status:  response.FAILED,
+				Message: r.Method + " is not allowed on this endpoint.",
 			})
 		}
 	}
@@ -254,8 +254,8 @@ func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
 	default:
 		{
 			json.NewEncoder(w).Encode(response.Deploy{
-				Status: response.FAILED,
-				Message: r.Method+" is not allowed on this endpoint.",
+				Status:  response.FAILED,
+				Message: r.Method + " is not allowed on this endpoint.",
 			})
 		}
 	}
