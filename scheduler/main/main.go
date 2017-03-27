@@ -146,7 +146,7 @@ func main() {
 	// Block here until we either become a leader or a standby.
 	// If we are the leader we break out and continue to execute the rest of the scheduler.
 	// If we are a standby then we connect to the leader and wait for the process to start over again.
-	ha.LeaderElection(schedulerConfig, e, kv, logger)
+	ha.LeaderElection(schedulerConfig, e, engine, logger)
 
 	logger.Emit(logging.INFO, "Starting API server")
 

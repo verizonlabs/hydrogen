@@ -24,8 +24,10 @@ import (
 )
 
 const (
-	subscribeRetry = 2
-	refuseSeconds  = 128.0
+	// Note (tim): Is there a reasonable non-linear equation to determine refuse seconds?
+	// f^2/num_of_nodes_in_cluster where f is # of tasks to handle at once (per offer cycle).
+	//
+	refuseSeconds = 64.0
 )
 
 type SprintEventController struct {
@@ -40,7 +42,9 @@ type SprintEventController struct {
 
 // NOTE (tim): Cutting this signature down with newlines to make it easier to read.
 // Please do this with any large signature to make it easier to parse.
-func NewSprintEventController(scheduler *scheduler.DefaultScheduler,
+func NewSprintEventController(
+	config *sprintSched.SchedulerConfiguration,
+	scheduler *scheduler.DefaultScheduler,
 	manager *sprintTaskManager.SprintTaskManager,
 	resourceManager *manager.DefaultResourceManager,
 	eventChan chan *sched.Event,
@@ -87,7 +91,7 @@ func (s *SprintEventController) GetLeader() (string, error) {
 		return "", err
 	}
 
-	return leader, nil
+	return leader[0], nil
 }
 
 // TODO think about renaming this to subscribed since the scheduler from the SDK is really handling the subscribe call.
@@ -138,7 +142,7 @@ func (s *SprintEventController) Run() {
 			// If this happens we need to check if there really is another leader alive that we just can't reach.
 			// If we wrongly think we are the leader and try to subscribe when there's already a leader then we will disconnect the leader.
 			// Both the leader and the incorrectly determined new leader will continue to disconnect each other.
-			if leader != s.config.LeaderIP {
+			if leader[0] != s.config.LeaderIP {
 				s.logger.Emit(logging.ERROR, "We are not the leader so we should not be subscribing")
 				s.logger.Emit(logging.ERROR, "This is most likely caused by a network partition between the leader and standbys")
 				os.Exit(1)
