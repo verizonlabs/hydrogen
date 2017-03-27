@@ -17,6 +17,8 @@ import (
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
 	sdkTaskManager "mesos-framework-sdk/task/manager"
+	"os"
+	sprintSched "sprint/scheduler"
 	sprintTaskManager "sprint/task/manager"
 	"time"
 )
@@ -27,6 +29,7 @@ const (
 )
 
 type SprintEventController struct {
+	config          *sprintSched.SchedulerConfiguration
 	scheduler       *scheduler.DefaultScheduler
 	taskmanager     *sprintTaskManager.SprintTaskManager
 	resourcemanager *manager.DefaultResourceManager
@@ -45,6 +48,7 @@ func NewSprintEventController(scheduler *scheduler.DefaultScheduler,
 	logger logging.Logger) *SprintEventController {
 
 	return &SprintEventController{
+		config:          config,
 		taskmanager:     manager,
 		scheduler:       scheduler,
 		events:          eventChan,
@@ -69,16 +73,39 @@ func (s *SprintEventController) ResourceManager() *manager.DefaultResourceManage
 	return s.resourcemanager
 }
 
+// Atomically create leader information.
+func (s *SprintEventController) CreateLeader() {
+	if err := s.kv.Create("/leader", s.config.LeaderIP); err != nil {
+		s.logger.Emit(logging.ERROR, "Failed to set leader information: "+err.Error())
+	}
+}
+
+// Atomically get leader information.
+func (s *SprintEventController) GetLeader() (string, error) {
+	leader, err := s.kv.Read("/leader")
+	if err != nil {
+		return "", err
+	}
+
+	return leader, nil
+}
+
+// TODO think about renaming this to subscribed since the scheduler from the SDK is really handling the subscribe call.
 func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	id := subEvent.GetFrameworkId()
 	idVal := id.GetValue()
 	s.scheduler.Info.Id = id
 	s.logger.Emit(logging.INFO, "Subscribed with an ID of %s", idVal)
 
+	// TODO this is only called once assuming we subscribe and don't fail soon afterwards
+	// it's possible that we can fail long after our lease length
+	// if this is the case our failover in Mesos will start long after the lease has expired
+	// we should continually refresh this lease on every heart beat event
+
 	// We pull the engine directly here to use non-interface methods.
 	kv := s.kv.Engine().(*etcd.Etcd)
 
-	if err := kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout())); err != nil {
+	if err := kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout()), false); err != nil {
 		s.logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
 	}
 
@@ -101,10 +128,26 @@ func (s *SprintEventController) Run() {
 
 	go func() {
 		for {
+			leader, err := s.kv.Read("/leader")
+			if err != nil {
+				s.logger.Emit(logging.ERROR, "Failed to find the leader: %s", err.Error())
+				os.Exit(1)
+			}
+
+			// We should only ever reach here if we hit a network partition and the standbys lose connection to the leader.
+			// If this happens we need to check if there really is another leader alive that we just can't reach.
+			// If we wrongly think we are the leader and try to subscribe when there's already a leader then we will disconnect the leader.
+			// Both the leader and the incorrectly determined new leader will continue to disconnect each other.
+			if leader != s.config.LeaderIP {
+				s.logger.Emit(logging.ERROR, "We are not the leader so we should not be subscribing")
+				s.logger.Emit(logging.ERROR, "This is most likely caused by a network partition between the leader and standbys")
+				os.Exit(1)
+			}
+
 			err = s.scheduler.Subscribe(s.events)
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to subscribe: %s", err.Error())
-				time.Sleep(time.Duration(subscribeRetry) * time.Second)
+				time.Sleep(time.Duration(s.config.SubscribeRetry))
 			}
 		}
 	}()
