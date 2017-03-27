@@ -94,7 +94,6 @@ func (s *SprintEventController) GetLeader() (string, error) {
 	return leader[0], nil
 }
 
-// NOTE: This should be in the event manager.
 // Keep our state in check by periodically reconciling.
 // This is recommended by Mesos.
 func (s *SprintEventController) periodicReconcile() {
@@ -114,7 +113,6 @@ func (s *SprintEventController) periodicReconcile() {
 	}
 }
 
-// NOTE: This should be in the event manager.
 // Get all of our persisted tasks, convert them back into TaskInfo's, and add them to our task manager.
 // If no tasks exist in the data store then we can consider this a fresh run and safely move on.
 func (s *SprintEventController) restoreTasks() error {
