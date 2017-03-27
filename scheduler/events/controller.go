@@ -11,6 +11,7 @@ import (
 	"mesos-framework-sdk/include/mesos"
 	sched "mesos-framework-sdk/include/scheduler"
 	"mesos-framework-sdk/logging"
+	"mesos-framework-sdk/persistence"
 	"mesos-framework-sdk/persistence/drivers/etcd"
 	"mesos-framework-sdk/resources"
 	"mesos-framework-sdk/resources/manager"
@@ -30,11 +31,19 @@ type SprintEventController struct {
 	taskmanager     *sprintTaskManager.SprintTaskManager
 	resourcemanager *manager.DefaultResourceManager
 	events          chan *sched.Event
-	kv              *etcd.Etcd
+	kv              persistence.Storage
 	logger          logging.Logger
 }
 
-func NewSprintEventController(scheduler *scheduler.DefaultScheduler, manager *sprintTaskManager.SprintTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, kv *etcd.Etcd, logger logging.Logger) *SprintEventController {
+// NOTE (tim): Cutting this signature down with newlines to make it easier to read.
+// Please do this with any large signature to make it easier to parse.
+func NewSprintEventController(scheduler *scheduler.DefaultScheduler,
+	manager *sprintTaskManager.SprintTaskManager,
+	resourceManager *manager.DefaultResourceManager,
+	eventChan chan *sched.Event,
+	kv persistence.Storage,
+	logger logging.Logger) *SprintEventController {
+
 	return &SprintEventController{
 		taskmanager:     manager,
 		scheduler:       scheduler,
@@ -66,7 +75,10 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	s.scheduler.Info.Id = id
 	s.logger.Emit(logging.INFO, "Subscribed with an ID of %s", idVal)
 
-	if err := s.kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout())); err != nil {
+	// We pull the engine directly here to use non-interface methods.
+	kv := s.kv.Engine().(*etcd.Etcd)
+
+	if err := kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout())); err != nil {
 		s.logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
 	}
 
@@ -84,7 +96,7 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 func (s *SprintEventController) Run() {
 	id, err := s.kv.Read("/frameworkId")
 	if err == nil {
-		s.scheduler.Info.Id = &mesos_v1.FrameworkID{Value: &id}
+		s.scheduler.Info.Id = &mesos_v1.FrameworkID{Value: &id[0]}
 	}
 
 	go func() {
@@ -147,7 +159,9 @@ func (s *SprintEventController) declineOffers(offers []*mesos_v1.Offer, refuseSe
 }
 
 func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
+	// Check if we have any in the task manager we want to launch
 	queued, err := s.taskmanager.GetState(sdkTaskManager.UNKNOWN)
+
 	if err != nil {
 		s.logger.Emit(logging.INFO, "No tasks to launch.")
 		// Scheduler keeps track of suppression state.
@@ -164,7 +178,6 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 	s.resourcemanager.AddOffers(offerEvent.GetOffers())
 
 	offerIDs := []*mesos_v1.OfferID{}
-
 	operations := []*mesos_v1.Offer_Operation{}
 
 	for _, mesosTask := range queued {
@@ -199,7 +212,7 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 
 	s.scheduler.Accept(offerIDs, operations, nil)
 	// Resource manager pops offers when they are accepted
-	// Offers() returns a list of what is left, therefore whatever is to be rejected.
+	// Offers() returns a list of what is left, therefore whatever is left is to be rejected.
 	s.declineOffers(s.ResourceManager().Offers(), refuseSeconds)
 }
 
@@ -235,7 +248,6 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 	}
 
 	id := task.TaskId.GetValue()
-	// TODO (tim): We should refactor the storage stuff to utilize the storage interface.
 	if err := s.kv.Create("/tasks/"+id, base64.StdEncoding.EncodeToString(b.Bytes())); err != nil {
 		s.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, task.GetName())
 	}
