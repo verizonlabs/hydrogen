@@ -7,79 +7,72 @@ import (
 	"mesos-framework-sdk/logging"
 	resourcebuilder "mesos-framework-sdk/resources"
 	"mesos-framework-sdk/task"
-	"mesos-framework-sdk/task/network"
-	"mesos-framework-sdk/task/volume"
+	"mesos-framework-sdk/task/command"
+	"mesos-framework-sdk/task/container"
+	"mesos-framework-sdk/task/labels"
+	"mesos-framework-sdk/task/resources"
 	"mesos-framework-sdk/utils"
 )
 
+var NoNameError = errors.New("A name is required for the application. Please set the name field.")
+var NoResourcesError = errors.New("Application requested with no resources. Please set some resources.")
+
+// Parses a JSON request and turns it into a TaskInfo.
 func Application(t *task.ApplicationJSON, lgr logging.Logger) (*mesos_v1.TaskInfo, error) {
-	// Allocate space for our resources.
-	var resources []*mesos_v1.Resource
-	var cpu = resourcebuilder.CreateCpu(t.Resources.Cpu, t.Resources.Role)
-	var mem = resourcebuilder.CreateMem(t.Resources.Mem, t.Resources.Role)
+	// Check for required name.
+	if t.Name == "" {
+		// Fail
+		return nil, NoNameError
+	}
+	if t.Resources == nil {
+		// Fail
+		return nil, NoResourcesError
+	}
 
-	networks, err := network.ParseNetworkJSON(t.Container.Network)
+	// Agent and TaskID are required but are set by the Resource Manager in the scheduler.
+
+	// Executor or CommandInfo must be set.
+	// An end user will never be allowed to set an executor, only other frameworks.
+	// So here we assume a commandInfo.
+	cmd, err := command.ParseCommandInfo(t.Command)
 	if err != nil {
-		// This isn't a fatal error so we can log this as debug and move along.
-		lgr.Emit(logging.INFO, "No explicit network info passed in, using default host networking.")
-	}
-	var vol []*mesos_v1.Volume
-	if len(t.Container.Volumes) > 0 {
-		vol, err = volume.ParseVolumeJSON(t.Container.Volumes)
-		if err != nil {
-			lgr.Emit(logging.ERROR, err.Error())
-			return nil, errors.New("Error parsing volume JSON: " + err.Error())
-		}
+		// If we don't have a commandInfo, it's invalid.
+		return nil, err
 	}
 
-	resources = append(resources, cpu, mem)
+	// Parse resources
+	// These are required, fail if no resources are specified.
+	res, err := resources.ParseResources(t.Resources)
+	if err != nil {
+		return nil, err
+	}
+
+	// Container parse
+	image, err := container.ParseContainer(t.Container)
+	if err != nil {
+		return nil, err
+	}
 
 	uuid, err := utils.UuidToString(utils.Uuid())
 	if err != nil {
 		lgr.Emit(logging.ERROR, err.Error())
 	}
 
-	var container *mesos_v1.ContainerInfo_MesosInfo
-	if t.Container.ImageName != nil {
-		container = resourcebuilder.CreateContainerInfoForMesos(
-			resourcebuilder.CreateImage(
-				*t.Container.ImageName, "", mesos_v1.Image_DOCKER.Enum(),
-			),
-		)
-	} else {
-		return nil, errors.New("Container image name was not passed in. Please pass in a container name.")
+	labels, err := labels.ParseLabels(t.Labels)
+	if err != nil {
+		lgr.Emit(logging.ERROR, err.Error())
 	}
 
-	u := []*mesos_v1.CommandInfo_URI{}
-	for _, uri := range t.Command.Uris {
-		t := &mesos_v1.CommandInfo_URI{
-			Value:      uri.Uri,
-			Executable: uri.Execute,
-			Extract:    uri.Extract,
-		}
-		u = append(u, t)
-	}
-
-	labels := []*mesos_v1.Label{}
-
-	for _, labelList := range t.Labels {
-		for k, v := range labelList {
-			label := &mesos_v1.Label{
-				Key:   proto.String(k),
-				Value: proto.String(v),
-			}
-			labels = append(labels, label)
-		}
-	}
-
-	labelProto := &mesos_v1.Labels{Labels: labels}
+	name := t.Name
+	hash := uuid
+	taskId := &mesos_v1.TaskID{Value: proto.String(name + "-" + hash)}
 
 	return resourcebuilder.CreateTaskInfo(
-		proto.String(t.Name),
-		&mesos_v1.TaskID{Value: proto.String(uuid)},
-		resourcebuilder.CreateSimpleCommandInfo(t.Command.Cmd, u),
-		resources,
-		resourcebuilder.CreateMesosContainerInfo(container, networks, vol, nil),
-		labelProto,
+		proto.String(name),
+		taskId,
+		cmd,
+		res,
+		image,
+		labels,
 	), nil
 }
