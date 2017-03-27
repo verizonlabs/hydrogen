@@ -11,6 +11,7 @@ import (
 	"mesos-framework-sdk/include/mesos"
 	sched "mesos-framework-sdk/include/scheduler"
 	"mesos-framework-sdk/logging"
+	"mesos-framework-sdk/persistence"
 	"mesos-framework-sdk/persistence/drivers/etcd"
 	"mesos-framework-sdk/resources"
 	"mesos-framework-sdk/resources/manager"
@@ -23,7 +24,10 @@ import (
 )
 
 const (
-	refuseSeconds = 128.0
+	// Note (tim): Is there a reasonable non-linear equation to determine refuse seconds?
+	// f^2/num_of_nodes_in_cluster where f is # of tasks to handle at once (per offer cycle).
+	//
+	refuseSeconds = 64.0
 )
 
 type SprintEventController struct {
@@ -32,12 +36,21 @@ type SprintEventController struct {
 	taskmanager     *sprintTaskManager.SprintTaskManager
 	resourcemanager *manager.DefaultResourceManager
 	events          chan *sched.Event
-	kv              *etcd.Etcd
+	kv              persistence.Storage
 	logger          logging.Logger
 }
 
-// TODO tons of params, make this cleaner...?
-func NewSprintEventController(config *sprintSched.SchedulerConfiguration, scheduler *scheduler.DefaultScheduler, manager *sprintTaskManager.SprintTaskManager, resourceManager *manager.DefaultResourceManager, eventChan chan *sched.Event, kv *etcd.Etcd, logger logging.Logger) *SprintEventController {
+// NOTE (tim): Cutting this signature down with newlines to make it easier to read.
+// Please do this with any large signature to make it easier to parse.
+func NewSprintEventController(
+	config *sprintSched.SchedulerConfiguration,
+	scheduler *scheduler.DefaultScheduler,
+	manager *sprintTaskManager.SprintTaskManager,
+	resourceManager *manager.DefaultResourceManager,
+	eventChan chan *sched.Event,
+	kv persistence.Storage,
+	logger logging.Logger) *SprintEventController {
+
 	return &SprintEventController{
 		config:          config,
 		taskmanager:     manager,
@@ -78,7 +91,7 @@ func (s *SprintEventController) GetLeader() (string, error) {
 		return "", err
 	}
 
-	return leader, nil
+	return leader[0], nil
 }
 
 // TODO think about renaming this to subscribed since the scheduler from the SDK is really handling the subscribe call.
@@ -89,10 +102,14 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	s.logger.Emit(logging.INFO, "Subscribed with an ID of %s", idVal)
 
 	// TODO this is only called once assuming we subscribe and don't fail soon afterwards
-	// TODO it's possible that we can fail long after our lease length
-	// TODO if this is the case our failover in Mesos will start long after the lease has expired
-	// TODO we should continually refresh this lease on every heart beat event
-	if err := s.kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout()), false); err != nil {
+	// it's possible that we can fail long after our lease length
+	// if this is the case our failover in Mesos will start long after the lease has expired
+	// we should continually refresh this lease on every heart beat event
+
+	// We pull the engine directly here to use non-interface methods.
+	kv := s.kv.Engine().(*etcd.Etcd)
+
+	if err := kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout()), false); err != nil {
 		s.logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
 	}
 
@@ -110,7 +127,7 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 func (s *SprintEventController) Run() {
 	id, err := s.kv.Read("/frameworkId")
 	if err == nil {
-		s.scheduler.Info.Id = &mesos_v1.FrameworkID{Value: &id}
+		s.scheduler.Info.Id = &mesos_v1.FrameworkID{Value: &id[0]}
 	}
 
 	go func() {
@@ -125,7 +142,7 @@ func (s *SprintEventController) Run() {
 			// If this happens we need to check if there really is another leader alive that we just can't reach.
 			// If we wrongly think we are the leader and try to subscribe when there's already a leader then we will disconnect the leader.
 			// Both the leader and the incorrectly determined new leader will continue to disconnect each other.
-			if leader != s.config.LeaderIP {
+			if leader[0] != s.config.LeaderIP {
 				s.logger.Emit(logging.ERROR, "We are not the leader so we should not be subscribing")
 				s.logger.Emit(logging.ERROR, "This is most likely caused by a network partition between the leader and standbys")
 				os.Exit(1)
@@ -189,7 +206,9 @@ func (s *SprintEventController) declineOffers(offers []*mesos_v1.Offer, refuseSe
 }
 
 func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
+	// Check if we have any in the task manager we want to launch
 	queued, err := s.taskmanager.GetState(sdkTaskManager.UNKNOWN)
+
 	if err != nil {
 		s.logger.Emit(logging.INFO, "No tasks to launch.")
 		// Scheduler keeps track of suppression state.
@@ -206,7 +225,6 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 	s.resourcemanager.AddOffers(offerEvent.GetOffers())
 
 	offerIDs := []*mesos_v1.OfferID{}
-
 	operations := []*mesos_v1.Offer_Operation{}
 
 	for _, mesosTask := range queued {
@@ -241,7 +259,7 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 
 	s.scheduler.Accept(offerIDs, operations, nil)
 	// Resource manager pops offers when they are accepted
-	// Offers() returns a list of what is left, therefore whatever is to be rejected.
+	// Offers() returns a list of what is left, therefore whatever is left is to be rejected.
 	s.declineOffers(s.ResourceManager().Offers(), refuseSeconds)
 }
 
@@ -277,7 +295,6 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 	}
 
 	id := task.TaskId.GetValue()
-	// TODO (tim): We should refactor the storage stuff to utilize the storage interface.
 	if err := s.kv.Create("/tasks/"+id, base64.StdEncoding.EncodeToString(b.Bytes())); err != nil {
 		s.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, task.GetName())
 	}

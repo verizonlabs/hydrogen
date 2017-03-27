@@ -122,18 +122,23 @@ func main() {
 	// Used to listen for events coming from mesos master to our scheduler.
 	eventChan := make(chan *mesos_v1_scheduler.Event)
 
-	// Wire up dependencies for the event controller
+	// Storage client
 	kv := etcd.NewClient(
 		strings.Split(schedulerConfig.StorageEndpoints, ","),
 		schedulerConfig.StorageTimeout,
-	) // Storage client
+	)
+	// Storage Engine
+	engine := etcd.NewEtcdEngine(kv)
+
+	// Wire up dependencies for the event controller
+
 	m := sprintTaskManager.NewTaskManager(structures.NewConcurrentMap(100)) // Manages our tasks
 	r := manager.NewDefaultResourceManager()                                // Manages resources from the cluster
 	c := client.NewClient(schedulerConfig.MesosEndpoint, logger)            // Manages HTTP calls
 	s := sched.NewDefaultScheduler(c, frameworkInfo, logger)                // Manages how to route and schedule tasks.
 
 	// Event controller manages scheduler events and how they are handled.
-	e := events.NewSprintEventController(schedulerConfig, s, m, r, eventChan, kv, logger)
+	e := events.NewSprintEventController(schedulerConfig, s, m, r, eventChan, engine, logger)
 
 	logger.Emit(logging.INFO, "Starting leader election socket server")
 	go ha.LeaderServer(schedulerConfig, logger)
@@ -141,7 +146,7 @@ func main() {
 	// Block here until we either become a leader or a standby.
 	// If we are the leader we break out and continue to execute the rest of the scheduler.
 	// If we are a standby then we connect to the leader and wait for the process to start over again.
-	ha.LeaderElection(schedulerConfig, e, kv, logger)
+	ha.LeaderElection(schedulerConfig, e, engine, logger)
 
 	logger.Emit(logging.INFO, "Starting API server")
 
