@@ -20,6 +20,7 @@ import (
 	"sprint/scheduler"
 	"sprint/scheduler/api"
 	"sprint/scheduler/events"
+	"sprint/scheduler/ha"
 	sprintTaskManager "sprint/task/manager"
 	"strings"
 	"time"
@@ -132,7 +133,15 @@ func main() {
 	s := sched.NewDefaultScheduler(c, frameworkInfo, logger)                // Manages how to route and schedule tasks.
 
 	// Event controller manages scheduler events and how they are handled.
-	e := events.NewSprintEventController(s, m, r, eventChan, kv, logger)
+	e := events.NewSprintEventController(schedulerConfig, s, m, r, eventChan, kv, logger)
+
+	logger.Emit(logging.INFO, "Starting leader election socket server")
+	go ha.LeaderServer(schedulerConfig, logger)
+
+	// Block here until we either become a leader or a standby.
+	// If we are the leader we break out and continue to execute the rest of the scheduler.
+	// If we are a standby then we connect to the leader and wait for the process to start over again.
+	ha.LeaderElection(schedulerConfig, e, kv, logger)
 
 	logger.Emit(logging.INFO, "Starting API server")
 
