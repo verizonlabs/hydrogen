@@ -94,6 +94,53 @@ func (s *SprintEventController) GetLeader() (string, error) {
 	return leader[0], nil
 }
 
+// Keep our state in check by periodically reconciling.
+// This is recommended by Mesos.
+func (s *SprintEventController) periodicReconcile() {
+	ticker := time.NewTicker(s.config.ReconcileInterval)
+
+	for {
+		select {
+		case <-ticker.C:
+
+			recon, err := s.TaskManager().GetState(sdkTaskManager.RUNNING)
+			if err != nil {
+				// log here.
+				continue
+			}
+			s.Scheduler().Reconcile(recon)
+		}
+	}
+}
+
+// Get all of our persisted tasks, convert them back into TaskInfo's, and add them to our task manager.
+// If no tasks exist in the data store then we can consider this a fresh run and safely move on.
+func (s *SprintEventController) restoreTasks() error {
+	tasks, err := s.kv.Engine().(*etcd.Etcd).ReadAll("/tasks")
+	if err != nil {
+		return err
+	}
+
+	for _, value := range tasks {
+		var task sdkTaskManager.Task
+		data, err := base64.StdEncoding.DecodeString(value)
+		if err != nil {
+			s.logger.Emit(logging.ERROR, err.Error())
+		}
+
+		var b bytes.Buffer
+		b.Write(data)
+		d := gob.NewDecoder(&b)
+		err = d.Decode(&task)
+		if err != nil {
+			s.logger.Emit(logging.ERROR, err.Error())
+		}
+		s.TaskManager().Set(task.State, task.Info)
+	}
+
+	return nil
+}
+
 // TODO think about renaming this to subscribed since the scheduler from the SDK is really handling the subscribe call.
 func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	id := subEvent.GetFrameworkId()
@@ -129,6 +176,16 @@ func (s *SprintEventController) Run() {
 	if err == nil {
 		s.scheduler.Info.Id = &mesos_v1.FrameworkID{Value: &id[0]}
 	}
+
+	// Recover our state (if any) in the event we (or the server) go down.
+	s.logger.Emit(logging.INFO, "Restoring any persisted state from data store")
+	if err := s.restoreTasks(); err != nil {
+		s.logger.Emit(logging.ERROR, "Failed to restore tasks from persistent data store")
+	}
+
+	// Kick off our scheduled reconciling.
+	s.logger.Emit(logging.INFO, "Starting periodic reconciler thread with a %g minute interval", s.config.ReconcileInterval.Minutes())
+	go s.periodicReconcile()
 
 	go func() {
 		for {
