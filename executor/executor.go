@@ -18,7 +18,7 @@ const (
 type SprintExecutor struct {
 	FrameworkID *mesos_v1.FrameworkID
 	ExecutorID  *mesos_v1.ExecutorID
-	client      *client.Client
+	client      client.Client
 	logger      logging.Logger
 }
 
@@ -26,7 +26,7 @@ type SprintExecutor struct {
 func NewSprintExecutor(
 	f *mesos_v1.FrameworkID,
 	e *mesos_v1.ExecutorID,
-	c *client.Client,
+	c client.Client,
 	lgr logging.Logger) *SprintExecutor {
 
 	return &SprintExecutor{
@@ -47,7 +47,7 @@ func (d *SprintExecutor) Subscribe(eventChan chan *exec.Event) error {
 
 	// If we disconnect we need to reset the stream ID. For this reason always start with a fresh stream ID.
 	// Otherwise we'll never be able to reconnect.
-	d.client.StreamID = ""
+	d.client.SetStreamID("")
 
 	resp, err := d.client.Request(subscribe)
 	if err != nil {
