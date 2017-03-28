@@ -9,26 +9,28 @@ import (
 
 // Configuration for the scheduler, populated by user-supplied flags.
 type SchedulerConfiguration struct {
-	MesosEndpoint       string
-	Name                string
-	User                string
-	Role                string
-	Checkpointing       bool
-	Principal           string
-	ExecutorSrvCfg      server.Configuration
-	ExecutorName        string
-	ExecutorCmd         string
-	StorageEndpoints    string
-	StorageTimeout      time.Duration
-	Failover            float64
-	Hostname            string
-	ReconcileInterval   time.Duration
-	LeaderIP            string
-	LeaderServerPort    int
-	LeaderAddressFamily string
-	LeaderRetryInterval time.Duration
-	LeaderServerRetry   time.Duration
-	SubscribeRetry      time.Duration
+	MesosEndpoint           string
+	Name                    string
+	User                    string
+	Role                    string
+	Checkpointing           bool
+	Principal               string
+	ExecutorSrvCfg          server.Configuration
+	ExecutorName            string
+	ExecutorCmd             string
+	StorageEndpoints        string
+	StorageTimeout          time.Duration
+	StorageKeepaliveTime    time.Duration
+	StorageKeepaliveTimeout time.Duration
+	Failover                float64
+	Hostname                string
+	ReconcileInterval       time.Duration
+	LeaderIP                string
+	LeaderServerPort        int
+	LeaderAddressFamily     string
+	LeaderRetryInterval     time.Duration
+	LeaderServerRetry       time.Duration
+	SubscribeRetry          time.Duration
 }
 
 // Applies values to the various configurations from user-supplied flags.
@@ -45,7 +47,15 @@ func (c *SchedulerConfiguration) Initialize() *SchedulerConfiguration {
 	flag.BoolVar(&c.Checkpointing, "checkpointing", true, "Enable or disable checkpointing")
 	flag.StringVar(&c.Principal, "principal", "Sprint", "Framework principal")
 	flag.StringVar(&c.StorageEndpoints, "persistence.endpoints", "http://127.0.0.1:2379", "Comma-separated list of storage endpoints")
-	flag.DurationVar(&c.StorageTimeout, "persistence.timeout", time.Second, "Storage request timeout")
+	flag.DurationVar(&c.StorageTimeout, "persistence.timeout", time.Second, "Initial storage system connection timeout")
+	flag.DurationVar(&c.StorageKeepaliveTime, "persistence.keepalive.time", 30*time.Second, `After a duration of this time
+												 if the client doesn't see any activity
+												 it pings the server to see
+												 if the transport is still alive`)
+	flag.DurationVar(&c.StorageKeepaliveTimeout, "persistence.keepalive.timeout", 20*time.Second, `After having pinged for keepalive check,
+												       the client waits for this duration
+												       and if no activity is seen
+												       even after that the connection is closed`)
 	flag.Float64Var(&c.Failover, "failover", time.Minute.Seconds(), "Framework failover timeout")
 	flag.StringVar(&c.Hostname, "hostname", "", "The framework's hostname")
 	flag.DurationVar(&c.SubscribeRetry, "subscribe.retry", 2*time.Second, "Controls the interval at which subscribe calls will be retried")

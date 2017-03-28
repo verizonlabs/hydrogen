@@ -71,6 +71,8 @@ func main() {
 	kv := etcd.NewClient(
 		strings.Split(schedulerConfig.StorageEndpoints, ","),
 		schedulerConfig.StorageTimeout,
+		schedulerConfig.StorageKeepaliveTime,
+		schedulerConfig.StorageKeepaliveTimeout,
 	)
 	// Storage Engine
 	engine := etcd.NewEtcdEngine(kv)
