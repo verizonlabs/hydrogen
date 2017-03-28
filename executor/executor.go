@@ -18,7 +18,7 @@ const (
 type SprintExecutor struct {
 	FrameworkID *mesos_v1.FrameworkID
 	ExecutorID  *mesos_v1.ExecutorID
-	client      *client.Client
+	client      *client.DefaultClient
 	logger      logging.Logger
 }
 
@@ -26,7 +26,7 @@ type SprintExecutor struct {
 func NewSprintExecutor(
 	f *mesos_v1.FrameworkID,
 	e *mesos_v1.ExecutorID,
-	c *client.Client,
+	c *client.DefaultClient,
 	lgr logging.Logger) *SprintExecutor {
 
 	return &SprintExecutor{
