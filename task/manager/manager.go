@@ -20,6 +20,10 @@ All tasks are written only during creation, updates and deletes.
 Reads are reserved for reconciliation calls.
 */
 
+const (
+	TASK_DIRECTORY = "/tasks/"
+)
+
 type SprintTaskManager struct {
 	tasks   *structures.ConcurrentMap
 	storage persistence.Storage
@@ -57,7 +61,7 @@ func (m *SprintTaskManager) Add(t *mesos_v1.TaskInfo) error {
 		return err
 	}
 	id := t.TaskId.GetValue()
-	if err := m.storage.Create("/tasks/"+id, base64.StdEncoding.EncodeToString(encoded.Bytes())); err != nil {
+	if err := m.storage.Create(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes())); err != nil {
 		m.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, t.GetName())
 		return err
 	}
@@ -76,7 +80,11 @@ func (m *SprintTaskManager) Add(t *mesos_v1.TaskInfo) error {
 }
 
 func (m *SprintTaskManager) Delete(task *mesos_v1.TaskInfo) {
-	m.storage.Delete("/tasks/" + task.GetName())
+	m.logger.Emit(logging.INFO, TASK_DIRECTORY+task.GetTaskId().GetValue())
+	err := m.storage.Delete(TASK_DIRECTORY + task.GetTaskId().GetValue())
+	if err != nil {
+		m.logger.Emit(logging.ERROR, err.Error())
+	}
 	m.tasks.Delete(task.GetName())
 }
 
@@ -132,7 +140,7 @@ func (m *SprintTaskManager) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) 
 	}
 
 	id := t.TaskId.GetValue()
-	if err := m.storage.Update("/tasks/"+id, base64.StdEncoding.EncodeToString(encoded.Bytes())); err != nil {
+	if err := m.storage.Update(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes())); err != nil {
 		m.logger.Emit(logging.ERROR, "Failed to update task %s with name %s to persistent data store", id, t.GetName())
 	}
 
