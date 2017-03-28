@@ -21,19 +21,6 @@ import (
 	"strings"
 )
 
-// NOTE: This should be refactored out of the main file.
-func CreateFrameworkInfo(config *scheduler.SchedulerConfiguration) *mesos_v1.FrameworkInfo {
-	return &mesos_v1.FrameworkInfo{
-		User:            &config.User,
-		Name:            &config.Name,
-		FailoverTimeout: &config.Failover,
-		Checkpoint:      &config.Checkpointing,
-		Role:            &config.Role,
-		Hostname:        &config.Hostname,
-		Principal:       &config.Principal,
-	}
-}
-
 // Entry point for the scheduler.
 // Parses configuration from user-supplied flags and prepares the scheduler for execution.
 func main() {
@@ -47,8 +34,16 @@ func main() {
 	apiPort := flag.Int("server.api.port", 8080, "API server listen port")
 
 	// Define our framework here
-	schedulerConfig := new(scheduler.SchedulerConfiguration).Initialize()
-	frameworkInfo := CreateFrameworkInfo(schedulerConfig)
+	schedConfig := new(scheduler.SchedulerConfiguration).Initialize()
+	frameworkInfo := &mesos_v1.FrameworkInfo{
+		User:            &schedConfig.User,
+		Name:            &schedConfig.Name,
+		FailoverTimeout: &schedConfig.Failover,
+		Checkpoint:      &schedConfig.Checkpointing,
+		Role:            &schedConfig.Role,
+		Hostname:        &schedConfig.Hostname,
+		Principal:       &schedConfig.Principal,
+	}
 
 	flag.Parse()
 
@@ -69,8 +64,8 @@ func main() {
 
 	// Storage client
 	kv := etcd.NewClient(
-		strings.Split(schedulerConfig.StorageEndpoints, ","),
-		schedulerConfig.StorageTimeout,
+		strings.Split(schedConfig.StorageEndpoints, ","),
+		schedConfig.StorageTimeout,
 	)
 	// Storage Engine
 	engine := etcd.NewEtcdEngine(kv)
@@ -79,19 +74,19 @@ func main() {
 
 	m := sprintTaskManager.NewTaskManager(structures.NewConcurrentMap(100)) // Manages our tasks
 	r := manager.NewDefaultResourceManager()                                // Manages resources from the cluster
-	c := client.NewClient(schedulerConfig.MesosEndpoint, logger)            // Manages HTTP calls
+	c := client.NewClient(schedConfig.MesosEndpoint, logger)                // Manages HTTP calls
 	s := sched.NewDefaultScheduler(c, frameworkInfo, logger)                // Manages how to route and schedule tasks.
 
 	// Event controller manages scheduler events and how they are handled.
-	e := events.NewSprintEventController(schedulerConfig, s, m, r, eventChan, engine, logger)
+	e := events.NewSprintEventController(schedConfig, s, m, r, eventChan, engine, logger)
 
 	logger.Emit(logging.INFO, "Starting leader election socket server")
-	go ha.LeaderServer(schedulerConfig, logger)
+	go ha.LeaderServer(schedConfig, logger)
 
 	// Block here until we either become a leader or a standby.
 	// If we are the leader we break out and continue to execute the rest of the scheduler.
 	// If we are a standby then we connect to the leader and wait for the process to start over again.
-	ha.LeaderElection(schedulerConfig, e, engine, logger)
+	ha.LeaderElection(schedConfig, e, engine, logger)
 
 	logger.Emit(logging.INFO, "Starting API server")
 
