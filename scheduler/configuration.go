@@ -22,6 +22,7 @@ type SchedulerConfiguration struct {
 	StorageTimeout          time.Duration
 	StorageKeepaliveTime    time.Duration
 	StorageKeepaliveTimeout time.Duration
+	StorageRetryInterval    time.Duration
 	Failover                float64
 	Hostname                string
 	ReconcileInterval       time.Duration
@@ -57,7 +58,9 @@ func (c *SchedulerConfiguration) Initialize() *SchedulerConfiguration {
 												       the client waits for this duration
 												       and if no activity is seen
 												       even after that the connection is closed`)
-	flag.Float64Var(&c.Failover, "failover", time.Minute.Seconds(), "Framework failover timeout")
+	flag.DurationVar(&c.StorageRetryInterval, "persistence.retry.interval", 2*time.Second, `How long to wait before
+												retrying persistence operations`)
+	flag.Float64Var(&c.Failover, "failover", 168*time.Hour.Seconds(), "Framework failover timeout") // 1 week is recommended
 	flag.StringVar(&c.Hostname, "hostname", "", "The framework's hostname")
 	flag.DurationVar(&c.SubscribeRetry, "subscribe.retry", 2*time.Second, `Controls the interval at which subscribe
 									       calls will be retried`)
