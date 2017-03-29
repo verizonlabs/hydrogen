@@ -94,8 +94,6 @@ func (m *SprintTaskManager) Add(t *mesos_v1.TaskInfo) error {
 }
 
 func (m *SprintTaskManager) Delete(task *mesos_v1.TaskInfo) {
-	m.logger.Emit(logging.INFO, TASK_DIRECTORY+task.GetTaskId().GetValue())
-
 	for {
 		err := m.storage.Delete(TASK_DIRECTORY + task.GetTaskId().GetValue())
 		if err != nil {
