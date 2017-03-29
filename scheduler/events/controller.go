@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/gob"
+	"github.com/coreos/etcd/clientv3"
 	"github.com/golang/protobuf/proto"
 	"mesos-framework-sdk/include/mesos"
 	sched "mesos-framework-sdk/include/scheduler"
@@ -38,6 +39,7 @@ type SprintEventController struct {
 	events          chan *sched.Event
 	kv              persistence.Storage
 	logger          logging.Logger
+	frameworkLease  *clientv3.LeaseID
 }
 
 // NOTE (tim): Cutting this signature down with newlines to make it easier to read.
@@ -148,17 +150,15 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	s.scheduler.Info.Id = id
 	s.logger.Emit(logging.INFO, "Subscribed with an ID of %s", idVal)
 
-	// TODO this is only called once assuming we subscribe and don't fail soon afterwards
-	// it's possible that we can fail long after our lease length
-	// if this is the case our failover in Mesos will start long after the lease has expired
-	// we should continually refresh this lease on every heart beat event
-
 	// We pull the engine directly here to use non-interface methods.
 	kv := s.kv.Engine().(*etcd.Etcd)
 
-	if err := kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout()), false); err != nil {
+	lease, err := kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout()), false)
+	if err != nil {
 		s.logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
 	}
+
+	s.frameworkLease = lease
 
 	// Get all launched non-terminal tasks.
 	launched, err := s.taskmanager.GetState(sdkTaskManager.RUNNING)
@@ -245,6 +245,9 @@ func (s *SprintEventController) Listen() {
 			case sched.Event_UPDATE:
 				s.Update(t.GetUpdate())
 			case sched.Event_HEARTBEAT:
+				if err := s.kv.Engine().(*etcd.Etcd).RefreshLease(s.frameworkLease); err != nil {
+					s.logger.Emit(logging.ERROR, "Failed to refresh framework ID lease: %s", err.Error())
+				}
 			case sched.Event_UNKNOWN:
 				s.logger.Emit(logging.ALARM, "Unknown event received")
 			}
