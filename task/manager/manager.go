@@ -29,14 +29,14 @@ const (
 type SprintTaskManager struct {
 	tasks   *structures.ConcurrentMap
 	storage persistence.Storage
-	config  scheduler.Configuration
+	config  *scheduler.Configuration
 	logger  logging.Logger
 }
 
 func NewTaskManager(
 	cmap *structures.ConcurrentMap,
 	storage persistence.Storage,
-	config scheduler.Configuration,
+	config *scheduler.Configuration,
 	logger logging.Logger) *SprintTaskManager {
 
 	return &SprintTaskManager{
