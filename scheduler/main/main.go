@@ -21,6 +21,11 @@ import (
 	"strings"
 )
 
+const (
+	API_VERSION      = "v1"
+	DEFAULT_MAP_SIZE = 100
+)
+
 // Entry point for the scheduler.
 // Parses configuration from user-supplied flags and prepares the scheduler for execution.
 func main() {
@@ -52,7 +57,7 @@ func main() {
 	executorSrv := file.NewExecutorServer(srvConfig, logger)
 
 	// API server
-	apiSrv := api.NewApiServer(srvConfig, http.NewServeMux(), apiPort, "v1", logger)
+	apiSrv := api.NewApiServer(srvConfig, http.NewServeMux(), apiPort, API_VERSION, logger)
 
 	logger.Emit(logging.INFO, "Starting executor file server")
 
@@ -71,11 +76,14 @@ func main() {
 	engine := etcd.NewEtcdEngine(kv)
 
 	// Wire up dependencies for the event controller
-
-	m := sprintTaskManager.NewTaskManager(structures.NewConcurrentMap(100)) // Manages our tasks
-	r := manager.NewDefaultResourceManager()                                // Manages resources from the cluster
-	c := client.NewClient(schedConfig.MesosEndpoint, logger)                // Manages HTTP calls
-	s := sched.NewDefaultScheduler(c, frameworkInfo, logger)                // Manages how to route and schedule tasks.
+	m := sprintTaskManager.NewTaskManager(
+		structures.NewConcurrentMap(DEFAULT_MAP_SIZE),
+		engine,
+		logger,
+	) // Manages our tasks
+	r := manager.NewDefaultResourceManager()                 // Manages resources from the cluster
+	c := client.NewClient(schedConfig.MesosEndpoint, logger) // Manages HTTP calls
+	s := sched.NewDefaultScheduler(c, frameworkInfo, logger) // Manages how to route and schedule tasks.
 
 	// Event controller manages scheduler events and how they are handled.
 	e := events.NewSprintEventController(schedConfig, s, m, r, eventChan, engine, logger)

@@ -220,8 +220,8 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					json.NewEncoder(w).Encode(response.Kill{Status: response.NOTFOUND, TaskName: *m.Name})
 				} else {
+					a.eventCtrl.Scheduler().Kill(t.GetTaskId(), t.GetAgentId()) // Check to see that it's killed...
 					a.eventCtrl.TaskManager().Delete(t)
-					a.eventCtrl.Scheduler().Kill(t.GetTaskId(), t.GetAgentId())
 					json.NewEncoder(w).Encode(response.Kill{Status: response.KILLED, TaskName: *m.Name})
 				}
 			} else {
