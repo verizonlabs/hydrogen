@@ -81,19 +81,29 @@ func (s *SprintEventController) ResourceManager() *manager.DefaultResourceManage
 
 // Atomically create leader information.
 func (s *SprintEventController) CreateLeader() {
-	if err := s.kv.Create("/leader", s.config.LeaderIP); err != nil {
-		s.logger.Emit(logging.ERROR, "Failed to set leader information: "+err.Error())
+	for {
+		if err := s.kv.Create("/leader", s.config.LeaderIP); err != nil {
+			s.logger.Emit(logging.ERROR, "Failed to set leader information: "+err.Error())
+			time.Sleep(s.config.StorageRetryInterval)
+			continue
+		}
+		break
 	}
+
 }
 
 // Atomically get leader information.
-func (s *SprintEventController) GetLeader() (string, error) {
-	leader, err := s.kv.Read("/leader")
-	if err != nil {
-		return "", err
-	}
+func (s *SprintEventController) GetLeader() string {
+	for {
+		leader, err := s.kv.Read("/leader")
+		if err != nil {
+			s.logger.Emit(logging.ERROR, "Failed to get the leader: %s", err.Error())
+			time.Sleep(s.config.StorageRetryInterval)
+			continue
+		}
 
-	return leader[0], nil
+		return leader[0]
+	}
 }
 
 // Keep our state in check by periodically reconciling.
@@ -117,10 +127,17 @@ func (s *SprintEventController) periodicReconcile() {
 
 // Get all of our persisted tasks, convert them back into TaskInfo's, and add them to our task manager.
 // If no tasks exist in the data store then we can consider this a fresh run and safely move on.
-func (s *SprintEventController) restoreTasks() error {
-	tasks, err := s.kv.Engine().(*etcd.Etcd).ReadAll("/tasks")
-	if err != nil {
-		return err
+func (s *SprintEventController) restoreTasks() {
+	var tasks map[string]string
+	var err error
+	for {
+		tasks, err = s.kv.Engine().(*etcd.Etcd).ReadAll("/tasks")
+		if err != nil {
+			s.logger.Emit(logging.ERROR, "Failed to get all task data: %s", err.Error())
+			time.Sleep(s.config.StorageRetryInterval)
+			continue
+		}
+		break
 	}
 
 	for _, value := range tasks {
@@ -139,8 +156,6 @@ func (s *SprintEventController) restoreTasks() error {
 		}
 		s.TaskManager().Set(task.State, task.Info)
 	}
-
-	return nil
 }
 
 // TODO think about renaming this to subscribed since the scheduler from the SDK is really handling the subscribe call.
@@ -153,9 +168,16 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	// We pull the engine directly here to use non-interface methods.
 	kv := s.kv.Engine().(*etcd.Etcd)
 
-	lease, err := kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout()), false)
-	if err != nil {
-		s.logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
+	var lease *clientv3.LeaseID
+	var err error
+	for {
+		lease, err = kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout()))
+		if err != nil {
+			s.logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
+			time.Sleep(s.config.StorageRetryInterval)
+			continue
+		}
+		break
 	}
 
 	s.frameworkLease = lease
@@ -172,16 +194,20 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 }
 
 func (s *SprintEventController) Run() {
-	id, err := s.kv.Read("/frameworkId")
-	if err == nil {
-		s.scheduler.Info.Id = &mesos_v1.FrameworkID{Value: &id[0]}
+	for {
+		id, err := s.kv.Read("/frameworkId")
+		if err == nil {
+			s.scheduler.Info.Id = &mesos_v1.FrameworkID{Value: &id[0]}
+			break
+		} else {
+			time.Sleep(s.config.StorageRetryInterval)
+			continue
+		}
 	}
 
 	// Recover our state (if any) in the event we (or the server) go down.
 	s.logger.Emit(logging.INFO, "Restoring any persisted state from data store")
-	if err := s.restoreTasks(); err != nil {
-		s.logger.Emit(logging.ERROR, "Failed to restore tasks from persistent data store")
-	}
+	s.restoreTasks()
 
 	// Kick off our scheduled reconciling.
 	s.logger.Emit(logging.INFO, "Starting periodic reconciler thread with a %g minute interval", s.config.ReconcileInterval.Minutes())
@@ -189,10 +215,16 @@ func (s *SprintEventController) Run() {
 
 	go func() {
 		for {
-			leader, err := s.kv.Read("/leader")
-			if err != nil {
-				s.logger.Emit(logging.ERROR, "Failed to find the leader: %s", err.Error())
-				os.Exit(1)
+			var leader []string
+			var err error
+			for {
+				leader, err = s.kv.Read("/leader")
+				if err != nil {
+					s.logger.Emit(logging.ERROR, "Failed to find the leader: %s", err.Error())
+					time.Sleep(s.config.StorageRetryInterval)
+					continue
+				}
+				break
 			}
 
 			// We should only ever reach here if we hit a network partition and the standbys lose connection to the leader.
@@ -245,8 +277,13 @@ func (s *SprintEventController) Listen() {
 			case sched.Event_UPDATE:
 				s.Update(t.GetUpdate())
 			case sched.Event_HEARTBEAT:
-				if err := s.kv.Engine().(*etcd.Etcd).RefreshLease(s.frameworkLease); err != nil {
-					s.logger.Emit(logging.ERROR, "Failed to refresh framework ID lease: %s", err.Error())
+				for {
+					if err := s.kv.Engine().(*etcd.Etcd).RefreshLease(s.frameworkLease); err != nil {
+						s.logger.Emit(logging.ERROR, "Failed to refresh framework ID lease: %s", err.Error())
+						time.Sleep(s.config.StorageRetryInterval)
+						continue
+					}
+					break
 				}
 			case sched.Event_UNKNOWN:
 				s.logger.Emit(logging.ALARM, "Unknown event received")
