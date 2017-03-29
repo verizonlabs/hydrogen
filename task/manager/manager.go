@@ -1,27 +1,71 @@
 package manager
 
 import (
+	"bytes"
+	"encoding/base64"
+	"encoding/gob"
 	"errors"
 	"mesos-framework-sdk/include/mesos"
+	"mesos-framework-sdk/logging"
+	"mesos-framework-sdk/persistence"
 	"mesos-framework-sdk/structures"
 	"mesos-framework-sdk/task/manager"
 )
 
 /*
 Satisfies the TaskManager interface in sdk
+
+Sprint Task Manager integrates logging and storage backend-
+All tasks are written only during creation, updates and deletes.
+Reads are reserved for reconciliation calls.
 */
 
+const (
+	TASK_DIRECTORY = "/tasks/"
+)
+
 type SprintTaskManager struct {
-	tasks *structures.ConcurrentMap
+	tasks   *structures.ConcurrentMap
+	storage persistence.Storage
+	logger  logging.Logger
 }
 
-func NewTaskManager(cmap *structures.ConcurrentMap) *SprintTaskManager {
+func NewTaskManager(cmap *structures.ConcurrentMap, storage persistence.Storage, logger logging.Logger) *SprintTaskManager {
 	return &SprintTaskManager{
-		tasks: cmap,
+		tasks:   cmap,
+		storage: storage,
+		logger:  logger,
 	}
 }
 
+func (m *SprintTaskManager) encode(task *mesos_v1.TaskInfo, state mesos_v1.TaskState) (bytes.Buffer, error) {
+	var b bytes.Buffer
+	e := gob.NewEncoder(&b)
+	err := e.Encode(manager.Task{
+		Info:  task,
+		State: state,
+	})
+
+	if err != nil {
+		m.logger.Emit(logging.ERROR, "Failed to encode task")
+		return b, err
+	}
+
+	return b, nil
+}
+
 func (m *SprintTaskManager) Add(t *mesos_v1.TaskInfo) error {
+	// Write forward.
+	encoded, err := m.encode(t, manager.UNKNOWN)
+	if err != nil {
+		return err
+	}
+	id := t.TaskId.GetValue()
+	if err := m.storage.Create(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes())); err != nil {
+		m.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, t.GetName())
+		return err
+	}
+
 	name := t.GetName()
 	if m.tasks.Get(name) != nil {
 		return errors.New("Task " + name + " already exists")
@@ -36,6 +80,11 @@ func (m *SprintTaskManager) Add(t *mesos_v1.TaskInfo) error {
 }
 
 func (m *SprintTaskManager) Delete(task *mesos_v1.TaskInfo) {
+	m.logger.Emit(logging.INFO, TASK_DIRECTORY+task.GetTaskId().GetValue())
+	err := m.storage.Delete(TASK_DIRECTORY + task.GetTaskId().GetValue())
+	if err != nil {
+		m.logger.Emit(logging.ERROR, err.Error())
+	}
 	m.tasks.Delete(task.GetName())
 }
 
@@ -82,7 +131,19 @@ func (m *SprintTaskManager) Tasks() *structures.ConcurrentMap {
 	return m.tasks
 }
 
+// Update a task with a certain state.
 func (m *SprintTaskManager) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) {
+	// Write forward.
+	encoded, err := m.encode(t, state)
+	if err != nil {
+		m.logger.Emit(logging.INFO, err.Error())
+	}
+
+	id := t.TaskId.GetValue()
+	if err := m.storage.Update(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes())); err != nil {
+		m.logger.Emit(logging.ERROR, "Failed to update task %s with name %s to persistent data store", id, t.GetName())
+	}
+
 	m.tasks.Set(t.GetName(), manager.Task{
 		Info:  t,
 		State: state,

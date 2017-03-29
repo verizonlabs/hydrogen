@@ -340,40 +340,19 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 	state := updateEvent.GetStatus().GetState()
 	s.taskmanager.Set(state, task)
 
-	// We only know our real state once we get an update about our task.
-	// This also keeps our state in memory in sync with our persistent data store.
-	// TODO this should be broken out somewhere, maybe in the task manager once it handles persistence.
-	var b bytes.Buffer
-	e := gob.NewEncoder(&b)
-	err = e.Encode(sdkTaskManager.Task{
-		Info:  task,
-		State: state,
-	})
-
-	if err != nil {
-		s.logger.Emit(logging.ERROR, "Failed to encode task")
-	}
-
-	id := task.TaskId.GetValue()
-	if err := s.kv.Create("/tasks/"+id, base64.StdEncoding.EncodeToString(b.Bytes())); err != nil {
-		s.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, task.GetName())
-	}
-
 	switch state {
 	case mesos_v1.TaskState_TASK_FAILED:
-		// TODO: Check task manager for task retry policy, then retry as given.
+		// TODO (tim): Check task manager for task retry policy, then retry as given.
+		// Default for now is just retry forever.
+		s.taskmanager.Set(sdkTaskManager.UNKNOWN, task)
 	case mesos_v1.TaskState_TASK_STAGING:
 		// NOP, keep task set to "launched".
 	case mesos_v1.TaskState_TASK_DROPPED:
 		// Transient error, we should retry launching. Taskinfo is fine.
 	case mesos_v1.TaskState_TASK_ERROR:
-		// TODO: Error with the taskinfo sent to the agent. Give verbose reasoning back.
+		// TODO (tim): Error with the taskinfo sent to the agent. Give verbose reasoning back.
 	case mesos_v1.TaskState_TASK_FINISHED:
 		s.taskmanager.Delete(task)
-		id := task.TaskId.GetValue()
-		if err := s.kv.Delete("/tasks/" + id); err != nil {
-			s.logger.Emit(logging.INFO, "Failed to delete task %s with name %s from persistent data store", id, task.GetName())
-		}
 	case mesos_v1.TaskState_TASK_GONE:
 		// Agent is dead and task is lost.
 	case mesos_v1.TaskState_TASK_GONE_BY_OPERATOR:
@@ -381,10 +360,6 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 	case mesos_v1.TaskState_TASK_KILLED:
 		// Task was killed.
 		s.taskmanager.Delete(task)
-		id := task.TaskId.GetValue()
-		if err := s.kv.Delete("/task/" + id); err != nil {
-			s.logger.Emit(logging.INFO, "Failed to delete task %s with name %s from persistent data store", id, task.GetName())
-		}
 	case mesos_v1.TaskState_TASK_KILLING:
 		// Task is in the process of catching a SIGNAL and shutting down.
 	case mesos_v1.TaskState_TASK_LOST:
