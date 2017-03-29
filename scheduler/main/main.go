@@ -81,6 +81,7 @@ func main() {
 	m := sprintTaskManager.NewTaskManager(
 		structures.NewConcurrentMap(DEFAULT_MAP_SIZE),
 		engine,
+		config,
 		logger,
 	) // Manages our tasks
 	r := manager.NewDefaultResourceManager()                      // Manages resources from the cluster
