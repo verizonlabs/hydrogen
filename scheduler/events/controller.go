@@ -32,7 +32,7 @@ const (
 )
 
 type SprintEventController struct {
-	config          *sprintSched.SchedulerConfiguration
+	config          *sprintSched.Configuration
 	scheduler       *scheduler.DefaultScheduler
 	taskmanager     *sprintTaskManager.SprintTaskManager
 	resourcemanager *manager.DefaultResourceManager
@@ -45,7 +45,7 @@ type SprintEventController struct {
 // NOTE (tim): Cutting this signature down with newlines to make it easier to read.
 // Please do this with any large signature to make it easier to parse.
 func NewSprintEventController(
-	config *sprintSched.SchedulerConfiguration,
+	config *sprintSched.Configuration,
 	scheduler *scheduler.DefaultScheduler,
 	manager *sprintTaskManager.SprintTaskManager,
 	resourceManager *manager.DefaultResourceManager,
@@ -82,9 +82,9 @@ func (s *SprintEventController) ResourceManager() *manager.DefaultResourceManage
 // Atomically create leader information.
 func (s *SprintEventController) CreateLeader() {
 	for {
-		if err := s.kv.Create("/leader", s.config.LeaderIP); err != nil {
+		if err := s.kv.Create("/leader", s.config.Leader.IP); err != nil {
 			s.logger.Emit(logging.ERROR, "Failed to set leader information: "+err.Error())
-			time.Sleep(s.config.StorageRetryInterval)
+			time.Sleep(s.config.Persistence.RetryInterval)
 			continue
 		}
 		break
@@ -98,7 +98,7 @@ func (s *SprintEventController) GetLeader() string {
 		leader, err := s.kv.Read("/leader")
 		if err != nil {
 			s.logger.Emit(logging.ERROR, "Failed to get the leader: %s", err.Error())
-			time.Sleep(s.config.StorageRetryInterval)
+			time.Sleep(s.config.Persistence.RetryInterval)
 			continue
 		}
 
@@ -109,7 +109,7 @@ func (s *SprintEventController) GetLeader() string {
 // Keep our state in check by periodically reconciling.
 // This is recommended by Mesos.
 func (s *SprintEventController) periodicReconcile() {
-	ticker := time.NewTicker(s.config.ReconcileInterval)
+	ticker := time.NewTicker(s.config.Scheduler.ReconcileInterval)
 
 	for {
 		select {
@@ -134,7 +134,7 @@ func (s *SprintEventController) restoreTasks() {
 		tasks, err = s.kv.Engine().(*etcd.Etcd).ReadAll("/tasks")
 		if err != nil {
 			s.logger.Emit(logging.ERROR, "Failed to get all task data: %s", err.Error())
-			time.Sleep(s.config.StorageRetryInterval)
+			time.Sleep(s.config.Persistence.RetryInterval)
 			continue
 		}
 		break
@@ -174,7 +174,7 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 		lease, err = kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout()))
 		if err != nil {
 			s.logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
-			time.Sleep(s.config.StorageRetryInterval)
+			time.Sleep(s.config.Persistence.RetryInterval)
 			continue
 		}
 		break
@@ -200,7 +200,7 @@ func (s *SprintEventController) Run() {
 			s.scheduler.Info.Id = &mesos_v1.FrameworkID{Value: &id[0]}
 			break
 		} else {
-			time.Sleep(s.config.StorageRetryInterval)
+			time.Sleep(s.config.Persistence.RetryInterval)
 			continue
 		}
 	}
@@ -210,7 +210,7 @@ func (s *SprintEventController) Run() {
 	s.restoreTasks()
 
 	// Kick off our scheduled reconciling.
-	s.logger.Emit(logging.INFO, "Starting periodic reconciler thread with a %g minute interval", s.config.ReconcileInterval.Minutes())
+	s.logger.Emit(logging.INFO, "Starting periodic reconciler thread with a %g minute interval", s.config.Scheduler.ReconcileInterval.Minutes())
 	go s.periodicReconcile()
 
 	go func() {
@@ -221,7 +221,7 @@ func (s *SprintEventController) Run() {
 				leader, err = s.kv.Read("/leader")
 				if err != nil {
 					s.logger.Emit(logging.ERROR, "Failed to find the leader: %s", err.Error())
-					time.Sleep(s.config.StorageRetryInterval)
+					time.Sleep(s.config.Persistence.RetryInterval)
 					continue
 				}
 				break
@@ -231,7 +231,7 @@ func (s *SprintEventController) Run() {
 			// If this happens we need to check if there really is another leader alive that we just can't reach.
 			// If we wrongly think we are the leader and try to subscribe when there's already a leader then we will disconnect the leader.
 			// Both the leader and the incorrectly determined new leader will continue to disconnect each other.
-			if leader[0] != s.config.LeaderIP {
+			if leader[0] != s.config.Leader.IP {
 				s.logger.Emit(logging.ERROR, "We are not the leader so we should not be subscribing")
 				s.logger.Emit(logging.ERROR, "This is most likely caused by a network partition between the leader and standbys")
 				os.Exit(1)
@@ -240,7 +240,7 @@ func (s *SprintEventController) Run() {
 			err = s.scheduler.Subscribe(s.events)
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to subscribe: %s", err.Error())
-				time.Sleep(time.Duration(s.config.SubscribeRetry))
+				time.Sleep(time.Duration(s.config.Scheduler.SubscribeRetry))
 			}
 		}
 	}()
@@ -280,7 +280,7 @@ func (s *SprintEventController) Listen() {
 				for {
 					if err := s.kv.Engine().(*etcd.Etcd).RefreshLease(s.frameworkLease); err != nil {
 						s.logger.Emit(logging.ERROR, "Failed to refresh framework ID lease: %s", err.Error())
-						time.Sleep(s.config.StorageRetryInterval)
+						time.Sleep(s.config.Persistence.RetryInterval)
 						continue
 					}
 					break
