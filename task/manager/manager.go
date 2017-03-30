@@ -30,7 +30,7 @@ type SprintTaskManager struct {
 	logger  logging.Logger
 }
 
-func NewTaskManager(cmap *structures.ConcurrentMap, storage persistence.Storage, logger logging.Logger) *SprintTaskManager {
+func NewTaskManager(cmap *structures.ConcurrentMap, storage persistence.Storage, logger logging.Logger) manager.TaskManager {
 	return &SprintTaskManager{
 		tasks:   cmap,
 		storage: storage,
