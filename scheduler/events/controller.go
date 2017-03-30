@@ -16,6 +16,7 @@ import (
 	"mesos-framework-sdk/resources"
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
+	"mesos-framework-sdk/scheduler/events"
 	sdkTaskManager "mesos-framework-sdk/task/manager"
 	"os"
 	sprintSched "sprint/scheduler"
@@ -48,7 +49,7 @@ func NewSprintEventController(
 	resourceManager *manager.DefaultResourceManager,
 	eventChan chan *sched.Event,
 	kv persistence.Storage,
-	logger logging.Logger) *SprintEventController {
+	logger logging.Logger) events.SchedulerEvent {
 
 	return &SprintEventController{
 		config:          config,

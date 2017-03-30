@@ -3,14 +3,17 @@ package ha
 import (
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/persistence"
+	"mesos-framework-sdk/scheduler/events"
 	"net"
 	"sprint/scheduler"
-	"sprint/scheduler/events"
+	sprintEvents "sprint/scheduler/events"
 	"time"
 )
 
 // Performs leader election or becomes a standby if it's determined that there's already a leader.
-func LeaderElection(c *scheduler.SchedulerConfiguration, e *events.SprintEventController, kv persistence.Storage, l logging.Logger) {
+func LeaderElection(c *scheduler.SchedulerConfiguration, s events.SchedulerEvent, kv persistence.Storage, l logging.Logger) {
+	e := s.(*sprintEvents.SprintEventController)
+
 	for {
 
 		// This will only set us as the leader if there isn't an already existing leader.

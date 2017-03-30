@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"mesos-framework-sdk/logging"
+	"mesos-framework-sdk/scheduler/events"
 	"mesos-framework-sdk/server"
 	taskbuilder "mesos-framework-sdk/task"
 	sdkTaskManager "mesos-framework-sdk/task/manager"
 	"net/http"
 	"os"
 	"sprint/scheduler/api/response"
-	"sprint/scheduler/events"
+	sprintEvents "sprint/scheduler/events"
 	"sprint/task/builder"
 	"strconv"
 )
@@ -31,7 +32,7 @@ type ApiServer struct {
 	port      *int
 	mux       *http.ServeMux
 	handle    map[string]http.HandlerFunc
-	eventCtrl *events.SprintEventController
+	eventCtrl events.SchedulerEvent
 	version   string
 	logger    logging.Logger
 }
@@ -67,12 +68,12 @@ func (a *ApiServer) setHandlers(handles map[string]http.HandlerFunc) {
 	}
 }
 
-func (a *ApiServer) setEventController(e *events.SprintEventController) {
+func (a *ApiServer) setEventController(e events.SchedulerEvent) {
 	a.eventCtrl = e
 }
 
 // RunAPI takes the scheduler controller and sets up the configuration for the API.
-func (a *ApiServer) RunAPI(e *events.SprintEventController, handlers map[string]http.HandlerFunc) {
+func (a *ApiServer) RunAPI(e events.SchedulerEvent, handlers map[string]http.HandlerFunc) {
 	if handlers != nil || len(handlers) != 0 {
 		a.logger.Emit(logging.INFO, "Setting custom handlers.")
 		a.setHandlers(handlers)
@@ -105,6 +106,8 @@ func (a *ApiServer) RunAPI(e *events.SprintEventController, handlers map[string]
 
 // Deploys a given application from parsed JSON
 func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
+	eventCtrl := a.eventCtrl.(*sprintEvents.SprintEventController)
+
 	switch r.Method {
 	case "POST":
 		{
@@ -129,14 +132,14 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 
 			// If we have any filters, let the resource manager know.
 			if len(m.Filters) > 0 {
-				a.eventCtrl.ResourceManager().AddFilter(task, m.Filters)
+				eventCtrl.ResourceManager().AddFilter(task, m.Filters)
 			}
 
-			if err := a.eventCtrl.TaskManager().Add(task); err != nil {
+			if err := eventCtrl.TaskManager().Add(task); err != nil {
 				fmt.Fprintln(w, err.Error())
 				return
 			}
-			a.eventCtrl.Scheduler().Revive()
+			eventCtrl.Scheduler().Revive()
 
 			json.NewEncoder(w).Encode(response.Deploy{
 				Status:   response.QUEUED,
@@ -155,6 +158,8 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
+	eventCtrl := a.eventCtrl.(*sprintEvents.SprintEventController)
+
 	switch r.Method {
 	case "PUT":
 		{
@@ -172,7 +177,7 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Check if this task already exists
-			taskToKill, err := a.eventCtrl.TaskManager().Get(&m.Name)
+			taskToKill, err := eventCtrl.TaskManager().Get(&m.Name)
 			if err != nil {
 				fmt.Fprintf(w, err.Error())
 				return
@@ -180,9 +185,9 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 
 			task, err := builder.Application(&m, a.logger)
 
-			a.eventCtrl.TaskManager().Set(sdkTaskManager.UNKNOWN, task)
-			a.eventCtrl.Scheduler().Kill(taskToKill.GetTaskId(), taskToKill.GetAgentId())
-			a.eventCtrl.Scheduler().Revive()
+			eventCtrl.TaskManager().Set(sdkTaskManager.UNKNOWN, task)
+			eventCtrl.Scheduler().Kill(taskToKill.GetTaskId(), taskToKill.GetAgentId())
+			eventCtrl.Scheduler().Revive()
 
 			json.NewEncoder(w).Encode(response.Deploy{
 				Status:  response.UPDATE,
@@ -200,6 +205,8 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
+	eventCtrl := a.eventCtrl.(*sprintEvents.SprintEventController)
+
 	switch r.Method {
 	case "POST":
 		{
@@ -216,12 +223,12 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if m.Name != nil {
-				t, err := a.eventCtrl.TaskManager().Get(m.Name)
+				t, err := eventCtrl.TaskManager().Get(m.Name)
 				if err != nil {
 					json.NewEncoder(w).Encode(response.Kill{Status: response.NOTFOUND, TaskName: *m.Name})
 				} else {
-					a.eventCtrl.Scheduler().Kill(t.GetTaskId(), t.GetAgentId()) // Check to see that it's killed...
-					a.eventCtrl.TaskManager().Delete(t)
+					eventCtrl.Scheduler().Kill(t.GetTaskId(), t.GetAgentId()) // Check to see that it's killed...
+					eventCtrl.TaskManager().Delete(t)
 					json.NewEncoder(w).Encode(response.Kill{Status: response.KILLED, TaskName: *m.Name})
 				}
 			} else {
@@ -240,12 +247,14 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
+	eventCtrl := a.eventCtrl.(*sprintEvents.SprintEventController)
+
 	switch r.Method {
 	case "GET":
 		{
 			name := r.URL.Query().Get("name")
 
-			_, err := a.eventCtrl.TaskManager().Get(&name)
+			_, err := eventCtrl.TaskManager().Get(&name)
 			if err != nil {
 				fmt.Fprintf(w, "Task not found, error %v", err.Error())
 				return
@@ -264,17 +273,19 @@ func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
 
 // Status endpoint lets the end-user know about the TASK_STATUS of their task.
 func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
+	eventCtrl := a.eventCtrl.(*sprintEvents.SprintEventController)
+
 	switch r.Method {
 	case "GET":
 		{
 			name := r.URL.Query().Get("name")
 
-			_, err := a.eventCtrl.TaskManager().Get(&name)
+			_, err := eventCtrl.TaskManager().Get(&name)
 			if err != nil {
 				fmt.Fprintf(w, "Task not found, error %v", err.Error())
 				return
 			}
-			queued, err := a.eventCtrl.TaskManager().GetState(sdkTaskManager.STAGING)
+			queued, err := eventCtrl.TaskManager().GetState(sdkTaskManager.STAGING)
 			if err != nil {
 				a.logger.Emit(logging.INFO, err.Error())
 			}
