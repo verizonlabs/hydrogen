@@ -237,7 +237,7 @@ func (s *SprintEventController) Run() {
 				os.Exit(1)
 			}
 
-			err = s.scheduler.Subscribe(s.events)
+			_, err = s.scheduler.Subscribe(s.events)
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to subscribe: %s", err.Error())
 				time.Sleep(time.Duration(s.config.Scheduler.SubscribeRetry))
@@ -369,8 +369,10 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 	s.logger.Emit(logging.INFO, updateEvent.GetStatus().GetMessage())
 	task, err := s.taskmanager.GetById(updateEvent.GetStatus().GetTaskId())
 	if err != nil {
-		// This task doesn't exist according to task manager so we can't update it's status.
-		s.logger.Emit(logging.ERROR, err.Error())
+		// The event is from a task that has been deleted from the task manager,
+		// ignore updates.
+		// NOTE (tim): Do we want to keep deleted task history for a certain amount of time
+		// before it's deleted? We would record status updates after it's killed here.
 		return
 	}
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/server"
 	taskbuilder "mesos-framework-sdk/task"
@@ -110,30 +111,52 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 		{
 			dec, err := ioutil.ReadAll(r.Body)
 			if err != nil {
-				fmt.Fprintf(w, err.Error())
+				json.NewEncoder(w).Encode(response.Deploy{
+					Status:  response.FAILED,
+					Message: err.Error(),
+				})
 				return
 			}
 
 			var m taskbuilder.ApplicationJSON
 			err = json.Unmarshal(dec, &m)
 			if err != nil {
-				fmt.Fprintf(w, err.Error())
+				json.NewEncoder(w).Encode(response.Deploy{
+					Status:  response.FAILED,
+					Message: err.Error(),
+				})
 				return
 			}
 
 			task, err := builder.Application(&m, a.logger)
 			if err != nil {
-				fmt.Fprintf(w, err.Error())
+				json.NewEncoder(w).Encode(response.Deploy{
+					Status:   response.FAILED,
+					TaskName: task.GetName(),
+					Message:  err.Error(),
+				})
 				return
 			}
 
 			// If we have any filters, let the resource manager know.
 			if len(m.Filters) > 0 {
-				a.eventCtrl.ResourceManager().AddFilter(task, m.Filters)
+				if err := a.eventCtrl.ResourceManager().AddFilter(task, m.Filters); err != nil {
+					json.NewEncoder(w).Encode(response.Deploy{
+						Status:   response.FAILED,
+						TaskName: task.GetName(),
+						Message:  err.Error(),
+					})
+					return
+				}
+
 			}
 
 			if err := a.eventCtrl.TaskManager().Add(task); err != nil {
-				fmt.Fprintln(w, err.Error())
+				json.NewEncoder(w).Encode(response.Deploy{
+					Status:   response.FAILED,
+					TaskName: task.GetName(),
+					Message:  err.Error(),
+				})
 				return
 			}
 			a.eventCtrl.Scheduler().Revive()
@@ -160,21 +183,31 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 		{
 			dec, err := ioutil.ReadAll(r.Body)
 			if err != nil {
-				fmt.Fprintf(w, err.Error())
+				json.NewEncoder(w).Encode(response.Deploy{
+					Status:  response.FAILED,
+					Message: err.Error(),
+				})
 				return
 			}
 
 			var m taskbuilder.ApplicationJSON
 			err = json.Unmarshal(dec, &m)
 			if err != nil {
-				fmt.Fprintf(w, err.Error())
+				json.NewEncoder(w).Encode(response.Deploy{
+					Status:  response.FAILED,
+					Message: err.Error(),
+				})
 				return
 			}
 
 			// Check if this task already exists
 			taskToKill, err := a.eventCtrl.TaskManager().Get(&m.Name)
 			if err != nil {
-				fmt.Fprintf(w, err.Error())
+				json.NewEncoder(w).Encode(response.Deploy{
+					Status:   response.FAILED,
+					TaskName: taskToKill.GetName(),
+					Message:  err.Error(),
+				})
 				return
 			}
 
@@ -211,22 +244,65 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 			var m taskbuilder.KillJson
 			err = json.Unmarshal(dec, &m)
 			if err != nil {
-				fmt.Fprintf(w, "%v", err.Error())
+				json.NewEncoder(w).Encode(response.Deploy{
+					Status:  response.FAILED,
+					Message: err.Error(),
+				})
 				return
 			}
 
+			// Make sure we have a name to look up
 			if m.Name != nil {
+				// Look up task in task manager
 				t, err := a.eventCtrl.TaskManager().Get(m.Name)
 				if err != nil {
 					json.NewEncoder(w).Encode(response.Kill{Status: response.NOTFOUND, TaskName: *m.Name})
-				} else {
-					a.eventCtrl.Scheduler().Kill(t.GetTaskId(), t.GetAgentId()) // Check to see that it's killed...
-					a.eventCtrl.TaskManager().Delete(t)
-					json.NewEncoder(w).Encode(response.Kill{Status: response.KILLED, TaskName: *m.Name})
+					return
 				}
-			} else {
-				json.NewEncoder(w).Encode(response.Kill{Status: response.FAILED, TaskName: *m.Name})
+				// Get all tasks in RUNNING state.
+				running, _ := a.eventCtrl.TaskManager().GetState(mesos_v1.TaskState_TASK_RUNNING)
+				// If we get an error, it means no tasks are currently in the running state.
+				// We safely ignore this- the range over the empty list will be skipped regardless.
+
+				// Check if our task is in the list of RUNNING tasks.
+				for _, task := range running {
+					// If it is, then send the kill signal.
+					if task.GetName() == t.GetName() {
+						// First Kill call to the mesos-master.
+						_, err := a.eventCtrl.Scheduler().Kill(t.GetTaskId(), t.GetAgentId())
+						if err != nil {
+							// If it fails, try to kill it again.
+							resp, err := a.eventCtrl.Scheduler().Kill(t.GetTaskId(), t.GetAgentId())
+							if err != nil {
+								// We've tried twice and still failed.
+								// Send back an error message.
+								json.NewEncoder(w).Encode(
+									response.Kill{
+										Status:   response.FAILED,
+										TaskName: *m.Name,
+										Message:  "Response Status to Kill: " + resp.Status,
+									},
+								)
+								return
+							}
+						}
+						// Our kill call has worked, delete it from the task queue.
+						a.eventCtrl.TaskManager().Delete(t)
+						// Response appropriately.
+						json.NewEncoder(w).Encode(response.Kill{Status: response.KILLED, TaskName: *m.Name})
+						return
+					}
+				}
+				// If we get here, our task isn't in the list of RUNNING tasks.
+				// Delete it from the queue regardless.
+				// We run into this case if a task is flapping or unable to launch
+				// or get an appropriate offer.
+				a.eventCtrl.TaskManager().Delete(t)
+				json.NewEncoder(w).Encode(response.Kill{Status: response.KILLED, TaskName: *m.Name})
+				return
 			}
+			// If we get here, there was no name passed in and the kill function failed.
+			json.NewEncoder(w).Encode(response.Kill{Status: response.FAILED, TaskName: *m.Name})
 		}
 	default:
 		{
@@ -239,6 +315,7 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// TODO (tim): Get state of mesos task and return it.
 func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
@@ -250,7 +327,6 @@ func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprintf(w, "Task not found, error %v", err.Error())
 				return
 			}
-			// get the task from task queue to
 		}
 	default:
 		{
@@ -271,7 +347,10 @@ func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 
 			_, err := a.eventCtrl.TaskManager().Get(&name)
 			if err != nil {
-				fmt.Fprintf(w, "Task not found, error %v", err.Error())
+				json.NewEncoder(w).Encode(response.Deploy{
+					Status:  response.FAILED,
+					Message: err.Error(),
+				})
 				return
 			}
 			queued, err := a.eventCtrl.TaskManager().GetState(sdkTaskManager.STAGING)
