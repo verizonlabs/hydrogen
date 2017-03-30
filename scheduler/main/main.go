@@ -56,9 +56,6 @@ func main() {
 	srvConfig := server.NewConfiguration(*cert, *key, *path, *port)
 	executorSrv := file.NewExecutorServer(srvConfig, logger)
 
-	// API server
-	apiSrv := api.NewApiServer(srvConfig, http.NewServeMux(), apiPort, API_VERSION, logger)
-
 	logger.Emit(logging.INFO, "Starting executor file server")
 
 	// Executor server serves up our custom executor binary, if any.
@@ -102,7 +99,8 @@ func main() {
 	logger.Emit(logging.INFO, "Starting API server")
 
 	// Run our API in a go routine to listen for user requests.
-	go apiSrv.RunAPI(s, t, r, nil) // nil means to use default handlers.
+	apiSrv := api.NewApiServer(srvConfig, s, t, r, http.NewServeMux(), apiPort, API_VERSION, logger)
+	go apiSrv.RunAPI(nil) // nil means to use default handlers.
 
 	// Run our event controller to subscribe to mesos master and start listening for events.
 	e.Run()

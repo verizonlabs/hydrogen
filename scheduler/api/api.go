@@ -40,13 +40,25 @@ type ApiServer struct {
 	logger      logging.Logger
 }
 
-func NewApiServer(cfg server.Configuration, mux *http.ServeMux, port *int, version string, lgr *logging.DefaultLogger) *ApiServer {
+func NewApiServer(
+	cfg server.Configuration,
+	s scheduler.Scheduler,
+	t sdkTaskManager.TaskManager,
+	r manager.ResourceManager,
+	mux *http.ServeMux,
+	port *int,
+	version string,
+	lgr *logging.DefaultLogger) *ApiServer {
+
 	return &ApiServer{
-		cfg:     cfg,
-		port:    port,
-		mux:     mux,
-		version: version,
-		logger:  lgr,
+		cfg:         cfg,
+		sched:       s,
+		taskMgr:     t,
+		resourceMgr: r,
+		port:        port,
+		mux:         mux,
+		version:     version,
+		logger:      lgr,
 	}
 }
 
@@ -72,7 +84,7 @@ func (a *ApiServer) setHandlers(handles map[string]http.HandlerFunc) {
 }
 
 // RunAPI takes the scheduler controller and sets up the configuration for the API.
-func (a *ApiServer) RunAPI(s scheduler.Scheduler, t sdkTaskManager.TaskManager, r manager.ResourceManager, handlers map[string]http.HandlerFunc) {
+func (a *ApiServer) RunAPI(handlers map[string]http.HandlerFunc) {
 	if handlers != nil || len(handlers) != 0 {
 		a.logger.Emit(logging.INFO, "Setting custom handlers.")
 		a.setHandlers(handlers)
@@ -80,10 +92,6 @@ func (a *ApiServer) RunAPI(s scheduler.Scheduler, t sdkTaskManager.TaskManager, 
 		a.logger.Emit(logging.INFO, "Setting default handlers.")
 		a.setDefaultHandlers()
 	}
-
-	a.sched = s
-	a.taskMgr = t
-	a.resourceMgr = r
 
 	// Iterate through all methods and setup endpoints.
 	for route, handle := range a.handle {
