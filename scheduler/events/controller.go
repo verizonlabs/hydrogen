@@ -288,10 +288,6 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 		// See if we have resources.
 		if s.resourcemanager.HasResources() {
 			offer, err := s.resourcemanager.Assign(mesosTask)
-			for _, attr := range offer.GetAttributes() {
-				s.logger.Emit(logging.INFO, "attr: ", attr)
-			}
-
 			if err != nil {
 				// It didn't match any offers.
 				s.logger.Emit(logging.ERROR, err.Error())
