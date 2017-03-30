@@ -99,7 +99,7 @@ func main() {
 	logger.Emit(logging.INFO, "Starting API server")
 
 	// Run our API in a go routine to listen for user requests.
-	go apiSrv.RunAPI(e, nil) // nil means to use default handlers.
+	go apiSrv.RunAPI(s, m, r, nil) // nil means to use default handlers.
 
 	// Run our event controller to subscribe to mesos master and start listening for events.
 	e.Run()

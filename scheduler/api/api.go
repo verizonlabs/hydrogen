@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"mesos-framework-sdk/logging"
-	"mesos-framework-sdk/scheduler/events"
+	"mesos-framework-sdk/resources/manager"
+	"mesos-framework-sdk/scheduler"
 	"mesos-framework-sdk/server"
 	taskbuilder "mesos-framework-sdk/task"
 	sdkTaskManager "mesos-framework-sdk/task/manager"
 	"net/http"
 	"os"
 	"sprint/scheduler/api/response"
-	sprintEvents "sprint/scheduler/events"
 	"sprint/task/builder"
 	"strconv"
 )
@@ -28,13 +28,15 @@ const (
 )
 
 type ApiServer struct {
-	cfg       server.Configuration
-	port      *int
-	mux       *http.ServeMux
-	handle    map[string]http.HandlerFunc
-	eventCtrl events.SchedulerEvent
-	version   string
-	logger    logging.Logger
+	cfg         server.Configuration
+	port        *int
+	mux         *http.ServeMux
+	handle      map[string]http.HandlerFunc
+	sched       scheduler.Scheduler
+	taskMgr     sdkTaskManager.TaskManager
+	resourceMgr manager.ResourceManager
+	version     string
+	logger      logging.Logger
 }
 
 func NewApiServer(cfg server.Configuration, mux *http.ServeMux, port *int, version string, lgr *logging.DefaultLogger) *ApiServer {
@@ -68,12 +70,8 @@ func (a *ApiServer) setHandlers(handles map[string]http.HandlerFunc) {
 	}
 }
 
-func (a *ApiServer) setEventController(e events.SchedulerEvent) {
-	a.eventCtrl = e
-}
-
 // RunAPI takes the scheduler controller and sets up the configuration for the API.
-func (a *ApiServer) RunAPI(e events.SchedulerEvent, handlers map[string]http.HandlerFunc) {
+func (a *ApiServer) RunAPI(s scheduler.Scheduler, t sdkTaskManager.TaskManager, r manager.ResourceManager, handlers map[string]http.HandlerFunc) {
 	if handlers != nil || len(handlers) != 0 {
 		a.logger.Emit(logging.INFO, "Setting custom handlers.")
 		a.setHandlers(handlers)
@@ -82,7 +80,9 @@ func (a *ApiServer) RunAPI(e events.SchedulerEvent, handlers map[string]http.Han
 		a.setDefaultHandlers()
 	}
 
-	a.setEventController(e)
+	a.sched = s
+	a.taskMgr = t
+	a.resourceMgr = r
 
 	// Iterate through all methods and setup endpoints.
 	for route, handle := range a.handle {
@@ -106,8 +106,6 @@ func (a *ApiServer) RunAPI(e events.SchedulerEvent, handlers map[string]http.Han
 
 // Deploys a given application from parsed JSON
 func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
-	eventCtrl := a.eventCtrl.(*sprintEvents.SprintEventController)
-
 	switch r.Method {
 	case "POST":
 		{
@@ -132,14 +130,14 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 
 			// If we have any filters, let the resource manager know.
 			if len(m.Filters) > 0 {
-				eventCtrl.ResourceManager().AddFilter(task, m.Filters)
+				a.resourceMgr.AddFilter(task, m.Filters)
 			}
 
-			if err := eventCtrl.TaskManager().Add(task); err != nil {
+			if err := a.taskMgr.Add(task); err != nil {
 				fmt.Fprintln(w, err.Error())
 				return
 			}
-			eventCtrl.Scheduler().Revive()
+			a.sched.Revive()
 
 			json.NewEncoder(w).Encode(response.Deploy{
 				Status:   response.QUEUED,
@@ -158,8 +156,6 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
-	eventCtrl := a.eventCtrl.(*sprintEvents.SprintEventController)
-
 	switch r.Method {
 	case "PUT":
 		{
@@ -177,7 +173,7 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Check if this task already exists
-			taskToKill, err := eventCtrl.TaskManager().Get(&m.Name)
+			taskToKill, err := a.taskMgr.Get(&m.Name)
 			if err != nil {
 				fmt.Fprintf(w, err.Error())
 				return
@@ -185,9 +181,9 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 
 			task, err := builder.Application(&m, a.logger)
 
-			eventCtrl.TaskManager().Set(sdkTaskManager.UNKNOWN, task)
-			eventCtrl.Scheduler().Kill(taskToKill.GetTaskId(), taskToKill.GetAgentId())
-			eventCtrl.Scheduler().Revive()
+			a.taskMgr.Set(sdkTaskManager.UNKNOWN, task)
+			a.sched.Kill(taskToKill.GetTaskId(), taskToKill.GetAgentId())
+			a.sched.Revive()
 
 			json.NewEncoder(w).Encode(response.Deploy{
 				Status:  response.UPDATE,
@@ -205,8 +201,6 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
-	eventCtrl := a.eventCtrl.(*sprintEvents.SprintEventController)
-
 	switch r.Method {
 	case "POST":
 		{
@@ -223,12 +217,12 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if m.Name != nil {
-				t, err := eventCtrl.TaskManager().Get(m.Name)
+				t, err := a.taskMgr.Get(m.Name)
 				if err != nil {
 					json.NewEncoder(w).Encode(response.Kill{Status: response.NOTFOUND, TaskName: *m.Name})
 				} else {
-					eventCtrl.Scheduler().Kill(t.GetTaskId(), t.GetAgentId()) // Check to see that it's killed...
-					eventCtrl.TaskManager().Delete(t)
+					a.sched.Kill(t.GetTaskId(), t.GetAgentId()) // Check to see that it's killed...
+					a.taskMgr.Delete(t)
 					json.NewEncoder(w).Encode(response.Kill{Status: response.KILLED, TaskName: *m.Name})
 				}
 			} else {
@@ -247,14 +241,12 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
-	eventCtrl := a.eventCtrl.(*sprintEvents.SprintEventController)
-
 	switch r.Method {
 	case "GET":
 		{
 			name := r.URL.Query().Get("name")
 
-			_, err := eventCtrl.TaskManager().Get(&name)
+			_, err := a.taskMgr.Get(&name)
 			if err != nil {
 				fmt.Fprintf(w, "Task not found, error %v", err.Error())
 				return
@@ -273,19 +265,17 @@ func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
 
 // Status endpoint lets the end-user know about the TASK_STATUS of their task.
 func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
-	eventCtrl := a.eventCtrl.(*sprintEvents.SprintEventController)
-
 	switch r.Method {
 	case "GET":
 		{
 			name := r.URL.Query().Get("name")
 
-			_, err := eventCtrl.TaskManager().Get(&name)
+			_, err := a.taskMgr.Get(&name)
 			if err != nil {
 				fmt.Fprintf(w, "Task not found, error %v", err.Error())
 				return
 			}
-			queued, err := eventCtrl.TaskManager().GetState(sdkTaskManager.STAGING)
+			queued, err := a.taskMgr.GetState(sdkTaskManager.STAGING)
 			if err != nil {
 				a.logger.Emit(logging.INFO, err.Error())
 			}
