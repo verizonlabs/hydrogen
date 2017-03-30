@@ -76,7 +76,7 @@ func main() {
 	engine := etcd.NewEtcdEngine(kv)
 
 	// Wire up dependencies for the event controller
-	m := sprintTaskManager.NewTaskManager(
+	t := sprintTaskManager.NewTaskManager(
 		structures.NewConcurrentMap(DEFAULT_MAP_SIZE),
 		engine,
 		logger,
@@ -86,7 +86,7 @@ func main() {
 	s := sched.NewDefaultScheduler(c, frameworkInfo, logger) // Manages how to route and schedule tasks.
 
 	// Event controller manages scheduler events and how they are handled.
-	e := events.NewSprintEventController(schedConfig, s, m, r, eventChan, engine, logger)
+	e := events.NewSprintEventController(schedConfig, s, t, r, eventChan, engine, logger)
 
 	logger.Emit(logging.INFO, "Starting leader election socket server")
 	go ha.LeaderServer(schedConfig, logger)
@@ -99,7 +99,7 @@ func main() {
 	logger.Emit(logging.INFO, "Starting API server")
 
 	// Run our API in a go routine to listen for user requests.
-	go apiSrv.RunAPI(s, m, r, nil) // nil means to use default handlers.
+	go apiSrv.RunAPI(s, t, r, nil) // nil means to use default handlers.
 
 	// Run our event controller to subscribe to mesos master and start listening for events.
 	e.Run()
