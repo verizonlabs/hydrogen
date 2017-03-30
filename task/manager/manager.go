@@ -10,6 +10,8 @@ import (
 	"mesos-framework-sdk/persistence"
 	"mesos-framework-sdk/structures"
 	"mesos-framework-sdk/task/manager"
+	"sprint/scheduler"
+	"time"
 )
 
 /*
@@ -27,13 +29,20 @@ const (
 type SprintTaskManager struct {
 	tasks   *structures.ConcurrentMap
 	storage persistence.Storage
+	config  *scheduler.Configuration
 	logger  logging.Logger
 }
 
-func NewTaskManager(cmap *structures.ConcurrentMap, storage persistence.Storage, logger logging.Logger) *SprintTaskManager {
+func NewTaskManager(
+	cmap *structures.ConcurrentMap,
+	storage persistence.Storage,
+	config *scheduler.Configuration,
+	logger logging.Logger) *SprintTaskManager {
+
 	return &SprintTaskManager{
 		tasks:   cmap,
 		storage: storage,
+		config:  config,
 		logger:  logger,
 	}
 }
@@ -61,9 +70,14 @@ func (m *SprintTaskManager) Add(t *mesos_v1.TaskInfo) error {
 		return err
 	}
 	id := t.TaskId.GetValue()
-	if err := m.storage.Create(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes())); err != nil {
-		m.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, t.GetName())
-		return err
+
+	for {
+		if err := m.storage.Create(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes())); err != nil {
+			m.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, t.GetName())
+			time.Sleep(m.config.Persistence.RetryInterval)
+			continue
+		}
+		break
 	}
 
 	name := t.GetName()
@@ -80,11 +94,16 @@ func (m *SprintTaskManager) Add(t *mesos_v1.TaskInfo) error {
 }
 
 func (m *SprintTaskManager) Delete(task *mesos_v1.TaskInfo) {
-	m.logger.Emit(logging.INFO, TASK_DIRECTORY+task.GetTaskId().GetValue())
-	err := m.storage.Delete(TASK_DIRECTORY + task.GetTaskId().GetValue())
-	if err != nil {
-		m.logger.Emit(logging.ERROR, err.Error())
+	for {
+		err := m.storage.Delete(TASK_DIRECTORY + task.GetTaskId().GetValue())
+		if err != nil {
+			m.logger.Emit(logging.ERROR, err.Error())
+			time.Sleep(m.config.Persistence.RetryInterval)
+			continue
+		}
+		break
 	}
+
 	m.tasks.Delete(task.GetName())
 }
 
@@ -140,8 +159,14 @@ func (m *SprintTaskManager) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) 
 	}
 
 	id := t.TaskId.GetValue()
-	if err := m.storage.Update(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes())); err != nil {
-		m.logger.Emit(logging.ERROR, "Failed to update task %s with name %s to persistent data store", id, t.GetName())
+
+	for {
+		if err := m.storage.Update(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes())); err != nil {
+			m.logger.Emit(logging.ERROR, "Failed to update task %s with name %s to persistent data store", id, t.GetName())
+			time.Sleep(m.config.Persistence.RetryInterval)
+			continue
+		}
+		break
 	}
 
 	m.tasks.Set(t.GetName(), manager.Task{
