@@ -10,14 +10,14 @@ import (
 
 // Handles connections from other framework instances that try and determine the state of the leader.
 // Used in coordination with determining if and when we need to perform leader election.
-func LeaderServer(c *scheduler.SchedulerConfiguration, logger logging.Logger) {
-	addr, err := net.ResolveTCPAddr(c.LeaderAddressFamily, "["+c.LeaderIP+"]:"+strconv.Itoa(c.LeaderServerPort))
+func LeaderServer(c *scheduler.Configuration, logger logging.Logger) {
+	addr, err := net.ResolveTCPAddr(c.Leader.AddressFamily, "["+c.Leader.IP+"]:"+strconv.Itoa(c.Leader.ServerPort))
 	if err != nil {
 		logger.Emit(logging.ERROR, "Leader server exiting: %s", err.Error())
 		return
 	}
 
-	tcp, err := net.ListenTCP(c.LeaderAddressFamily, addr)
+	tcp, err := net.ListenTCP(c.Leader.AddressFamily, addr)
 	if err != nil {
 		logger.Emit(logging.ERROR, "Leader server exiting: %s", err.Error())
 		return
@@ -30,7 +30,7 @@ func LeaderServer(c *scheduler.SchedulerConfiguration, logger logging.Logger) {
 		conn, err := tcp.AcceptTCP()
 		if err != nil {
 			logger.Emit(logging.ERROR, "Failed to accept client: %s", err.Error())
-			time.Sleep(c.LeaderServerRetry)
+			time.Sleep(c.Leader.ServerRetry)
 			continue
 		}
 
@@ -42,8 +42,8 @@ func LeaderServer(c *scheduler.SchedulerConfiguration, logger logging.Logger) {
 }
 
 // Connects to the leader and determines if and when we should start the leader election process.
-func LeaderClient(c *scheduler.SchedulerConfiguration, leader string) error {
-	conn, err := net.DialTimeout(c.LeaderAddressFamily, "["+leader+"]:"+strconv.Itoa(c.LeaderServerPort), 2*time.Second) // TODO make this configurable?
+func LeaderClient(c *scheduler.Configuration, leader string) error {
+	conn, err := net.DialTimeout(c.Leader.AddressFamily, "["+leader+"]:"+strconv.Itoa(c.Leader.ServerPort), 2*time.Second) // TODO make this configurable?
 	if err != nil {
 		return err
 	}
