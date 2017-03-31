@@ -37,7 +37,7 @@ func NewTaskManager(
 	cmap *structures.ConcurrentMap,
 	storage persistence.Storage,
 	config *scheduler.Configuration,
-	logger logging.Logger) *SprintTaskManager {
+	logger logging.Logger) manager.TaskManager {
 
 	return &SprintTaskManager{
 		tasks:   cmap,

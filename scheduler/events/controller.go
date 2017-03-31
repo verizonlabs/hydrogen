@@ -17,10 +17,10 @@ import (
 	"mesos-framework-sdk/resources"
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
+	"mesos-framework-sdk/scheduler/events"
 	sdkTaskManager "mesos-framework-sdk/task/manager"
 	"os"
 	sprintSched "sprint/scheduler"
-	sprintTaskManager "sprint/task/manager"
 	"time"
 )
 
@@ -34,7 +34,7 @@ const (
 type SprintEventController struct {
 	config          *sprintSched.Configuration
 	scheduler       *scheduler.DefaultScheduler
-	taskmanager     *sprintTaskManager.SprintTaskManager
+	taskmanager     sdkTaskManager.TaskManager
 	resourcemanager *manager.DefaultResourceManager
 	events          chan *sched.Event
 	kv              persistence.Storage
@@ -47,11 +47,11 @@ type SprintEventController struct {
 func NewSprintEventController(
 	config *sprintSched.Configuration,
 	scheduler *scheduler.DefaultScheduler,
-	manager *sprintTaskManager.SprintTaskManager,
+	manager sdkTaskManager.TaskManager,
 	resourceManager *manager.DefaultResourceManager,
 	eventChan chan *sched.Event,
 	kv persistence.Storage,
-	logger logging.Logger) *SprintEventController {
+	logger logging.Logger) events.SchedulerEvent {
 
 	return &SprintEventController{
 		config:          config,
@@ -70,7 +70,7 @@ func (s *SprintEventController) Scheduler() *scheduler.DefaultScheduler {
 }
 
 // Getter function
-func (s *SprintEventController) TaskManager() *sprintTaskManager.SprintTaskManager {
+func (s *SprintEventController) TaskManager() sdkTaskManager.TaskManager {
 	return s.taskmanager
 }
 

@@ -6,13 +6,14 @@ import (
 	"io/ioutil"
 	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/logging"
+	"mesos-framework-sdk/resources/manager"
+	"mesos-framework-sdk/scheduler"
 	"mesos-framework-sdk/server"
 	taskbuilder "mesos-framework-sdk/task"
 	sdkTaskManager "mesos-framework-sdk/task/manager"
 	"net/http"
 	"os"
 	"sprint/scheduler/api/response"
-	"sprint/scheduler/events"
 	"sprint/task/builder"
 	"strconv"
 )
@@ -28,22 +29,33 @@ const (
 )
 
 type ApiServer struct {
-	cfg       server.Configuration
-	port      *int
-	mux       *http.ServeMux
-	handle    map[string]http.HandlerFunc
-	eventCtrl *events.SprintEventController
-	version   string
-	logger    logging.Logger
+	cfg         server.Configuration
+	mux         *http.ServeMux
+	handle      map[string]http.HandlerFunc
+	sched       scheduler.Scheduler
+	taskMgr     sdkTaskManager.TaskManager
+	resourceMgr manager.ResourceManager
+	version     string
+	logger      logging.Logger
 }
 
-func NewApiServer(cfg server.Configuration, mux *http.ServeMux, port *int, version string, lgr *logging.DefaultLogger) *ApiServer {
+func NewApiServer(
+	cfg server.Configuration,
+	s scheduler.Scheduler,
+	t sdkTaskManager.TaskManager,
+	r manager.ResourceManager,
+	mux *http.ServeMux,
+	version string,
+	lgr *logging.DefaultLogger) *ApiServer {
+
 	return &ApiServer{
-		cfg:     cfg,
-		port:    port,
-		mux:     mux,
-		version: version,
-		logger:  lgr,
+		cfg:         cfg,
+		sched:       s,
+		taskMgr:     t,
+		resourceMgr: r,
+		mux:         mux,
+		version:     version,
+		logger:      lgr,
 	}
 }
 
@@ -68,12 +80,8 @@ func (a *ApiServer) setHandlers(handles map[string]http.HandlerFunc) {
 	}
 }
 
-func (a *ApiServer) setEventController(e *events.SprintEventController) {
-	a.eventCtrl = e
-}
-
 // RunAPI takes the scheduler controller and sets up the configuration for the API.
-func (a *ApiServer) RunAPI(e *events.SprintEventController, handlers map[string]http.HandlerFunc) {
+func (a *ApiServer) RunAPI(handlers map[string]http.HandlerFunc) {
 	if handlers != nil || len(handlers) != 0 {
 		a.logger.Emit(logging.INFO, "Setting custom handlers.")
 		a.setHandlers(handlers)
@@ -82,8 +90,6 @@ func (a *ApiServer) RunAPI(e *events.SprintEventController, handlers map[string]
 		a.setDefaultHandlers()
 	}
 
-	a.setEventController(e)
-
 	// Iterate through all methods and setup endpoints.
 	for route, handle := range a.handle {
 		a.mux.HandleFunc(route, handle)
@@ -91,13 +97,13 @@ func (a *ApiServer) RunAPI(e *events.SprintEventController, handlers map[string]
 
 	if a.cfg.TLS() {
 		a.cfg.Server().Handler = a.mux
-		a.cfg.Server().Addr = ":" + strconv.Itoa(*a.port)
+		a.cfg.Server().Addr = ":" + strconv.Itoa(a.cfg.Port())
 		if err := a.cfg.Server().ListenAndServeTLS(a.cfg.Cert(), a.cfg.Key()); err != nil {
 			a.logger.Emit(logging.ERROR, err.Error())
 			os.Exit(1)
 		}
 	} else {
-		if err := http.ListenAndServe(":"+strconv.Itoa(*a.port), a.mux); err != nil {
+		if err := http.ListenAndServe(":"+strconv.Itoa(a.cfg.Port()), a.mux); err != nil {
 			a.logger.Emit(logging.ERROR, err.Error())
 			os.Exit(1)
 		}
@@ -140,7 +146,7 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 
 			// If we have any filters, let the resource manager know.
 			if len(m.Filters) > 0 {
-				if err := a.eventCtrl.ResourceManager().AddFilter(task, m.Filters); err != nil {
+				if err := a.resourceMgr.AddFilter(task, m.Filters); err != nil {
 					json.NewEncoder(w).Encode(response.Deploy{
 						Status:   response.FAILED,
 						TaskName: task.GetName(),
@@ -151,7 +157,7 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 
 			}
 
-			if err := a.eventCtrl.TaskManager().Add(task); err != nil {
+			if err := a.taskMgr.Add(task); err != nil {
 				json.NewEncoder(w).Encode(response.Deploy{
 					Status:   response.FAILED,
 					TaskName: task.GetName(),
@@ -159,7 +165,7 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 				})
 				return
 			}
-			a.eventCtrl.Scheduler().Revive()
+			a.sched.Revive()
 
 			json.NewEncoder(w).Encode(response.Deploy{
 				Status:   response.QUEUED,
@@ -201,7 +207,7 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Check if this task already exists
-			taskToKill, err := a.eventCtrl.TaskManager().Get(&m.Name)
+			taskToKill, err := a.taskMgr.Get(&m.Name)
 			if err != nil {
 				json.NewEncoder(w).Encode(response.Deploy{
 					Status:   response.FAILED,
@@ -213,9 +219,9 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 
 			task, err := builder.Application(&m, a.logger)
 
-			a.eventCtrl.TaskManager().Set(sdkTaskManager.UNKNOWN, task)
-			a.eventCtrl.Scheduler().Kill(taskToKill.GetTaskId(), taskToKill.GetAgentId())
-			a.eventCtrl.Scheduler().Revive()
+			a.taskMgr.Set(sdkTaskManager.UNKNOWN, task)
+			a.sched.Kill(taskToKill.GetTaskId(), taskToKill.GetAgentId())
+			a.sched.Revive()
 
 			json.NewEncoder(w).Encode(response.Deploy{
 				Status:  response.UPDATE,
@@ -254,13 +260,13 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 			// Make sure we have a name to look up
 			if m.Name != nil {
 				// Look up task in task manager
-				t, err := a.eventCtrl.TaskManager().Get(m.Name)
+				t, err := a.taskMgr.Get(m.Name)
 				if err != nil {
 					json.NewEncoder(w).Encode(response.Kill{Status: response.NOTFOUND, TaskName: *m.Name})
 					return
 				}
 				// Get all tasks in RUNNING state.
-				running, _ := a.eventCtrl.TaskManager().GetState(mesos_v1.TaskState_TASK_RUNNING)
+				running, _ := a.taskMgr.GetState(mesos_v1.TaskState_TASK_RUNNING)
 				// If we get an error, it means no tasks are currently in the running state.
 				// We safely ignore this- the range over the empty list will be skipped regardless.
 
@@ -269,10 +275,10 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 					// If it is, then send the kill signal.
 					if task.GetName() == t.GetName() {
 						// First Kill call to the mesos-master.
-						_, err := a.eventCtrl.Scheduler().Kill(t.GetTaskId(), t.GetAgentId())
+						_, err := a.sched.Kill(t.GetTaskId(), t.GetAgentId())
 						if err != nil {
 							// If it fails, try to kill it again.
-							resp, err := a.eventCtrl.Scheduler().Kill(t.GetTaskId(), t.GetAgentId())
+							resp, err := a.sched.Kill(t.GetTaskId(), t.GetAgentId())
 							if err != nil {
 								// We've tried twice and still failed.
 								// Send back an error message.
@@ -287,7 +293,7 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 							}
 						}
 						// Our kill call has worked, delete it from the task queue.
-						a.eventCtrl.TaskManager().Delete(t)
+						a.taskMgr.Delete(t)
 						// Response appropriately.
 						json.NewEncoder(w).Encode(response.Kill{Status: response.KILLED, TaskName: *m.Name})
 						return
@@ -297,7 +303,7 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 				// Delete it from the queue regardless.
 				// We run into this case if a task is flapping or unable to launch
 				// or get an appropriate offer.
-				a.eventCtrl.TaskManager().Delete(t)
+				a.taskMgr.Delete(t)
 				json.NewEncoder(w).Encode(response.Kill{Status: response.KILLED, TaskName: *m.Name})
 				return
 			}
@@ -322,7 +328,7 @@ func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
 		{
 			name := r.URL.Query().Get("name")
 
-			_, err := a.eventCtrl.TaskManager().Get(&name)
+			_, err := a.taskMgr.Get(&name)
 			if err != nil {
 				fmt.Fprintf(w, "Task not found, error %v", err.Error())
 				return
@@ -345,7 +351,7 @@ func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 		{
 			name := r.URL.Query().Get("name")
 
-			_, err := a.eventCtrl.TaskManager().Get(&name)
+			_, err := a.taskMgr.Get(&name)
 			if err != nil {
 				json.NewEncoder(w).Encode(response.Deploy{
 					Status:  response.FAILED,
@@ -353,7 +359,7 @@ func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 				})
 				return
 			}
-			queued, err := a.eventCtrl.TaskManager().GetState(sdkTaskManager.STAGING)
+			queued, err := a.taskMgr.GetState(sdkTaskManager.STAGING)
 			if err != nil {
 				a.logger.Emit(logging.INFO, err.Error())
 			}
