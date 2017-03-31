@@ -110,25 +110,23 @@ func (a *ApiServer) RunAPI(handlers map[string]http.HandlerFunc) {
 	}
 }
 
-func (a *ApiServer) methodFilter(w http.ResponseWriter, r *http.Request, method string, ops func()) {
-	switch r.Method {
-	case method:
-		{
+func (a *ApiServer) methodFilter(w http.ResponseWriter, r *http.Request, methods []string, ops func()) {
+	for _, method := range methods {
+		if method == r.Method {
 			ops()
-		}
-	default:
-		{
-			json.NewEncoder(w).Encode(response.Deploy{
-				Status:  response.FAILED,
-				Message: r.Method + " is not allowed on this endpoint.",
-			})
+			return
 		}
 	}
+
+	json.NewEncoder(w).Encode(response.Deploy{
+		Status:  response.FAILED,
+		Message: r.Method + " is not allowed on this endpoint.",
+	})
 }
 
 // Deploys a given application from parsed JSON
 func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
-	a.methodFilter(w, r, "POST", func() {
+	a.methodFilter(w, r, []string{"POST"}, func() {
 		dec, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			json.NewEncoder(w).Encode(response.Deploy{
@@ -189,7 +187,7 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
-	a.methodFilter(w, r, "PUT", func() {
+	a.methodFilter(w, r, []string{"PUT"}, func() {
 		dec, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			json.NewEncoder(w).Encode(response.Deploy{
@@ -234,7 +232,7 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
-	a.methodFilter(w, r, "POST", func() {
+	a.methodFilter(w, r, []string{"POST"}, func() {
 		dec, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			return
@@ -307,7 +305,7 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 
 // TODO (tim): Get state of mesos task and return it.
 func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
-	a.methodFilter(w, r, "GET", func() {
+	a.methodFilter(w, r, []string{"GET"}, func() {
 		name := r.URL.Query().Get("name")
 
 		_, err := a.taskMgr.Get(&name)
@@ -320,7 +318,7 @@ func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
 
 // Status endpoint lets the end-user know about the TASK_STATUS of their task.
 func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
-	a.methodFilter(w, r, "GET", func() {
+	a.methodFilter(w, r, []string{"GET"}, func() {
 		name := r.URL.Query().Get("name")
 
 		_, err := a.taskMgr.Get(&name)
