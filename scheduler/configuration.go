@@ -11,6 +11,8 @@ import (
 type Configuration struct {
 	Persistence *persistenceConfiguration
 	Leader      *leaderConfiguration
+	APIServer   *apiConfiguration
+	FileServer  *fileServerConfiguration
 	Scheduler   *schedulerConfiguration
 }
 
@@ -30,6 +32,21 @@ type leaderConfiguration struct {
 	AddressFamily string
 	RetryInterval time.Duration
 	ServerRetry   time.Duration
+}
+
+// Holds configuration for the built-in REST API.
+type apiConfiguration struct {
+	Cert string
+	Key  string
+	Port int
+}
+
+// Configuration for the file (executor) server.
+type fileServerConfiguration struct {
+	Cert string
+	Key  string
+	Port int
+	Path string
 }
 
 // Configuration for the main scheduler.
@@ -54,6 +71,8 @@ func (c *Configuration) Initialize() *Configuration {
 	return &Configuration{
 		Persistence: new(persistenceConfiguration).initialize(),
 		Leader:      new(leaderConfiguration).initialize(),
+		APIServer:   new(apiConfiguration).initialize(),
+		FileServer:  new(fileServerConfiguration).initialize(),
 		Scheduler:   new(schedulerConfiguration).initialize(),
 	}
 }
@@ -79,13 +98,32 @@ func (c *persistenceConfiguration) initialize() *persistenceConfiguration {
 
 // Applies default leader configuration.
 func (c *leaderConfiguration) initialize() *leaderConfiguration {
-	flag.StringVar(&c.IP, "ha.leader.ip", "", "IP address of the node where this framework is running")
+	flag.StringVar(&c.IP, "ha.leader.ip", "127.0.0.1", "IP address of the node where this framework is running")
 	flag.IntVar(&c.ServerPort, "ha.leader.server.port", 8082, "Port that the leader server listens on")
 	flag.StringVar(&c.AddressFamily, "ha.leader.address.family", "tcp4", "tcp4, tcp6, or tcp for dual stack")
 	flag.DurationVar(&c.RetryInterval, "ha.leader.retry", 2*time.Second, `How long to wait before retrying
 										    the leader election process`)
 	flag.DurationVar(&c.ServerRetry, "ha.leader.server.retry", 2*time.Second, `How long to wait before accepting
 											 connections from clients after an error`)
+
+	return c
+}
+
+// Applies default configuration to our API server.
+func (c *apiConfiguration) initialize() *apiConfiguration {
+	flag.StringVar(&c.Cert, "api.server.cert", "", "API server's TLS certificate")
+	flag.StringVar(&c.Key, "api.server.key", "", "API server's TLS key")
+	flag.IntVar(&c.Port, "api.server.port", 8080, "API server's port")
+
+	return c
+}
+
+// Applies default configuration to our file server.
+func (c *fileServerConfiguration) initialize() *fileServerConfiguration {
+	flag.StringVar(&c.Cert, "file.server.cert", "", "File server's TLS certificate")
+	flag.StringVar(&c.Key, "file.server.key", "", "File server's TLS key")
+	flag.IntVar(&c.Port, "file.server.port", 8081, "File server's port")
+	flag.StringVar(&c.Path, "file.server.path", "executor", "Path to the executor binary")
 
 	return c
 }

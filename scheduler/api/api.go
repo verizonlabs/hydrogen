@@ -30,7 +30,6 @@ const (
 
 type ApiServer struct {
 	cfg         server.Configuration
-	port        *int
 	mux         *http.ServeMux
 	handle      map[string]http.HandlerFunc
 	sched       scheduler.Scheduler
@@ -46,7 +45,6 @@ func NewApiServer(
 	t sdkTaskManager.TaskManager,
 	r manager.ResourceManager,
 	mux *http.ServeMux,
-	port *int,
 	version string,
 	lgr *logging.DefaultLogger) *ApiServer {
 
@@ -55,7 +53,6 @@ func NewApiServer(
 		sched:       s,
 		taskMgr:     t,
 		resourceMgr: r,
-		port:        port,
 		mux:         mux,
 		version:     version,
 		logger:      lgr,
@@ -100,13 +97,13 @@ func (a *ApiServer) RunAPI(handlers map[string]http.HandlerFunc) {
 
 	if a.cfg.TLS() {
 		a.cfg.Server().Handler = a.mux
-		a.cfg.Server().Addr = ":" + strconv.Itoa(*a.port)
+		a.cfg.Server().Addr = ":" + strconv.Itoa(a.cfg.Port())
 		if err := a.cfg.Server().ListenAndServeTLS(a.cfg.Cert(), a.cfg.Key()); err != nil {
 			a.logger.Emit(logging.ERROR, err.Error())
 			os.Exit(1)
 		}
 	} else {
-		if err := http.ListenAndServe(":"+strconv.Itoa(*a.port), a.mux); err != nil {
+		if err := http.ListenAndServe(":"+strconv.Itoa(a.cfg.Port()), a.mux); err != nil {
 			a.logger.Emit(logging.ERROR, err.Error())
 			os.Exit(1)
 		}

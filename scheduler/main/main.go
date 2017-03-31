@@ -31,13 +31,6 @@ const (
 func main() {
 	logger := logging.NewDefaultLogger()
 
-	// Executor/API server configuration.
-	cert := flag.String("server.cert", "", "TLS certificate")
-	key := flag.String("server.key", "", "TLS key")
-	path := flag.String("server.executor.path", "executor", "Path to the executor binary")
-	port := flag.Int("server.executor.port", 8081, "Executor server listen port")
-	apiPort := flag.Int("server.api.port", 8080, "API server listen port")
-
 	// Define our framework here.
 	config := new(scheduler.Configuration).Initialize()
 	frameworkInfo := &mesos_v1.FrameworkInfo{
@@ -53,8 +46,13 @@ func main() {
 	flag.Parse()
 
 	// Executor Server
-	srvConfig := server.NewConfiguration(*cert, *key, *path, *port)
-	executorSrv := file.NewExecutorServer(srvConfig, logger)
+	execSrvCfg := server.NewConfiguration(
+		config.FileServer.Cert,
+		config.FileServer.Key,
+		config.FileServer.Path,
+		config.FileServer.Port,
+	)
+	executorSrv := file.NewExecutorServer(execSrvCfg, logger)
 
 	logger.Emit(logging.INFO, "Starting executor file server")
 
@@ -99,7 +97,13 @@ func main() {
 	logger.Emit(logging.INFO, "Starting API server")
 
 	// Run our API in a go routine to listen for user requests.
-	apiSrv := api.NewApiServer(srvConfig, s, t, r, http.NewServeMux(), apiPort, API_VERSION, logger)
+	apiSrvCfg := server.NewConfiguration(
+		config.APIServer.Cert,
+		config.APIServer.Key,
+		"",
+		config.APIServer.Port,
+	)
+	apiSrv := api.NewApiServer(apiSrvCfg, s, t, r, http.NewServeMux(), API_VERSION, logger)
 	go apiSrv.RunAPI(nil) // nil means to use default handlers.
 
 	// Run our event controller to subscribe to mesos master and start listening for events.
