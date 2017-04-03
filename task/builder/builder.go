@@ -47,7 +47,6 @@ func Application(t *task.ApplicationJSON, lgr logging.Logger) (*mesos_v1.TaskInf
 		return nil, err
 	}
 
-	lgr.Emit(logging.INFO, "Raw data", t.Container)
 	// Container parse
 	image, err := container.ParseContainer(t.Container)
 	if err != nil {
