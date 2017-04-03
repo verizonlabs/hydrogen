@@ -37,7 +37,7 @@ func Application(t *task.ApplicationJSON, lgr logging.Logger) (*mesos_v1.TaskInf
 	cmd, err := command.ParseCommandInfo(t.Command)
 	if err != nil {
 		// If we don't have a commandInfo, it's invalid.
-		return nil, err
+		//return nil, err
 	}
 
 	// Parse resources
@@ -52,7 +52,6 @@ func Application(t *task.ApplicationJSON, lgr logging.Logger) (*mesos_v1.TaskInf
 	if err != nil {
 		return nil, err
 	}
-
 	uuid, err := utils.UuidToString(utils.Uuid())
 	if err != nil {
 		lgr.Emit(logging.ERROR, err.Error())
