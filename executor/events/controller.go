@@ -9,7 +9,6 @@ import (
 	"mesos-framework-sdk/executor/events"
 	exec "mesos-framework-sdk/include/executor"
 	"mesos-framework-sdk/logging"
-	"mesos-framework-sdk/persistence/drivers/etcd"
 	"time"
 )
 
@@ -21,20 +20,17 @@ type SprintExecutorController struct {
 	executor  e.Executor
 	logger    logging.Logger
 	eventChan chan *exec.Event
-	kv        *etcd.Etcd
 }
 
 func NewSprintExecutorEventController(
 	exec e.Executor,
 	eventChan chan *exec.Event,
-	lgr logging.Logger,
-	kv *etcd.Etcd) events.ExecutorEvents {
+	lgr logging.Logger) events.ExecutorEvents {
 
 	return &SprintExecutorController{
 		executor:  exec,
 		eventChan: eventChan,
 		logger:    lgr,
-		kv:        kv,
 	}
 
 }
