@@ -15,31 +15,41 @@ import (
 // Main function will wire up all other dependencies for the executor and setup top-level configuration.
 func main() {
 	logger := logging.NewDefaultLogger()
-	// Add in environmental variables.
-	var endpoint string
-	var port string
-	var storageEndpoint string
-	//var storageTimeout string
-	endpoint = os.Getenv("EXECUTOR_ENDPOINT")
-	port = os.Getenv("EXECUTOR_ENDPOINT_PORT")
-	storageEndpoint = os.Getenv("EXECUTOR_STORAGE_ENDPOINT")
-	//storageTimeout := os.Getenv("EXECUTOR_STORAGE_TIMEOUT")
-
+	endpoint := os.Getenv("EXECUTOR_ENDPOINT")
 	if endpoint == "" {
-		endpoint = "mesos.master"
+		endpoint = "localhost"
 	}
+
+	port := os.Getenv("EXECUTOR_ENDPOINT_PORT")
 	if port == "" {
 		port = "5050"
 	}
+
+	storageEndpoint := os.Getenv("EXECUTOR_STORAGE_ENDPOINT")
 	if storageEndpoint == "" {
 		storageEndpoint = "localhost:2379"
 	}
-	etcdTimeout := 5 * time.Second
+
+	storageTimeout, err := time.ParseDuration(os.Getenv("EXECUTOR_STORAGE_TIMEOUT"))
+	if err != nil {
+		logger.Emit(logging.ERROR, "Failed to parse storage timeout: %s", err.Error())
+	}
+
+	storageKaTime, err := time.ParseDuration(os.Getenv("EXECUTOR_STORAGE_KEEPALIVE_TIME"))
+	if err != nil {
+		logger.Emit(logging.ERROR, "Failed to parse storage keepalive time: %s", err.Error())
+	}
+
+	storageKaTimeout, err := time.ParseDuration(os.Getenv("EXECUTOR_STORAGE_KEEPALIVE_TIMEOUT"))
+	if err != nil {
+		logger.Emit(logging.ERROR, "Failed to parse storage keepalive timeout: %s", err.Error())
+	}
+
 	kv := etcd.NewClient(
 		strings.Split(storageEndpoint, ","),
-		etcdTimeout,
-		etcdTimeout,
-		etcdTimeout,
+		storageTimeout,
+		storageKaTime,
+		storageKaTimeout,
 	) // Storage client
 	logger.Emit(logging.INFO, "Endpoint set to "+"http://"+endpoint+":"+port+"/api/v1/executor")
 	c := client.NewClient("http://"+endpoint+":"+port+"/api/v1/executor", logger)
