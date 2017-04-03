@@ -53,15 +53,6 @@ func Application(t *task.ApplicationJSON, lgr logging.Logger) (*mesos_v1.TaskInf
 	if err != nil {
 		return nil, err
 	}
-
-	// CommandInfo OR Container...
-
-	if image.Docker != nil {
-		lgr.Emit(logging.INFO, "Docker image is set")
-	} else {
-		lgr.Emit(logging.INFO, "Docker image isn't set")
-	}
-
 	uuid, err := utils.UuidToString(utils.Uuid())
 	if err != nil {
 		lgr.Emit(logging.ERROR, err.Error())
