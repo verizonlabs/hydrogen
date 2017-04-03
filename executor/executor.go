@@ -1,8 +1,5 @@
 package executor
 
-/*
-Executor interface and default executor implementation is defined here.
-*/
 import (
 	"mesos-framework-sdk/client"
 	exec "mesos-framework-sdk/include/executor"
