@@ -232,7 +232,7 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
-	a.methodFilter(w, r, []string{"POST"}, func() {
+	a.methodFilter(w, r, []string{"DELETE"}, func() {
 		dec, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			return
