@@ -50,6 +50,7 @@ func NewApiServer(
 
 	return &ApiServer{
 		cfg:         cfg,
+		handle:      make(map[string]http.HandlerFunc),
 		sched:       s,
 		taskMgr:     t,
 		resourceMgr: r,
@@ -66,7 +67,6 @@ func (a *ApiServer) Handle() map[string]http.HandlerFunc {
 
 //Set our default API handler routes here.
 func (a *ApiServer) setDefaultHandlers() {
-	a.handle = make(map[string]http.HandlerFunc, 5)
 	a.handle[baseUrl+deployEndpoint] = a.deploy
 	a.handle[baseUrl+statusEndpoint] = a.state
 	a.handle[baseUrl+killEndpoint] = a.kill
