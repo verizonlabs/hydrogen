@@ -2,6 +2,7 @@ package executor
 
 import (
 	"mesos-framework-sdk/client"
+	e "mesos-framework-sdk/executor"
 	exec "mesos-framework-sdk/include/executor"
 	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/logging"
@@ -20,7 +21,7 @@ func NewSprintExecutor(
 	f *mesos_v1.FrameworkID,
 	e *mesos_v1.ExecutorID,
 	c client.Client,
-	lgr logging.Logger) *SprintExecutor {
+	lgr logging.Logger) e.Executor {
 
 	return &SprintExecutor{
 		FrameworkID: f,
@@ -28,7 +29,6 @@ func NewSprintExecutor(
 		client:      c,
 		logger:      lgr,
 	}
-
 }
 
 func (d *SprintExecutor) Subscribe(eventChan chan *exec.Event) error {
