@@ -163,17 +163,18 @@ func (m *mockServerConfiguration) TLS() bool {
 	return false
 }
 
+var c = new(mockServerConfiguration)
+var s = new(mockScheduler)
+var tm = new(mockTaskManager)
+var r = new(mockResourceManager)
+var h = http.NewServeMux()
+var v = "test"
+var l = new(mockLogger)
+
 // Ensures all components are set correctly when creating the API server.
 func TestNewApiServer(t *testing.T) {
 	t.Parallel()
 
-	c := new(mockServerConfiguration)
-	s := new(mockScheduler)
-	tm := new(mockTaskManager)
-	r := new(mockResourceManager)
-	h := http.NewServeMux()
-	v := "test"
-	l := new(mockLogger)
 	srv := NewApiServer(c, s, tm, r, h, v, l)
 	if srv.cfg != c || srv.sched != s || srv.taskMgr != tm || srv.resourceMgr != r ||
 		srv.mux != h || srv.version != v || srv.logger != l {
@@ -181,4 +182,21 @@ func TestNewApiServer(t *testing.T) {
 		t.Fatal("API does not contain the correct components")
 	}
 
+}
+
+// Checks if our internal handlers are attached correctly.
+func TestApiServer_Handle(t *testing.T) {
+	t.Parallel()
+
+	srv := NewApiServer(c, s, tm, r, h, v, l)
+	handles := map[string]http.HandlerFunc{
+		"test1": func(w http.ResponseWriter, r *http.Request) {},
+		"test2": func(w http.ResponseWriter, r *http.Request) {},
+	}
+	srv.setHandlers(handles)
+
+	h := srv.Handle()
+	if len(h) != len(handles) {
+		t.Fatal("Not all handlers were applied correctly")
+	}
 }
