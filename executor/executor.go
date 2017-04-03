@@ -8,10 +8,6 @@ import (
 	"mesos-framework-sdk/recordio"
 )
 
-const (
-	subscribeRetry = 2
-)
-
 type SprintExecutor struct {
 	FrameworkID *mesos_v1.FrameworkID
 	ExecutorID  *mesos_v1.ExecutorID
