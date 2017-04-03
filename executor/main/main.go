@@ -1,20 +1,21 @@
 package main
 
 import (
+	"github.com/golang/protobuf/proto"
 	"mesos-framework-sdk/client"
+	"mesos-framework-sdk/executor"
 	"mesos-framework-sdk/include/executor"
+	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/logging"
-	"mesos-framework-sdk/persistence/drivers/etcd"
 	"os"
-	"sprint/executor"
 	"sprint/executor/events"
-	"strings"
-	"time"
 )
 
 // Main function will wire up all other dependencies for the executor and setup top-level configuration.
 func main() {
 	logger := logging.NewDefaultLogger()
+	fwId := &mesos_v1.FrameworkID{Value: proto.String(os.Getenv("MESOS_FRAMEWORK_ID"))} // Set implicitly by the Mesos agent.
+	execId := &mesos_v1.ExecutorID{Value: proto.String(os.Getenv("MESOS_EXECUTOR_ID"))} // Set implicitly by the Mesos agent.
 	endpoint := os.Getenv("EXECUTOR_ENDPOINT")
 	if endpoint == "" {
 		endpoint = "localhost"
@@ -25,35 +26,9 @@ func main() {
 		port = "5050"
 	}
 
-	storageEndpoint := os.Getenv("EXECUTOR_STORAGE_ENDPOINT")
-	if storageEndpoint == "" {
-		storageEndpoint = "localhost:2379"
-	}
-
-	storageTimeout, err := time.ParseDuration(os.Getenv("EXECUTOR_STORAGE_TIMEOUT"))
-	if err != nil {
-		logger.Emit(logging.ERROR, "Failed to parse storage timeout: %s", err.Error())
-	}
-
-	storageKaTime, err := time.ParseDuration(os.Getenv("EXECUTOR_STORAGE_KEEPALIVE_TIME"))
-	if err != nil {
-		logger.Emit(logging.ERROR, "Failed to parse storage keepalive time: %s", err.Error())
-	}
-
-	storageKaTimeout, err := time.ParseDuration(os.Getenv("EXECUTOR_STORAGE_KEEPALIVE_TIMEOUT"))
-	if err != nil {
-		logger.Emit(logging.ERROR, "Failed to parse storage keepalive timeout: %s", err.Error())
-	}
-
-	kv := etcd.NewClient(
-		strings.Split(storageEndpoint, ","),
-		storageTimeout,
-		storageKaTime,
-		storageKaTimeout,
-	) // Storage client
 	logger.Emit(logging.INFO, "Endpoint set to "+"http://"+endpoint+":"+port+"/api/v1/executor")
 	c := client.NewClient("http://"+endpoint+":"+port+"/api/v1/executor", logger)
-	ex := executor.NewSprintExecutor(nil, nil, c, logger)
-	e := events.NewSprintExecutorEventController(ex, make(chan *mesos_v1_executor.Event), logger, kv)
+	ex := executor.NewDefaultExecutor(fwId, execId, c, logger)
+	e := events.NewSprintExecutorEventController(ex, make(chan *mesos_v1_executor.Event), logger)
 	e.Run()
 }
