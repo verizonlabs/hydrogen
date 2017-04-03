@@ -1,18 +1,19 @@
 package manager
 
 import (
-	"testing"
-	"mesos-framework-sdk/structures"
-	"mesos-framework-sdk/logging"
-	"sprint/scheduler"
 	"mesos-framework-sdk/include/mesos"
-	"github.com/gogo/protobuf/proto"
+	"mesos-framework-sdk/logging"
+	"mesos-framework-sdk/structures"
+	"sprint/scheduler"
 	"strconv"
+	"testing"
+	"github.com/golang/protobuf/proto"
 )
 
-type MockStorage struct {}
-func (m *MockStorage) Create(string, ...string) error{
-return nil
+type MockStorage struct{}
+
+func (m *MockStorage) Create(string, ...string) error {
+	return nil
 }
 func (m *MockStorage) Read(...string) ([]string, error) {
 	return []string{}, nil
@@ -27,19 +28,19 @@ func (m *MockStorage) Driver() string {
 	return "mock"
 }
 func (m *MockStorage) Engine() interface{} {
-	return struct {}{}
+	return struct{}{}
 }
 
 func CreateTestTask(name string) *mesos_v1.TaskInfo {
 	return &mesos_v1.TaskInfo{
-		Name: proto.String(name),
-		TaskId: &mesos_v1.TaskID{Value: proto.String("")},
+		Name:    proto.String(name),
+		TaskId:  &mesos_v1.TaskID{Value: proto.String("")},
 		AgentId: &mesos_v1.AgentID{Value: proto.String("")},
 		Command: &mesos_v1.CommandInfo{
 			Value: proto.String("/bin/sleep 50"),
 		},
 		Container: &mesos_v1.ContainerInfo{
-			Type: mesos_v1.ContainerInfo_DOCKER.Enum(),
+			Type:     mesos_v1.ContainerInfo_DOCKER.Enum(),
 			Hostname: proto.String("hostname"),
 			Mesos: &mesos_v1.ContainerInfo_MesosInfo{
 				Image: &mesos_v1.Image{Type: mesos_v1.Image_DOCKER.Enum()},
@@ -47,7 +48,6 @@ func CreateTestTask(name string) *mesos_v1.TaskInfo {
 		},
 	}
 }
-
 
 func TestNewTaskManager(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
@@ -181,7 +181,7 @@ func TestTaskManager_HasTask(t *testing.T) {
 
 	taskManager.Add(testTask)
 
-	if !taskManager.HasTask(testTask){
+	if !taskManager.HasTask(testTask) {
 		t.FailNow()
 	}
 }
