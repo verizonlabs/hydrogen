@@ -2,11 +2,11 @@ package main
 
 import (
 	"mesos-framework-sdk/client"
+	"mesos-framework-sdk/executor"
 	"mesos-framework-sdk/include/executor"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/persistence/drivers/etcd"
 	"os"
-	"sprint/executor"
 	"sprint/executor/events"
 	"strings"
 	"time"
@@ -53,7 +53,7 @@ func main() {
 	) // Storage client
 	logger.Emit(logging.INFO, "Endpoint set to "+"http://"+endpoint+":"+port+"/api/v1/executor")
 	c := client.NewClient("http://"+endpoint+":"+port+"/api/v1/executor", logger)
-	ex := executor.NewSprintExecutor(nil, nil, c, logger)
+	ex := executor.NewDefaultExecutor(nil, nil, c, logger)
 	e := events.NewSprintExecutorEventController(ex, make(chan *mesos_v1_executor.Event), logger, kv)
 	e.Run()
 }

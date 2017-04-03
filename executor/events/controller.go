@@ -5,11 +5,11 @@ Handles events for the Executor
 */
 import (
 	"fmt"
+	e "mesos-framework-sdk/executor"
+	"mesos-framework-sdk/executor/events"
 	exec "mesos-framework-sdk/include/executor"
-	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/persistence/drivers/etcd"
-	"sprint/executor"
 	"time"
 )
 
@@ -18,13 +18,18 @@ const (
 )
 
 type SprintExecutorController struct {
-	executor  *executor.SprintExecutor
+	executor  e.Executor
 	logger    logging.Logger
 	eventChan chan *exec.Event
 	kv        *etcd.Etcd
 }
 
-func NewSprintExecutorEventController(exec *executor.SprintExecutor, eventChan chan *exec.Event, lgr logging.Logger, kv *etcd.Etcd) *SprintExecutorController {
+func NewSprintExecutorEventController(
+	exec e.Executor,
+	eventChan chan *exec.Event,
+	lgr logging.Logger,
+	kv *etcd.Etcd) events.ExecutorEvents {
+
 	return &SprintExecutorController{
 		executor:  exec,
 		eventChan: eventChan,
@@ -35,14 +40,9 @@ func NewSprintExecutorEventController(exec *executor.SprintExecutor, eventChan c
 }
 
 func (d *SprintExecutorController) Run() {
-	id, err := d.kv.Read("/frameworkId")
-	if err == nil {
-		d.executor.FrameworkID = &mesos_v1.FrameworkID{Value: &id}
-	}
-
 	go func() {
 		for {
-			err = d.executor.Subscribe(d.eventChan)
+			err := d.executor.Subscribe(d.eventChan)
 			if err != nil {
 				d.logger.Emit(logging.ERROR, "Failed to subscribe: %s", err.Error())
 				time.Sleep(time.Duration(subscribeRetry) * time.Second)
@@ -62,22 +62,21 @@ func (d *SprintExecutorController) Listen() {
 	for {
 		switch t := <-d.eventChan; t.GetType() {
 		case exec.Event_SUBSCRIBED:
-			d.executor.FrameworkID = t.GetSubscribed().GetFrameworkInfo().GetId()
-			go d.Subscribed(t.GetSubscribed())
+			d.Subscribed(t.GetSubscribed())
 		case exec.Event_ACKNOWLEDGED:
-			go d.Acknowledged(t.GetAcknowledged())
+			d.Acknowledged(t.GetAcknowledged())
 		case exec.Event_MESSAGE:
-			go d.Message(t.GetMessage())
+			d.Message(t.GetMessage())
 		case exec.Event_KILL:
-			go d.Kill(t.GetKill())
+			d.Kill(t.GetKill())
 		case exec.Event_LAUNCH:
-			go d.Launch(t.GetLaunch())
+			d.Launch(t.GetLaunch())
 		case exec.Event_LAUNCH_GROUP:
-			go d.LaunchGroup(t.GetLaunchGroup())
+			d.LaunchGroup(t.GetLaunchGroup())
 		case exec.Event_SHUTDOWN:
-			go d.Shutdown()
+			d.Shutdown()
 		case exec.Event_ERROR:
-			go d.Error(t.GetError())
+			d.Error(t.GetError())
 		case exec.Event_UNKNOWN:
 			d.logger.Emit(logging.ALARM, "Unknown event caught")
 		}
