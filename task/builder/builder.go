@@ -37,7 +37,7 @@ func Application(t *task.ApplicationJSON, lgr logging.Logger) (*mesos_v1.TaskInf
 	cmd, err := command.ParseCommandInfo(t.Command)
 	if err != nil {
 		// If we don't have a commandInfo, it's invalid.
-		return nil, err
+		//return nil, err
 	}
 
 	// Parse resources
@@ -47,10 +47,19 @@ func Application(t *task.ApplicationJSON, lgr logging.Logger) (*mesos_v1.TaskInf
 		return nil, err
 	}
 
+	lgr.Emit(logging.INFO, "Raw data", t.Container)
 	// Container parse
 	image, err := container.ParseContainer(t.Container)
 	if err != nil {
 		return nil, err
+	}
+
+	// CommandInfo OR Container...
+
+	if image.Docker != nil {
+		lgr.Emit(logging.INFO, "Docker image is set")
+	} else {
+		lgr.Emit(logging.INFO, "Docker image isn't set")
 	}
 
 	uuid, err := utils.UuidToString(utils.Uuid())

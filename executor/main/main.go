@@ -26,7 +26,7 @@ func main() {
 	//storageTimeout := os.Getenv("EXECUTOR_STORAGE_TIMEOUT")
 
 	if endpoint == "" {
-		endpoint = "localhost"
+		endpoint = "mesos.master"
 	}
 	if port == "" {
 		port = "5050"
@@ -37,6 +37,8 @@ func main() {
 	etcdTimeout := 5 * time.Second
 	kv := etcd.NewClient(
 		strings.Split(storageEndpoint, ","),
+		etcdTimeout,
+		etcdTimeout,
 		etcdTimeout,
 	) // Storage client
 	logger.Emit(logging.INFO, "Endpoint set to "+"http://"+endpoint+":"+port+"/api/v1/executor")
