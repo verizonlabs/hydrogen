@@ -253,6 +253,4 @@ func TestTaskManager_TotalTasks(t *testing.T) {
 		t.Logf("Expecting 1 tasks, got %v", tasksLength)
 		t.FailNow()
 	}
-
-
 }
