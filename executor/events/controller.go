@@ -32,7 +32,6 @@ func NewSprintExecutorEventController(
 		eventChan: eventChan,
 		logger:    lgr,
 	}
-
 }
 
 func (d *SprintExecutorController) Run() {
