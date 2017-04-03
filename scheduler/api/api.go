@@ -46,7 +46,7 @@ func NewApiServer(
 	r manager.ResourceManager,
 	mux *http.ServeMux,
 	version string,
-	lgr *logging.DefaultLogger) *ApiServer {
+	lgr logging.Logger) *ApiServer {
 
 	return &ApiServer{
 		cfg:         cfg,
