@@ -1,13 +1,13 @@
 package manager
 
 import (
+	"github.com/golang/protobuf/proto"
 	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/structures"
 	"sprint/scheduler"
 	"strconv"
 	"testing"
-	"github.com/golang/protobuf/proto"
 )
 
 type MockStorage struct{}
