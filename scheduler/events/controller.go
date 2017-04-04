@@ -373,6 +373,9 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 		// ignore updates.
 		// NOTE (tim): Do we want to keep deleted task history for a certain amount of time
 		// before it's deleted? We would record status updates after it's killed here.
+		// ACK update, return.
+		status := updateEvent.GetStatus()
+		s.scheduler.Acknowledge(status.GetAgentId(), status.GetTaskId(), status.GetUuid())
 		return
 	}
 
