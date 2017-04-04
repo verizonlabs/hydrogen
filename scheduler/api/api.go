@@ -306,7 +306,6 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
 	a.methodFilter(w, r, []string{"GET"}, func() {
 		name := r.URL.Query().Get("name")
-		a.logger.Emit(logging.INFO, "name is: ", name)
 
 		t, err := a.taskMgr.Get(&name)
 		if err != nil {
