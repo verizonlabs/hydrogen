@@ -303,16 +303,34 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// TODO (tim): Get state of mesos task and return it.
 func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
 	a.methodFilter(w, r, []string{"GET"}, func() {
 		name := r.URL.Query().Get("name")
 
-		_, err := a.taskMgr.Get(&name)
+		t, err := a.taskMgr.Get(&name)
 		if err != nil {
-			fmt.Fprintf(w, "Task not found, error %v", err.Error())
+			json.NewEncoder(w).Encode(struct {
+				Status string
+				TaskName string
+				Message string
+			}{
+				response.FAILED,
+				name,
+				"Failed to get state for task.",
+			})
 			return
 		}
+		task := a.taskMgr.Tasks().Get(t.GetName())
+		json.NewEncoder(w).Encode(struct {
+			Status string
+			TaskName string
+			State string
+		}{
+			response.ACCEPTED,
+			t.GetName(),
+			task.(sdkTaskManager.Task).State.String(),
+		})
+		return
 	})
 }
 
