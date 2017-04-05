@@ -308,11 +308,7 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 
 	if err != nil {
 		s.logger.Emit(logging.INFO, "No tasks to launch.")
-		// Scheduler keeps track of suppression state.
-		// Ensures we don't send more than one suppression request.
-		if !s.Scheduler().IsSuppressed {
-			s.scheduler.Suppress()
-		}
+		s.scheduler.Suppress()
 
 		s.declineOffers(offerEvent.GetOffers(), refuseSeconds) // All offers to decline.
 		return
