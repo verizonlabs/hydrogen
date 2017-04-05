@@ -321,7 +321,7 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 	// Update our resources in the manager
 	s.resourcemanager.AddOffers(offerEvent.GetOffers())
 
-	offerIDs := []*mesos_v1.OfferID{}
+	var offerId []*mesos_v1.OfferID
 	operations := []*mesos_v1.Offer_Operation{}
 
 	for _, mesosTask := range queued {
@@ -348,13 +348,13 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 			// for example other parts of the codebase may check for STAGING and this would cause it to be set too early.
 			s.TaskManager().Set(sdkTaskManager.STAGING, t)
 
-			offerIDs = append(offerIDs, offer.Id)
+			offerId = []*mesos_v1.OfferID{offer.Id}
 			// TODO (tim) The offer operations will need to be parsed for volume mounting and etc.
 			operations = append(operations, resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
 		}
 	}
 
-	s.scheduler.Accept(offerIDs, operations, nil)
+	s.scheduler.Accept(offerId, operations, nil)
 	// Resource manager pops offers when they are accepted
 	// Offers() returns a list of what is left, therefore whatever is left is to be rejected.
 	s.declineOffers(s.ResourceManager().Offers(), refuseSeconds)
