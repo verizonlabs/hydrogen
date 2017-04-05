@@ -366,8 +366,9 @@ func (s *SprintEventController) Rescind(rescindEvent *sched.Event_Rescind) {
 }
 
 func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
-	s.logger.Emit(logging.INFO, updateEvent.GetStatus().GetMessage())
-	task, err := s.taskmanager.GetById(updateEvent.GetStatus().GetTaskId())
+	status := updateEvent.GetStatus()
+	taskId := status.GetTaskId()
+	task, err := s.taskmanager.GetById(taskId)
 	if err != nil {
 		// The event is from a task that has been deleted from the task manager,
 		// ignore updates.
@@ -376,13 +377,16 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 		return
 	}
 
-	state := updateEvent.GetStatus().GetState()
+	state := status.GetState()
+	message := status.GetMessage()
+	agentId := status.GetAgentId()
 	s.taskmanager.Set(state, task)
 
 	switch state {
 	case mesos_v1.TaskState_TASK_FAILED:
 		// TODO (tim): Check task manager for task retry policy, then retry as given.
 		// Default for now is just retry forever.
+		s.logger.Emit(logging.ERROR, message)
 		s.taskmanager.Set(sdkTaskManager.UNKNOWN, task)
 	case mesos_v1.TaskState_TASK_STAGING:
 		// NOP, keep task set to "launched".
@@ -398,11 +402,18 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 		// Agent might be dead, master is unsure. Will return to RUNNING state possibly or die.
 	case mesos_v1.TaskState_TASK_KILLED:
 		// Task was killed.
+		s.logger.Emit(
+			logging.INFO,
+			"Task %s on agent %s was killed",
+			taskId.GetValue(),
+			agentId.GetValue(),
+		)
 		s.taskmanager.Delete(task)
 	case mesos_v1.TaskState_TASK_KILLING:
 		// Task is in the process of catching a SIGNAL and shutting down.
 	case mesos_v1.TaskState_TASK_LOST:
 		// Task is unknown to the master and lost. Should reschedule.
+		s.logger.Emit(logging.ALARM, "Task %s was lost", taskId.GetValue())
 	case mesos_v1.TaskState_TASK_RUNNING:
 	case mesos_v1.TaskState_TASK_STARTING:
 		// Task is still starting up. NOOP
@@ -414,8 +425,7 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 	default:
 	}
 
-	status := updateEvent.GetStatus()
-	s.scheduler.Acknowledge(status.GetAgentId(), status.GetTaskId(), status.GetUuid())
+	s.scheduler.Acknowledge(agentId, taskId, status.GetUuid())
 }
 
 func (s *SprintEventController) Message(msg *sched.Event_Message) {
