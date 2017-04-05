@@ -162,7 +162,7 @@ func (s *SprintEventController) restoreTasks() {
 func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	id := subEvent.GetFrameworkId()
 	idVal := id.GetValue()
-	s.scheduler.Info.Id = id
+	s.scheduler.FrameworkInfo.Id = id
 	s.logger.Emit(logging.INFO, "Subscribed with an ID of %s", idVal)
 
 	// We pull the engine directly here to use non-interface methods.
@@ -171,7 +171,7 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	var lease *clientv3.LeaseID
 	var err error
 	for {
-		lease, err = kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout()))
+		lease, err = kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.FrameworkInfo.GetFailoverTimeout()))
 		if err != nil {
 			s.logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
 			time.Sleep(s.config.Persistence.RetryInterval)
@@ -197,7 +197,7 @@ func (s *SprintEventController) Run() {
 	for {
 		id, err := s.kv.Read("/frameworkId")
 		if err == nil {
-			s.scheduler.Info.Id = &mesos_v1.FrameworkID{Value: &id[0]}
+			s.scheduler.FrameworkInfo.Id = &mesos_v1.FrameworkID{Value: &id[0]}
 			break
 		} else {
 			time.Sleep(s.config.Persistence.RetryInterval)
