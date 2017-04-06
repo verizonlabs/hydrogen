@@ -117,6 +117,10 @@ func (m *mockResourceManager) AddFilter(t *mesos_v1.TaskInfo, filters []task.Fil
 	return nil
 }
 
+func (m *mockResourceManager) ClearFilters(t *mesos_v1.TaskInfo) {
+
+}
+
 func (m *mockResourceManager) Assign(task *mesos_v1.TaskInfo) (*mesos_v1.Offer, error) {
 	return &mesos_v1.Offer{}, nil
 }
