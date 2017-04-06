@@ -10,6 +10,7 @@ import (
 	exec "mesos-framework-sdk/include/executor"
 	"mesos-framework-sdk/logging"
 	"time"
+	"mesos-framework-sdk/include/mesos"
 )
 
 const (
@@ -73,7 +74,7 @@ func (d *SprintExecutorController) Listen() {
 		case exec.Event_ERROR:
 			d.Error(t.GetError())
 		case exec.Event_UNKNOWN:
-			d.logger.Emit(logging.ALARM, "Unknown event caught")
+			d.logger.Emit(logging.INFO, "Unknown event caught")
 		}
 	}
 }
@@ -83,6 +84,7 @@ func (d *SprintExecutorController) Subscribed(sub *exec.Event_Subscribed) {
 }
 
 func (d *SprintExecutorController) Launch(launch *exec.Event_Launch) {
+	d.executor.Update(&mesos_v1.TaskStatus{TaskId: launch.GetTask().GetTaskId(), State: mesos_v1.TaskState_TASK_RUNNING.Enum()})
 	fmt.Println(launch.GetTask())
 }
 
@@ -94,6 +96,9 @@ func (d *SprintExecutorController) Kill(kill *exec.Event_Kill) {
 	fmt.Printf("%v, %v\n", kill.GetTaskId(), kill.GetKillPolicy())
 }
 func (d *SprintExecutorController) Acknowledged(acknowledge *exec.Event_Acknowledged) {
+	// The executor is expected to maintain a list of status updates not acknowledged by the agent via the ACKNOWLEDGE events.
+	// The executor is expected to maintain a list of tasks that have not been acknowledged by the agent.
+	// A task is considered acknowledged if at least one of the status updates for this task is acknowledged by the agent.
 	fmt.Printf("%v\n", acknowledge.GetTaskId())
 }
 func (d *SprintExecutorController) Message(message *exec.Event_Message) {

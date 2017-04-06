@@ -331,7 +331,7 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 			if err != nil {
 				// It didn't match any offers.
 				s.logger.Emit(logging.ERROR, err.Error())
-				continue // We should decline.
+				continue
 			}
 
 			t := &mesos_v1.TaskInfo{

@@ -285,6 +285,7 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 					}
 					// Our kill call has worked, delete it from the task queue.
 					a.taskMgr.Delete(t)
+					a.resourceMgr.ClearFilters(t)
 					// Response appropriately.
 					json.NewEncoder(w).Encode(response.Kill{Status: response.KILLED, TaskName: *m.Name})
 					return
@@ -295,6 +296,7 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 			// We run into this case if a task is flapping or unable to launch
 			// or get an appropriate offer.
 			a.taskMgr.Delete(t)
+			a.resourceMgr.ClearFilters(t)
 			json.NewEncoder(w).Encode(response.Kill{Status: response.KILLED, TaskName: *m.Name})
 			return
 		}
