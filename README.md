@@ -4,38 +4,48 @@
 
 High performance Mesos framework based on the v1 streaming API.
 
+Current feature set:
+- Launch, Destroy, Update, and gather state of a container.
+- UCR by default.
+- Configure and use any n number of CNI networks.
+- High availability of the framework by default.
+- Filter/Constraint support to launch on a set of defined nodes.
+- Custom executor support.
+- Docker volume support (e.g. rexray, pxd...)
+
+Upcoming Features:
+(TBD)
+
 ## Epics
 https://jira.verizon.com/browse/BLCS-138
 
-### API ###
+### API Documentation ###
 Base endpoint:
 <pre><code>http://server:port/v1/api/</code></pre>
 
-#### Example ####
+#### Examples ####
 This is not valid JSON to launch but an example enumeration of all options available.
 
 <pre><code>
 {
-  "name": "Example",                     # Application Name.
+  "name": "Example-app",                 # Application Name.
   "resources": { 
-    "cpus": 0.5,
-    "mem": 128.0
+    "cpu": 1.5,                          # Use float values
+    "mem": 128.25
   },
-  "filters": [                           # Used to filter on host or IP via mesos-slave attributes.
+  "filters": [                           # Used to filter mesos attributes
       {
-        "type": "host",
-        "value": ["CoreOS-01"]           # Filter on hostname.
+        "type": "TEXT",                  # TEXT, SET, SCALAR, RANGES
+        "value": [                       # Example here is filtering on a MAC
+          "DEADBEEF00"                   #
+        ]
       },
-      {
-        "type": "ip",
-        "value": ["10.0.2.15"]           # Filter on an IP.
-      }
   ],
   "command": {
-    "cmd": "./executor",                 # Command to run.
+    "cmd": "/bin/echo hello world",      # Command to run.
     "uris": [                            # URI is used to grab the custom executor binary.
       { 
-        "uri": "http://some-mesos-dns.mesos:8081/executor",
+        "uri": "http://some-mesos-dns.mesos:9001/executor",
         "extract": false,                # Should we extract this file when mesos pulls it?
         "execute": true                  # Should we set the executable bit?
       }
@@ -51,7 +61,7 @@ This is not valid JSON to launch but an example enumeration of all options avail
       },
       {                                  # Docker volume specification
         "source": {
-            "type": ,
+            "type": "DOCKER",            # What type of volume is this?
             "docker_volume": { 
               "driver": "rexray",        # Docker volume driver to use
               "name": "test_volume",     # Docker volume name.
@@ -67,7 +77,7 @@ This is not valid JSON to launch but an example enumeration of all options avail
         "protocol": "ipv4"
       },
       {                    
-        "group": ["prod"],               # This interface is also in group "prod".
+        "group": ["QA"],                 # This interface is also in group "prod".
         "label": [{"some_label": "rad"}],# And Add labels.
         "ip": "10.2.1.25",
         "protocol": "ipv4"
@@ -85,38 +95,34 @@ This is not valid JSON to launch but an example enumeration of all options avail
     }]
   },
   "healthcheck": {
-    "endpoint": "localhost:8080"
+    "endpoint": "localhost:8080"         # What endpoint to hit for healthchecks
   },
   "labels": [{
-    "purpose": "Testing"
+    "purpose": "Testing"                 # Labels are supported.
   }]
 }
 </code></pre>
 
 #### Deploy ####
 Deploy an application.
-<pre><code>
-Method: POST
+<pre><code>Method: POST
 /deploy
 </pre></code>
 
 #### Kill ####
 Kill an application.
-<pre><code>
-Method: POST
+<pre><code>Method: DELETE
 /kill
 </pre></code>
 
 #### Update ####
 Update an application.
-<pre><code>
-Method: PUT
+<pre><code>Method: PUT
 /update
 </pre></code>
 
 #### State ####
 Get the state of an application.
-<pre><code>
-Method: GET
+<pre><code>Method: GET
 /state
 </pre></code>
