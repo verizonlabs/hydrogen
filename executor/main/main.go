@@ -79,9 +79,9 @@ func main() {
 
 	port := os.Getenv("EXECUTOR_ENDPOINT_PORT")
 	if port == "" {
+		// Mesos default executor port.
 		port = "5051"
 	}
-
 
 	logger.Emit(logging.INFO, "Endpoint set to "+"http://"+endpoint+":"+port+"/api/v1/executor")
 	c := client.NewClient("http://"+endpoint+":"+port+"/api/v1/executor", logger)
