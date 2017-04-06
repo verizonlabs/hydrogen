@@ -8,9 +8,9 @@ import (
 	e "mesos-framework-sdk/executor"
 	"mesos-framework-sdk/executor/events"
 	exec "mesos-framework-sdk/include/executor"
+	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/logging"
 	"time"
-	"mesos-framework-sdk/include/mesos"
 )
 
 const (
