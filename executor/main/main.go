@@ -10,7 +10,6 @@ import (
 	"os"
 	"sprint/executor/events"
 	"net"
-	"fmt"
 )
 
 var (
@@ -46,8 +45,6 @@ func getInternalNetworkInterface() (net.IP, error){
 				// have to change going forward to support
 				// new networking architecture.
 				if ip[12] == byte(10){
-					// Log here.
-					fmt.Println(ip)
 					return ip, nil
 				}
 			}
