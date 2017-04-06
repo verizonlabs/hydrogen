@@ -107,6 +107,8 @@ This is not valid JSON to launch but an example enumeration of all options avail
 Deploy an application.
 <pre><code>Method: POST
 /deploy
+
+# Example
 curl -X POST sprint.marathon.mesos:8080/v1/api/deploy -d@my-app.json
 </pre></code>
 
@@ -124,6 +126,7 @@ Update an application.
 <pre><code>Method: PUT
 /update
 
+# Example
 curl -X POST sprint.marathon.mesos:8080/v1/api/update -d@my-updated-app.json
 </pre></code>
 
@@ -132,5 +135,6 @@ Get the state of an application.
 <pre><code>Method: GET
 /state
 
+# Example
 curl -X GET sprint.marathon.mesos:8080/v1/api/state?name=test-app
 </pre></code>
