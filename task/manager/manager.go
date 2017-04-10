@@ -23,7 +23,7 @@ All tasks are written only during creation, updates and deletes.
 Reads are reserved for reconciliation calls.
 */
 
-var IS_TESTING = IsTesting()
+var IS_TESTING bool
 
 // NOTE (tim): Put this in the utils package or somewhere else?
 func IsTesting() bool {
@@ -50,6 +50,7 @@ func NewTaskManager(
 	config *scheduler.Configuration,
 	logger logging.Logger) manager.TaskManager {
 
+	IS_TESTING = IsTesting()
 	return &SprintTaskManager{
 		tasks:   cmap,
 		storage: storage,
@@ -89,11 +90,12 @@ func (m *SprintTaskManager) Add(t *mesos_v1.TaskInfo) error {
 
 	for {
 		if err := m.storage.Create(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes())); err != nil {
-			m.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, t.GetName())
-			time.Sleep(m.config.Persistence.RetryInterval)
 			if IS_TESTING {
 				return errors.New("Failed to ADD.")
 			}
+
+			m.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, t.GetName())
+			time.Sleep(m.config.Persistence.RetryInterval)
 			continue
 		}
 		break
@@ -116,11 +118,12 @@ func (m *SprintTaskManager) Delete(task *mesos_v1.TaskInfo) {
 	for {
 		err := m.storage.Delete(TASK_DIRECTORY + task.GetTaskId().GetValue())
 		if err != nil {
-			m.logger.Emit(logging.ERROR, err.Error())
-			time.Sleep(m.config.Persistence.RetryInterval)
 			if IS_TESTING {
 				return
 			}
+
+			m.logger.Emit(logging.ERROR, err.Error())
+			time.Sleep(m.config.Persistence.RetryInterval)
 			continue
 		}
 		break
@@ -184,11 +187,12 @@ func (m *SprintTaskManager) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) 
 
 	for {
 		if err := m.storage.Update(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes())); err != nil {
-			m.logger.Emit(logging.ERROR, "Failed to update task %s with name %s to persistent data store", id, t.GetName())
-			time.Sleep(m.config.Persistence.RetryInterval)
 			if IS_TESTING {
 				return
 			}
+
+			m.logger.Emit(logging.ERROR, "Failed to update task %s with name %s to persistent data store", id, t.GetName())
+			time.Sleep(m.config.Persistence.RetryInterval)
 			continue
 		}
 		break

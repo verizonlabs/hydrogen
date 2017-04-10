@@ -2,7 +2,6 @@ package manager
 
 import (
 	"errors"
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/logging"
@@ -15,11 +14,11 @@ import (
 	"time"
 )
 
-func init() {
-	if os.Getenv("TESTING") != "true" {
-		fmt.Println("TESTING env var must be set to 'true' or else testing will not work properly. Quitting.")
-		os.Exit(1)
-	}
+func TestMain(m *testing.M) {
+	os.Setenv("TESTING", "true")
+	ret := m.Run()
+	os.Unsetenv("TESTING")
+	os.Exit(ret)
 }
 
 type MockStorage struct{}
