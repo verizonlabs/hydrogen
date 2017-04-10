@@ -91,7 +91,6 @@ func (m *SprintTaskManager) Add(t *mesos_v1.TaskInfo) error {
 		if err := m.storage.Create(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes())); err != nil {
 			m.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, t.GetName())
 			time.Sleep(m.config.Persistence.RetryInterval)
-			m.logger.Emit(logging.INFO, "IS TESTING?", IS_TESTING)
 			if IS_TESTING {
 				return errors.New("Failed to ADD.")
 			}
