@@ -181,6 +181,8 @@ var (
 	v         = "test"
 	l         = new(mockLogger)
 	validJSON = fmt.Sprint(`{"name": "test", "resources": {"cpu": 0.5, "mem": 128.0}, "command": {"cmd": "echo hello"}}`)
+	killJSON  = fmt.Sprint(`{"name": "test"}`)
+	junkJSON  = fmt.Sprint(`not even json, how did this even get here`)
 )
 
 // Ensures all components are set correctly when creating the API server.
@@ -210,10 +212,12 @@ func TestApiServer_Handle(t *testing.T) {
 
 func TestApiDeploy(t *testing.T) {
 	srv := NewApiServer(c, s, tm, r, h, v, l)
-	go srv.RunAPI(nil) // default handlers
+	srv.setDefaultHandlers()
+
 	a := strings.NewReader(validJSON)
-	req := httptest.NewRequest("POST", "localhost:9999", a)
+	req := httptest.NewRequest("POST", "http://127.0.0.1:9999/v1/api/deploy", a)
 	w := httptest.NewRecorder()
+
 	srv.deploy(w, req)
 
 	resp := w.Result()
@@ -238,10 +242,9 @@ func TestApiDeploy(t *testing.T) {
 }
 
 func TestApiJunkDeploy(t *testing.T) {
-	// Throw junk at it to fail
 	srv := NewApiServer(c, s, tm, r, h, v, l)
-	go srv.RunAPI(nil) // default handlers
-	req := httptest.NewRequest("POST", "localhost:9999", strings.NewReader(
+	srv.setDefaultHandlers()
+	req := httptest.NewRequest("POST", "localhost:9999/v1/api/deploy", strings.NewReader(
 		fmt.Sprint(`{"test":"something"}`),
 	))
 	w := httptest.NewRecorder()
@@ -265,4 +268,257 @@ func TestApiJunkDeploy(t *testing.T) {
 	if m.Status != response.FAILED {
 		t.FailNow()
 	}
+}
+
+func TestApiUpdate(t *testing.T) {
+	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv.setDefaultHandlers()
+
+	a := strings.NewReader(validJSON)
+	req := httptest.NewRequest("PUT", "http://127.0.0.1:9999/v1/api/update", a)
+	w := httptest.NewRecorder()
+
+	srv.update(w, req)
+
+	resp := w.Result()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Logf("Error %v", err.Error())
+		t.FailNow()
+	}
+
+	var m response.Kill
+	err = json.Unmarshal(body, &m)
+	if err != nil {
+		t.Logf("error unmarshalling %v", err)
+		t.FailNow()
+	}
+
+	if m.Status != response.UPDATE {
+		t.Logf("Task should of been UPDATE but didn't %v", m.Message)
+		t.FailNow()
+	}
+}
+
+func TestApiUpdateFail(t *testing.T) {
+	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv.setDefaultHandlers()
+
+	a := strings.NewReader(junkJSON)
+	req := httptest.NewRequest("PUT", "http://127.0.0.1:9999/v1/api/update", a)
+	w := httptest.NewRecorder()
+
+	srv.update(w, req)
+
+	resp := w.Result()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Logf("Error %v", err.Error())
+		t.FailNow()
+	}
+
+	var m response.Kill
+	err = json.Unmarshal(body, &m)
+	if err != nil {
+		t.Logf("error unmarshalling %v", err)
+		t.FailNow()
+	}
+
+	if m.Status != response.FAILED {
+		t.Logf("Task should of been FAILED but wasn't %v", m.Message)
+		t.FailNow()
+	}
+}
+
+func TestApiKill(t *testing.T) {
+	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv.setDefaultHandlers()
+
+	a := strings.NewReader(killJSON)
+	req := httptest.NewRequest("DELETE", "http://127.0.0.1:9999/v1/api/kill", a)
+	w := httptest.NewRecorder()
+
+	srv.kill(w, req)
+
+	resp := w.Result()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Logf("Error %v", err.Error())
+		t.FailNow()
+	}
+
+	var m response.Kill
+	err = json.Unmarshal(body, &m)
+	if err != nil {
+		t.Logf("error unmarshalling %v", err)
+		t.FailNow()
+	}
+
+	if m.Status != response.KILLED {
+		t.Logf("Task shouldn't of failed but did %v", m.Message)
+		t.FailNow()
+	}
+}
+
+func TestApiKillFail(t *testing.T) {
+	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv.setDefaultHandlers()
+
+	a := strings.NewReader(junkJSON)
+	req := httptest.NewRequest("DELETE", "http://127.0.0.1:9999/v1/api/kill", a)
+	w := httptest.NewRecorder()
+
+	srv.kill(w, req)
+
+	resp := w.Result()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Logf("Error %v", err.Error())
+		t.FailNow()
+	}
+
+	var m response.Kill
+	err = json.Unmarshal(body, &m)
+	if err != nil {
+		t.Logf("error unmarshalling %v", err)
+		t.FailNow()
+	}
+
+	if m.Status != response.FAILED {
+		t.Logf("Task should of failed but didn't:  %v", m.Message)
+		t.FailNow()
+	}
+}
+
+func TestApiState(t *testing.T) {
+	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv.setDefaultHandlers()
+
+	req := httptest.NewRequest("GET", "http://127.0.0.1:9999/v1/api/status?name=test", nil)
+	w := httptest.NewRecorder()
+
+	srv.state(w, req)
+
+	resp := w.Result()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Logf("Error %v", err.Error())
+		t.FailNow()
+	}
+
+	var m response.Deploy
+	err = json.Unmarshal(body, &m)
+	if err != nil {
+		t.Logf("error unmarshalling %v", err)
+		t.FailNow()
+	}
+
+	if m.Status != response.LAUNCHED {
+		t.Logf("Task should of been in state LAUNCHED but wasn't:  %v", m.Message)
+		t.FailNow()
+	}
+}
+
+func TestApiStateFail(t *testing.T) {
+	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv.setDefaultHandlers()
+
+	req := httptest.NewRequest("GET", "http://127.0.0.1:9999/v1/api/status?junkvalue", nil)
+	w := httptest.NewRecorder()
+
+	srv.state(w, req)
+
+	resp := w.Result()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Logf("Error %v", err.Error())
+		t.FailNow()
+	}
+
+	var m response.Deploy
+	err = json.Unmarshal(body, &m)
+	if err != nil {
+		t.Logf("error unmarshalling %v", err)
+		t.FailNow()
+	}
+
+	if m.Status != response.FAILED {
+		t.Logf("API should of returned FAILED but didn't:  %v", m.Message)
+		t.FailNow()
+	}
+}
+
+// TODO (tim): Fix how Stats end point works.
+// Concurrent map needs to be mocks since we cast a type from it in stats to get it's State value.
+/*
+func TestApiStats(t *testing.T) {
+	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv.setDefaultHandlers()
+
+	req := httptest.NewRequest("GET", "http://127.0.0.1:9999/v1/api/stats?name=test", nil)
+	w := httptest.NewRecorder()
+
+	srv.stats(w, req)
+
+	resp := w.Result()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Logf("Error %v", err.Error())
+		t.FailNow()
+	}
+
+	var m response.Deploy
+	err = json.Unmarshal(body, &m)
+	if err != nil {
+		t.Logf("error unmarshalling %v", err)
+		t.FailNow()
+	}
+
+	if m.Status != response.ACCEPTED {
+		t.Logf("API should of returned ACCEPTED but didn't: %v", m.Message)
+		t.FailNow()
+	}
+}
+
+func TestApiStatsFail(t *testing.T) {
+	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv.setDefaultHandlers()
+
+	req := httptest.NewRequest("GET", "http://127.0.0.1:9999/v1/api/stats?junkvalue", nil)
+	w := httptest.NewRecorder()
+
+	srv.stats(w, req)
+
+	resp := w.Result()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Logf("Error %v", err.Error())
+		t.FailNow()
+	}
+
+	var m response.Deploy
+	err = json.Unmarshal(body, &m)
+	if err != nil {
+		t.Logf("error unmarshalling %v", err)
+		t.FailNow()
+	}
+
+	if m.Status != response.FAILED {
+		t.Logf("API should of returned FAILED but didn't: %v", m.Message)
+		t.FailNow()
+	}
+}*/
+
+func TestMain(m *testing.M) {
+	srv := NewApiServer(c, s, tm, r, h, v, l)
+	go srv.RunAPI(nil) // default handlers
+	m.Run()
 }
