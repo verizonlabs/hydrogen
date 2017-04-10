@@ -1,11 +1,17 @@
 package api
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"mesos-framework-sdk/include/mesos"
 	sched "mesos-framework-sdk/include/scheduler"
 	"mesos-framework-sdk/structures"
 	"mesos-framework-sdk/task"
 	"net/http"
+	"net/http/httptest"
+	"sprint/scheduler/api/response"
+	"strings"
 	"testing"
 )
 
@@ -147,7 +153,7 @@ func (m *mockServerConfiguration) Key() string {
 }
 
 func (m *mockServerConfiguration) Port() int {
-	return 0
+	return 9999
 }
 
 func (m *mockServerConfiguration) Path() string {
@@ -166,22 +172,22 @@ func (m *mockServerConfiguration) TLS() bool {
 	return false
 }
 
-var c = new(mockServerConfiguration)
-var s = new(mockScheduler)
-var tm = new(mockTaskManager)
-var r = new(mockResourceManager)
-var h = http.NewServeMux()
-var v = "test"
-var l = new(mockLogger)
+var (
+	c         = new(mockServerConfiguration)
+	s         = new(mockScheduler)
+	tm        = new(mockTaskManager)
+	r         = new(mockResourceManager)
+	h         = http.NewServeMux()
+	v         = "test"
+	l         = new(mockLogger)
+	validJSON = fmt.Sprint(`{"name": "test", "resources": {"cpu": 0.5, "mem": 128.0}, "command": {"cmd": "echo hello"}}`)
+)
 
 // Ensures all components are set correctly when creating the API server.
 func TestNewApiServer(t *testing.T) {
-	t.Parallel()
-
 	srv := NewApiServer(c, s, tm, r, h, v, l)
 	if srv.cfg != c || srv.sched != s || srv.taskMgr != tm || srv.resourceMgr != r ||
 		srv.mux != h || srv.version != v || srv.logger != l {
-
 		t.Fatal("API does not contain the correct components")
 	}
 
@@ -189,8 +195,6 @@ func TestNewApiServer(t *testing.T) {
 
 // Checks if our internal handlers are attached correctly.
 func TestApiServer_Handle(t *testing.T) {
-	t.Parallel()
-
 	srv := NewApiServer(c, s, tm, r, h, v, l)
 	handles := map[string]http.HandlerFunc{
 		"test1": func(w http.ResponseWriter, r *http.Request) {},
@@ -201,5 +205,64 @@ func TestApiServer_Handle(t *testing.T) {
 	h := srv.Handle()
 	if len(h) != len(handles) {
 		t.Fatal("Not all handlers were applied correctly")
+	}
+}
+
+func TestApiDeploy(t *testing.T) {
+	srv := NewApiServer(c, s, tm, r, h, v, l)
+	go srv.RunAPI(nil) // default handlers
+	a := strings.NewReader(validJSON)
+	req := httptest.NewRequest("POST", "localhost:9999", a)
+	w := httptest.NewRecorder()
+	srv.deploy(w, req)
+
+	resp := w.Result()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Logf("Error %v", err.Error())
+		t.FailNow()
+	}
+
+	var m response.Deploy
+	err = json.Unmarshal(body, &m)
+	if err != nil {
+		t.Logf("error unmarshalling %v", err)
+		t.FailNow()
+	}
+
+	if m.Status == response.FAILED {
+		t.Logf("Task shouldn't of failed but did %v", m.Message)
+		t.FailNow()
+	}
+}
+
+func TestApiJunkDeploy(t *testing.T) {
+	// Throw junk at it to fail
+	srv := NewApiServer(c, s, tm, r, h, v, l)
+	go srv.RunAPI(nil) // default handlers
+	req := httptest.NewRequest("POST", "localhost:9999", strings.NewReader(
+		fmt.Sprint(`{"test":"something"}`),
+	))
+	w := httptest.NewRecorder()
+	srv.deploy(w, req)
+
+	resp := w.Result()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Logf("Error %v", err.Error())
+		t.FailNow()
+	}
+
+	var m response.Deploy
+	err = json.Unmarshal(body, &m)
+	if err != nil {
+		t.Logf("error unmarshalling %v", err)
+		t.FailNow()
+	}
+
+	if m.Status != response.FAILED {
+		t.FailNow()
 	}
 }
