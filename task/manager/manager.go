@@ -95,7 +95,6 @@ func (m *SprintTaskManager) Add(t *mesos_v1.TaskInfo) error {
 			if IS_TESTING {
 				return errors.New("Failed to ADD.")
 			}
-			// TODO (tim): This is impossible to test aaron.  We need a way to break out of this loop.
 			continue
 		}
 		break

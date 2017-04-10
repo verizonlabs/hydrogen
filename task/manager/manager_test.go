@@ -2,25 +2,26 @@ package manager
 
 import (
 	"errors"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/structures"
+	"mesos-framework-sdk/task/manager"
+	"os"
 	"sprint/scheduler"
 	"strconv"
 	"testing"
 	"time"
-	"mesos-framework-sdk/task/manager"
-	"os"
-	"fmt"
 )
 
-func init(){
-	if os.Getenv("TESTING") != "true"{
+func init() {
+	if os.Getenv("TESTING") != "true" {
 		fmt.Println("TESTING env var must be set to 'true' or else testing will not work properly. Quitting.")
 		os.Exit(1)
 	}
 }
+
 type MockStorage struct{}
 
 func (m *MockStorage) Create(string, ...string) error {
@@ -405,7 +406,6 @@ func TestTaskManager_DeleteFailWithBrokenStorage(t *testing.T) {
 	testTask := CreateTestTask("testTask")
 	taskManager.Delete(testTask)
 }
-
 
 func TestTaskManager_SetFailWithBrokenStorage(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
