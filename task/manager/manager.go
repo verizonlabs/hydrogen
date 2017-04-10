@@ -10,6 +10,7 @@ import (
 	"mesos-framework-sdk/persistence"
 	"mesos-framework-sdk/structures"
 	"mesos-framework-sdk/task/manager"
+	"os"
 	"sprint/scheduler"
 	"time"
 )
@@ -21,6 +22,16 @@ Sprint Task Manager integrates logging and storage backend-
 All tasks are written only during creation, updates and deletes.
 Reads are reserved for reconciliation calls.
 */
+
+var IS_TESTING = IsTesting()
+
+// NOTE (tim): Put this in the utils package or somewhere else?
+func IsTesting() bool {
+	if os.Getenv("TESTING") == "true" {
+		return true
+	}
+	return false
+}
 
 const (
 	TASK_DIRECTORY = "/tasks/"
@@ -50,13 +61,12 @@ func NewTaskManager(
 func (m *SprintTaskManager) encode(task *mesos_v1.TaskInfo, state mesos_v1.TaskState) (bytes.Buffer, error) {
 	var b bytes.Buffer
 	e := gob.NewEncoder(&b)
+	// Panics on nil values.
 	err := e.Encode(manager.Task{
 		Info:  task,
 		State: state,
 	})
-
 	if err != nil {
-		m.logger.Emit(logging.ERROR, "Failed to encode task")
 		return b, err
 	}
 
@@ -64,6 +74,12 @@ func (m *SprintTaskManager) encode(task *mesos_v1.TaskInfo, state mesos_v1.TaskS
 }
 
 func (m *SprintTaskManager) Add(t *mesos_v1.TaskInfo) error {
+	defer func() {
+		if r := recover(); r != nil {
+			m.logger.Emit(logging.INFO, "Recovered in ADD", r)
+			return
+		}
+	}()
 	// Write forward.
 	encoded, err := m.encode(t, manager.UNKNOWN)
 	if err != nil {
@@ -75,6 +91,9 @@ func (m *SprintTaskManager) Add(t *mesos_v1.TaskInfo) error {
 		if err := m.storage.Create(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes())); err != nil {
 			m.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, t.GetName())
 			time.Sleep(m.config.Persistence.RetryInterval)
+			if IS_TESTING {
+				return errors.New("Failed to ADD.")
+			}
 			continue
 		}
 		break
@@ -99,6 +118,9 @@ func (m *SprintTaskManager) Delete(task *mesos_v1.TaskInfo) {
 		if err != nil {
 			m.logger.Emit(logging.ERROR, err.Error())
 			time.Sleep(m.config.Persistence.RetryInterval)
+			if IS_TESTING {
+				return
+			}
 			continue
 		}
 		break
@@ -164,6 +186,9 @@ func (m *SprintTaskManager) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) 
 		if err := m.storage.Update(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes())); err != nil {
 			m.logger.Emit(logging.ERROR, "Failed to update task %s with name %s to persistent data store", id, t.GetName())
 			time.Sleep(m.config.Persistence.RetryInterval)
+			if IS_TESTING {
+				return
+			}
 			continue
 		}
 		break
