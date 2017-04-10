@@ -312,9 +312,9 @@ func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
 		t, err := a.taskMgr.Get(&name)
 		if err != nil {
 			json.NewEncoder(w).Encode(struct {
-				Status string
+				Status   string
 				TaskName string
-				Message string
+				Message  string
 			}{
 				response.FAILED,
 				name,
@@ -324,9 +324,9 @@ func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
 		}
 		task := a.taskMgr.Tasks().Get(t.GetName())
 		json.NewEncoder(w).Encode(struct {
-			Status string
+			Status   string
 			TaskName string
-			State string
+			State    string
 		}{
 			response.ACCEPTED,
 			t.GetName(),

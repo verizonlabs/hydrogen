@@ -9,7 +9,7 @@ import (
 
 // Holds configuration for all of our components.
 type Configuration struct {
-	Persistence *persistenceConfiguration
+	Persistence *PersistenceConfiguration
 	Leader      *leaderConfiguration
 	APIServer   *apiConfiguration
 	FileServer  *fileServerConfiguration
@@ -17,7 +17,7 @@ type Configuration struct {
 }
 
 // Persistence connection configuration.
-type persistenceConfiguration struct {
+type PersistenceConfiguration struct {
 	Endpoints        string
 	Timeout          time.Duration
 	KeepaliveTime    time.Duration
@@ -69,7 +69,7 @@ type schedulerConfiguration struct {
 // Stores and initializes all of our configuration.
 func (c *Configuration) Initialize() *Configuration {
 	return &Configuration{
-		Persistence: new(persistenceConfiguration).initialize(),
+		Persistence: new(PersistenceConfiguration).initialize(),
 		Leader:      new(leaderConfiguration).initialize(),
 		APIServer:   new(apiConfiguration).initialize(),
 		FileServer:  new(fileServerConfiguration).initialize(),
@@ -78,7 +78,7 @@ func (c *Configuration) Initialize() *Configuration {
 }
 
 // Applies default configuration for our persistence connection.
-func (c *persistenceConfiguration) initialize() *persistenceConfiguration {
+func (c *PersistenceConfiguration) initialize() *PersistenceConfiguration {
 	flag.StringVar(&c.Endpoints, "persistence.endpoints", "http://127.0.0.1:2379", `Comma-separated list of
 											       storage endpoints`)
 	flag.DurationVar(&c.Timeout, "persistence.timeout", 2*time.Second, "Initial storage system connection timeout")

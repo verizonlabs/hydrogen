@@ -7,14 +7,14 @@ import (
 	"mesos-framework-sdk/include/executor"
 	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/logging"
+	"net"
 	"os"
 	"sprint/executor/events"
-	"net"
 )
 
 var (
 	IPv4Bits = 32
-	Subnet = 24
+	Subnet   = 24
 )
 
 // Gathers the internal network as defined.
@@ -23,7 +23,7 @@ var (
 // NOTE (tim): Talk to mike c about how the new
 // /25 networks will work, as well as overlay
 // networks.
-func getInternalNetworkInterface() (net.IP, error){
+func getInternalNetworkInterface() (net.IP, error) {
 	interfaces, err := net.InterfaceAddrs()
 	if err != nil {
 		return nil, err
@@ -44,7 +44,7 @@ func getInternalNetworkInterface() (net.IP, error){
 				// NOTE (tim): This magic 10 number will
 				// have to change going forward to support
 				// new networking architecture.
-				if ip[12] == byte(10){
+				if ip[12] == byte(10) {
 					return ip, nil
 				}
 			}
@@ -67,7 +67,7 @@ func main() {
 	if endpoint == "" {
 		ip, err := getInternalNetworkInterface()
 		if err != nil {
-			logger.Emit(logging.ERROR, "Unable to find an internal IP address, " +
+			logger.Emit(logging.ERROR, "Unable to find an internal IP address, "+
 				"subnet size %v and address family of %v bits", Subnet, IPv4Bits)
 			os.Exit(1)
 		}
