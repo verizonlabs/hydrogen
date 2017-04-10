@@ -8,9 +8,9 @@ import (
 	e "mesos-framework-sdk/executor"
 	"mesos-framework-sdk/executor/events"
 	exec "mesos-framework-sdk/include/executor"
+	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/logging"
 	"time"
-	"mesos-framework-sdk/include/mesos"
 )
 
 const (
@@ -84,8 +84,11 @@ func (d *SprintExecutorController) Subscribed(sub *exec.Event_Subscribed) {
 }
 
 func (d *SprintExecutorController) Launch(launch *exec.Event_Launch) {
-	d.executor.Update(&mesos_v1.TaskStatus{TaskId: launch.GetTask().GetTaskId(), State: mesos_v1.TaskState_TASK_RUNNING.Enum()})
-	fmt.Println(launch.GetTask())
+	// Send starting state.
+	d.executor.Update(&mesos_v1.TaskStatus{TaskId: launch.GetTask().GetTaskId(), State: mesos_v1.TaskState_TASK_STARTING.Enum()})
+	// Validate task info.
+	//
+	// Send update that task is running.
 }
 
 func (d *SprintExecutorController) LaunchGroup(launchGroup *exec.Event_LaunchGroup) {

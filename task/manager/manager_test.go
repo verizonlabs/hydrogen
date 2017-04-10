@@ -9,8 +9,18 @@ import (
 	"sprint/scheduler"
 	"strconv"
 	"testing"
+	"time"
+	"mesos-framework-sdk/task/manager"
+	"os"
+	"fmt"
 )
 
+func init(){
+	if os.Getenv("TESTING") != "true"{
+		fmt.Println("TESTING env var must be set to 'true' or else testing will not work properly. Quitting.")
+		os.Exit(1)
+	}
+}
 type MockStorage struct{}
 
 func (m *MockStorage) Create(string, ...string) error {
@@ -364,7 +374,6 @@ func TestTaskManager_HasTaskFail(t *testing.T) {
 
 // TODO (tim): This will never pass, logic in manager is to retry forever.
 // Need to fix retry logic in manager
-/*
 func TestTaskManager_HasTaskFailWithBrokenStorage(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
 	storage := &MockBrokenStorage{}
@@ -382,16 +391,45 @@ func TestTaskManager_HasTaskFailWithBrokenStorage(t *testing.T) {
 		t.FailNow()
 	}
 }
-*/
 
-/*
-func TestTaskManager_ClearFilters(t *testing.T) {
+func TestTaskManager_DeleteFailWithBrokenStorage(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &MockStorage{}
-	config := &scheduler.Configuration{}
+	storage := &MockBrokenStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			RetryInterval: 1 * time.Second,
+		},
+	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	testTask := CreateTestTask("testTask")
-	testTask1 := CreateTestTask("testTask1")
-	testTask2 := CreateTestTask("testTask2")
-}*/
+	taskManager.Delete(testTask)
+}
+
+
+func TestTaskManager_SetFailWithBrokenStorage(t *testing.T) {
+	cmap := structures.NewConcurrentMap()
+	storage := &MockBrokenStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			RetryInterval: 1 * time.Second,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	testTask := CreateTestTask("testTask")
+	taskManager.Set(manager.FAILED, testTask)
+}
+
+func TestTaskManager_EncodeFailWithBrokenStorage(t *testing.T) {
+	cmap := structures.NewConcurrentMap()
+	storage := &MockBrokenStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			RetryInterval: 1 * time.Second,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	taskManager.Add(nil) // Panic will fail testing if it occurs.
+}
