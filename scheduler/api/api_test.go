@@ -173,16 +173,18 @@ func (m *mockServerConfiguration) TLS() bool {
 }
 
 var (
-	c         = new(mockServerConfiguration)
-	s         = new(mockScheduler)
-	tm        = new(mockTaskManager)
-	r         = new(mockResourceManager)
-	h         = http.NewServeMux()
-	v         = "test"
-	l         = new(mockLogger)
-	validJSON = fmt.Sprint(`{"name": "test", "resources": {"cpu": 0.5, "mem": 128.0}, "command": {"cmd": "echo hello"}}`)
-	killJSON  = fmt.Sprint(`{"name": "test"}`)
-	junkJSON  = fmt.Sprint(`not even json, how did this even get here`)
+	c              = new(mockServerConfiguration)
+	s              = new(mockScheduler)
+	tm             = new(mockTaskManager)
+	r              = new(mockResourceManager)
+	h              = http.NewServeMux()
+	v              = "test"
+	l              = new(mockLogger)
+	validJSON      = fmt.Sprint(`{"name": "test", "resources": {"cpu": 0.5, "mem": 128.0}, "command": {"cmd": "echo hello"}}`)
+	killJSON       = fmt.Sprint(`{"name": "test"}`)
+	junkJSON       = fmt.Sprint(`not even json, how did this even get here`)
+	filtersJSON    = fmt.Sprint(`{"name": "test", "filters": [{"type": "TEXT", "value": ["tester"]}], "resources": {"cpu": 0.5, "mem": 128.0}, "command": {"cmd": "echo hello"}}`)
+	badFiltersJSON = fmt.Sprint(`{"name": "test", "filters": [{"type": "not real", "value": "tester"}], "resources": {"cpu": 0.5, "mem": 128.0}, "command": {"cmd": "echo hello"}}`)
 )
 
 // Ensures all components are set correctly when creating the API server.
@@ -192,7 +194,14 @@ func TestNewApiServer(t *testing.T) {
 		srv.mux != h || srv.version != v || srv.logger != l {
 		t.Fatal("API does not contain the correct components")
 	}
+}
 
+func TestNewApiServerRun(t *testing.T) {
+	srv := NewApiServer(c, s, tm, r, h, v, l)
+	if srv.cfg != c || srv.sched != s || srv.taskMgr != tm || srv.resourceMgr != r ||
+		srv.mux != h || srv.version != v || srv.logger != l {
+		t.Fatal("API does not contain the correct components")
+	}
 }
 
 // Checks if our internal handlers are attached correctly.
@@ -450,6 +459,128 @@ func TestApiStateFail(t *testing.T) {
 
 	if m.Status != response.FAILED {
 		t.Logf("API should of returned FAILED but didn't:  %v", m.Message)
+		t.FailNow()
+	}
+}
+
+func TestApiFailWrongMethod(t *testing.T) {
+	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv.setDefaultHandlers()
+
+	req := httptest.NewRequest("GET", "http://127.0.0.1:9999/v1/api/kill", nil)
+	w := httptest.NewRecorder()
+
+	srv.kill(w, req)
+
+	resp := w.Result()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Logf("Error %v", err.Error())
+		t.FailNow()
+	}
+
+	var m response.Deploy
+	err = json.Unmarshal(body, &m)
+	if err != nil {
+		t.Logf("error unmarshalling %v", err)
+		t.FailNow()
+	}
+
+	if m.Status != response.FAILED {
+		t.Logf("API should of returned FAILED but didn't:  %v", m.Message)
+		t.FailNow()
+	}
+}
+
+func TestApiDeployWithNil(t *testing.T) {
+	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv.setDefaultHandlers()
+
+	req := httptest.NewRequest("POST", "http://127.0.0.1:9999/v1/api/deploy", nil)
+	w := httptest.NewRecorder()
+
+	srv.deploy(w, req)
+
+	resp := w.Result()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Logf("Error %v", err.Error())
+		t.FailNow()
+	}
+
+	var m response.Deploy
+	err = json.Unmarshal(body, &m)
+	if err != nil {
+		t.Logf("error unmarshalling %v", err)
+		t.FailNow()
+	}
+
+	if m.Status != response.FAILED {
+		t.Logf("Task shouldn't of failed but did %v", m.Message)
+		t.FailNow()
+	}
+}
+
+func TestApiDeployWithFilters(t *testing.T) {
+	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv.setDefaultHandlers()
+
+	a := strings.NewReader(filtersJSON)
+	req := httptest.NewRequest("POST", "http://127.0.0.1:9999/v1/api/deploy", a)
+	w := httptest.NewRecorder()
+
+	srv.deploy(w, req)
+
+	resp := w.Result()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Logf("Error %v", err.Error())
+		t.FailNow()
+	}
+
+	var m response.Deploy
+	err = json.Unmarshal(body, &m)
+	if err != nil {
+		t.Logf("error unmarshalling %v", err)
+		t.FailNow()
+	}
+
+	if m.Status == response.FAILED {
+		t.Logf("Task shouldn't of failed but did %v", m.Message)
+		t.FailNow()
+	}
+}
+
+func TestApiDeployWithFiltersFail(t *testing.T) {
+	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv.setDefaultHandlers()
+
+	a := strings.NewReader(badFiltersJSON)
+	req := httptest.NewRequest("POST", "http://127.0.0.1:9999/v1/api/deploy", a)
+	w := httptest.NewRecorder()
+
+	srv.deploy(w, req)
+
+	resp := w.Result()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Logf("Error %v", err.Error())
+		t.FailNow()
+	}
+
+	var m response.Deploy
+	err = json.Unmarshal(body, &m)
+	if err != nil {
+		t.Logf("error unmarshalling %v", err)
+		t.FailNow()
+	}
+
+	if m.Status != response.FAILED {
+		t.Logf("Task should of failed but didn't %v", m.Message)
 		t.FailNow()
 	}
 }
