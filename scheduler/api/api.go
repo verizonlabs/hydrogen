@@ -302,6 +302,7 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 		}
 		// If we get here, there was no name passed in and the kill function failed.
 		json.NewEncoder(w).Encode(response.Kill{Status: response.FAILED, TaskName: *m.Name})
+		return
 	})
 }
 
@@ -329,15 +330,19 @@ func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		task := a.taskMgr.Tasks().Get(t.GetName())
-		json.NewEncoder(w).Encode(struct {
-			Status   string
-			TaskName string
-			State    string
-		}{
-			response.ACCEPTED,
-			t.GetName(),
-			task.(sdkTaskManager.Task).State.String(),
-		})
+
+		switch task.(type) {
+		case sdkTaskManager.Task:
+			json.NewEncoder(w).Encode(struct {
+				Status   string
+				TaskName string
+				State    string
+			}{
+				response.ACCEPTED,
+				t.GetName(),
+				task.(sdkTaskManager.Task).State.String(),
+			})
+		}
 		return
 	})
 }
