@@ -35,11 +35,19 @@ This is not valid JSON to launch but an example enumeration of all options avail
   },
   "filters": [                           # Used to filter mesos attributes
       {
-        "type": "TEXT",                  # TEXT, SET, SCALAR, RANGES
+        "type": "TEXT",                  # TEXT, SET, SCALAR, RANGES, STRATEGY
         "value": [                       # Example here is filtering on a MAC
-          "DEADBEEF00"                   #
+          "DEADBEEF00"
         ]
       },
+      {
+        "type": "STRATEGY",
+        "value": ["mux"]                 # Multiplex many tasks onto a single offer
+      },
+      {
+        "type": "STRATEGY",
+        "value": ["single"]              # Force a 1:1 task:offer mapping
+      }
   ],
   "command": {
     "cmd": "/bin/echo hello world",      # Command to run.

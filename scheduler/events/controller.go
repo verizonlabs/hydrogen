@@ -316,41 +316,43 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 
 	// Update our resources in the manager
 	s.resourcemanager.AddOffers(offerEvent.GetOffers())
-
-	offerIDs := []*mesos_v1.OfferID{}
-	operations := []*mesos_v1.Offer_Operation{}
+	accepts := make(map[*mesos_v1.OfferID][]*mesos_v1.Offer_Operation)
 
 	for _, mesosTask := range queued {
-		// See if we have resources.
-		if s.resourcemanager.HasResources() {
-			offer, err := s.resourcemanager.Assign(mesosTask)
-			if err != nil {
-				// It didn't match any offers.
-				s.logger.Emit(logging.ERROR, err.Error())
-				continue
-			}
-
-			t := &mesos_v1.TaskInfo{
-				Name:      mesosTask.Name,
-				TaskId:    mesosTask.GetTaskId(),
-				AgentId:   offer.GetAgentId(),
-				Command:   mesosTask.GetCommand(),
-				Container: mesosTask.GetContainer(),
-				Resources: mesosTask.GetResources(),
-			}
-
-			// TODO (aaron) investigate this state further as it might cause side effects.
-			// this is artificially set to STAGING, it does not correspond to when Mesos sets this task as STAGING.
-			// for example other parts of the codebase may check for STAGING and this would cause it to be set too early.
-			s.TaskManager().Set(sdkTaskManager.STAGING, t)
-
-			offerIDs = append(offerIDs, offer.Id)
-			// TODO (tim) The offer operations will need to be parsed for volume mounting and etc.
-			operations = append(operations, resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
+		if !s.resourcemanager.HasResources() {
+			break
 		}
+
+		offer, err := s.resourcemanager.Assign(mesosTask)
+		if err != nil {
+			// It didn't match any offers.
+			s.logger.Emit(logging.ERROR, err.Error())
+			continue // We should decline.
+		}
+
+		t := &mesos_v1.TaskInfo{
+			Name:      mesosTask.Name,
+			TaskId:    mesosTask.GetTaskId(),
+			AgentId:   offer.GetAgentId(),
+			Command:   mesosTask.GetCommand(),
+			Container: mesosTask.GetContainer(),
+			Resources: mesosTask.GetResources(),
+		}
+
+		// TODO (aaron) investigate this state further as it might cause side effects.
+		// this is artificially set to STAGING, it does not correspond to when Mesos sets this task as STAGING.
+		// for example other parts of the codebase may check for STAGING and this would cause it to be set too early.
+		s.TaskManager().Set(sdkTaskManager.STAGING, t)
+		accepts[offer.Id] = append(accepts[offer.Id], resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
 	}
 
-	s.scheduler.Accept(offerIDs, operations, nil)
+	// Multiplex our tasks onto as few offers as possible and launch them all.
+	for id, launches := range accepts {
+
+		// TODO (tim) The offer operations will need to be parsed for volume mounting and etc.)
+		s.scheduler.Accept([]*mesos_v1.OfferID{id}, launches, nil)
+	}
+
 	// Resource manager pops offers when they are accepted
 	// Offers() returns a list of what is left, therefore whatever is left is to be rejected.
 	s.declineOffers(s.ResourceManager().Offers(), refuseSeconds)
