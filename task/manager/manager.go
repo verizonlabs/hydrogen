@@ -45,7 +45,7 @@ type SprintTaskManager struct {
 }
 
 func NewTaskManager(
-	cmap *structures.ConcurrentMap,
+	cmap structures.DistributedMap,
 	storage persistence.Storage,
 	config *scheduler.Configuration,
 	logger logging.Logger) manager.TaskManager {
