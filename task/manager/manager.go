@@ -38,7 +38,7 @@ const (
 )
 
 type SprintTaskManager struct {
-	tasks   *structures.ConcurrentMap
+	tasks   structures.DistributedMap
 	storage persistence.Storage
 	config  *scheduler.Configuration
 	logger  logging.Logger
@@ -171,7 +171,7 @@ func (m *SprintTaskManager) TotalTasks() int {
 	return m.tasks.Length()
 }
 
-func (m *SprintTaskManager) Tasks() *structures.ConcurrentMap {
+func (m *SprintTaskManager) Tasks() structures.DistributedMap {
 	return m.tasks
 }
 
