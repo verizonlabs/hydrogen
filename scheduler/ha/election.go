@@ -14,7 +14,6 @@ func LeaderElection(c *scheduler.Configuration, s events.SchedulerEvent, kv pers
 	e := s.(*sprintEvents.SprintEventController)
 
 	for {
-
 		// This will only set us as the leader if there isn't an already existing leader.
 		e.CreateLeader()
 
