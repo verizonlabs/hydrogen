@@ -128,7 +128,7 @@ func (s *SprintEventController) Election() {
 
 			// Block here until we lose connection to the leader.
 			// Once the connection has been lost elect a new leader.
-			err := s.leaderClient()
+			err := s.leaderClient(leader)
 
 			// Only delete the key if we've lost the connection, not timed out.
 			// This conditional requires Go 1.6+
@@ -183,12 +183,14 @@ func (s *SprintEventController) leaderServer() {
 }
 
 // Connects to the leader and determines if and when we should start the leader election process.
-func (s *SprintEventController) leaderClient() error {
-	conn, err := net.DialTimeout(s.config.Leader.AddressFamily, "["+s.config.Leader.IP+"]:"+
+func (s *SprintEventController) leaderClient(leader string) error {
+	conn, err := net.DialTimeout(s.config.Leader.AddressFamily, "["+leader+"]:"+
 		strconv.Itoa(s.config.Leader.ServerPort), 2*time.Second)
 	if err != nil {
 		return err
 	}
+
+	s.logger.Emit(logging.INFO, "Successfully connected to leader %s", leader)
 
 	// TODO build out some config to use for setting the keep alive period here
 	tcp := conn.(*net.TCPConn)
@@ -383,7 +385,7 @@ func (s *SprintEventController) Run() {
 			// If we wrongly think we are the leader and try to subscribe when there's already a leader then we will disconnect the leader.
 			// Both the leader and the incorrectly determined new leader will continue to disconnect each other.
 			if leader[0] != s.config.Leader.IP {
-				s.logger.Emit(logging.ERROR, "We are not the leader so we should not be subscribing."+
+				s.logger.Emit(logging.ERROR, "We are not the leader so we should not be subscribing. "+
 					"This is most likely caused by a network partition between the leader and standbys")
 				os.Exit(1)
 			}
