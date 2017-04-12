@@ -16,7 +16,6 @@ import (
 	"sprint/scheduler"
 	"sprint/scheduler/api"
 	"sprint/scheduler/events"
-	"sprint/scheduler/ha"
 	sprintTaskManager "sprint/task/manager"
 	"strings"
 )
@@ -54,9 +53,8 @@ func main() {
 	)
 	executorSrv := file.NewExecutorServer(execSrvCfg, logger)
 
-	logger.Emit(logging.INFO, "Starting executor file server")
-
 	// Executor server serves up our custom executor binary, if any.
+	logger.Emit(logging.INFO, "Starting executor file server")
 	go executorSrv.Serve()
 
 	// Used to listen for events coming from mesos master to our scheduler.
@@ -69,6 +67,7 @@ func main() {
 		config.Persistence.KeepaliveTime,
 		config.Persistence.KeepaliveTimeout,
 	)
+
 	// Storage Engine
 	engine := etcd.NewEtcdEngine(kv)
 
@@ -79,20 +78,13 @@ func main() {
 		config,
 		logger,
 	) // Manages our tasks
+
 	r := manager.NewDefaultResourceManager()                      // Manages resources from the cluster
 	c := client.NewClient(config.Scheduler.MesosEndpoint, logger) // Manages HTTP calls
 	s := sched.NewDefaultScheduler(c, frameworkInfo, logger)      // Manages how to route and schedule tasks.
 
 	// Event controller manages scheduler events and how they are handled.
 	e := events.NewSprintEventController(config, s, t, r, eventChan, engine, logger)
-
-	logger.Emit(logging.INFO, "Starting leader election socket server")
-	go ha.LeaderServer(config, logger)
-
-	// Block here until we either become a leader or a standby.
-	// If we are the leader we break out and continue to execute the rest of the scheduler.
-	// If we are a standby then we connect to the leader and wait for the process to start over again.
-	ha.LeaderElection(config, e, engine, logger)
 
 	logger.Emit(logging.INFO, "Starting API server")
 
@@ -103,9 +95,12 @@ func main() {
 		"",
 		config.APIServer.Port,
 	)
+
 	apiSrv := api.NewApiServer(apiSrvCfg, s, t, r, http.NewServeMux(), API_VERSION, logger)
 	go apiSrv.RunAPI(nil) // nil means to use default handlers.
 
-	// Run our event controller to subscribe to mesos master and start listening for events.
+	// Run our event controller
+	// Runs an election for the leader
+	// and then subscribes to mesos master to start listening for events.
 	e.Run()
 }
