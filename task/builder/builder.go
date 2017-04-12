@@ -52,10 +52,8 @@ func Application(t *task.ApplicationJSON, lgr logging.Logger) (*mesos_v1.TaskInf
 	if err != nil {
 		return nil, err
 	}
-	uuid, err := utils.UuidToString(utils.Uuid())
-	if err != nil {
-		lgr.Emit(logging.ERROR, err.Error())
-	}
+
+	uuid := utils.UuidAsString()
 
 	labels, err := labels.ParseLabels(t.Labels)
 	if err != nil {

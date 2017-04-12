@@ -26,7 +26,7 @@ func createResources(cpu, mem float64) (r []*mesos_v1.Resource) {
 
 func createOffers(num int) (o []*mesos_v1.Offer) {
 	for i := 0; i < num; i++ {
-		u, _ := utils.UuidToString(utils.Uuid())
+		u := utils.UuidAsString()
 		o = append(o, &mesos_v1.Offer{
 			Id:        &mesos_v1.OfferID{Value: proto.String(u)},
 			Resources: createResources(10.0, 4096.0),
