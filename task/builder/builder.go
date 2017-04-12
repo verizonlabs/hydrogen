@@ -37,7 +37,7 @@ func Application(t *task.ApplicationJSON, lgr logging.Logger) (*mesos_v1.TaskInf
 	cmd, err := command.ParseCommandInfo(t.Command)
 	if err != nil {
 		// If we don't have a commandInfo, it's invalid.
-		//return nil, err
+		return nil, err
 	}
 
 	// Parse resources
@@ -58,6 +58,7 @@ func Application(t *task.ApplicationJSON, lgr logging.Logger) (*mesos_v1.TaskInf
 	labels, err := labels.ParseLabels(t.Labels)
 	if err != nil {
 		lgr.Emit(logging.ERROR, err.Error())
+		return nil, err
 	}
 
 	name := t.Name
