@@ -82,6 +82,8 @@ func (s *SprintEventController) Status() (ha.Status, error) {
 
 // Implements our logic for either listening or leading.
 func (s *SprintEventController) Communicate() {
+	// NOTE (tim): Using a generic Listener might be better so we don't have to assume TCP
+	// for all implementations in future?
 	addr, err := net.ResolveTCPAddr(s.config.Leader.AddressFamily, "["+s.config.Leader.IP+"]:"+
 		strconv.Itoa(s.config.Leader.ServerPort))
 	if err != nil {
@@ -160,7 +162,7 @@ func (s *SprintEventController) leaderClient(leader string) error {
 
 	s.logger.Emit(logging.INFO, "Successfully connected to leader %s", leader)
 
-	// TODO build out some config to use for setting the keep alive period here
+	// NOTE (tim): This cast has the potential to panic.
 	tcp := conn.(*net.TCPConn)
 	if err := tcp.SetKeepAlive(true); err != nil {
 		return err
