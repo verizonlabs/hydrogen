@@ -150,38 +150,6 @@ func (s *SprintEventController) Election() {
 	}
 }
 
-// Handles connections from other framework instances that try and determine the state of the leader.
-// Used in coordination with determining if and when we need to perform leader election.
-func (s *SprintEventController) leaderServer() {
-	addr, err := net.ResolveTCPAddr(s.config.Leader.AddressFamily, "["+s.config.Leader.IP+"]:"+strconv.Itoa(s.config.Leader.ServerPort))
-	if err != nil {
-		s.logger.Emit(logging.ERROR, "Leader server exiting: %s", err.Error())
-		return
-	}
-
-	tcp, err := net.ListenTCP(s.config.Leader.AddressFamily, addr)
-	if err != nil {
-		s.logger.Emit(logging.ERROR, "Leader server exiting: %s", err.Error())
-		return
-	}
-
-	for {
-		// Block here until we get a new connection.
-		// We don't want to do anything with the stream so move on without spawning a thread to handle the connection.
-		conn, err := tcp.AcceptTCP()
-		if err != nil {
-			s.logger.Emit(logging.ERROR, "Failed to accept client: %s", err.Error())
-			time.Sleep(s.config.Leader.ServerRetry)
-			continue
-		}
-
-		// TODO build out some config to use for setting the keep alive period here
-		if err := conn.SetKeepAlive(true); err != nil {
-			s.logger.Emit(logging.ERROR, "Failed to set keep alive: %s", err.Error())
-		}
-	}
-}
-
 // Connects to the leader and determines if and when we should start the leader election process.
 func (s *SprintEventController) leaderClient(leader string) error {
 	conn, err := net.DialTimeout(s.config.Leader.AddressFamily, "["+leader+"]:"+
