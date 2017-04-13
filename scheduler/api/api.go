@@ -285,6 +285,7 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 					}
 					// Our kill call has worked, delete it from the task queue.
 					a.taskMgr.Delete(t)
+					a.resourceMgr.ClearFilters(t)
 					// Response appropriately.
 					json.NewEncoder(w).Encode(response.Kill{Status: response.KILLED, TaskName: *m.Name})
 					return
@@ -295,24 +296,54 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 			// We run into this case if a task is flapping or unable to launch
 			// or get an appropriate offer.
 			a.taskMgr.Delete(t)
+			a.resourceMgr.ClearFilters(t)
 			json.NewEncoder(w).Encode(response.Kill{Status: response.KILLED, TaskName: *m.Name})
 			return
 		}
 		// If we get here, there was no name passed in and the kill function failed.
 		json.NewEncoder(w).Encode(response.Kill{Status: response.FAILED, TaskName: *m.Name})
+		return
 	})
 }
 
-// TODO (tim): Get state of mesos task and return it.
 func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
 	a.methodFilter(w, r, []string{"GET"}, func() {
 		name := r.URL.Query().Get("name")
-
-		_, err := a.taskMgr.Get(&name)
-		if err != nil {
-			fmt.Fprintf(w, "Task not found, error %v", err.Error())
+		if name == "" {
+			json.NewEncoder(w).Encode(response.Deploy{
+				Status:  response.FAILED,
+				Message: "No name was found in URL params.",
+			})
 			return
 		}
+		t, err := a.taskMgr.Get(&name)
+		if err != nil {
+			json.NewEncoder(w).Encode(struct {
+				Status   string
+				TaskName string
+				Message  string
+			}{
+				response.FAILED,
+				name,
+				"Failed to get state for task.",
+			})
+			return
+		}
+		task := a.taskMgr.Tasks().Get(t.GetName())
+
+		switch task.(type) {
+		case sdkTaskManager.Task:
+			json.NewEncoder(w).Encode(struct {
+				Status   string
+				TaskName string
+				State    string
+			}{
+				response.ACCEPTED,
+				t.GetName(),
+				task.(sdkTaskManager.Task).State.String(),
+			})
+		}
+		return
 	})
 }
 
@@ -320,7 +351,13 @@ func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
 func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 	a.methodFilter(w, r, []string{"GET"}, func() {
 		name := r.URL.Query().Get("name")
-
+		if name == "" {
+			json.NewEncoder(w).Encode(response.Deploy{
+				Status:  response.FAILED,
+				Message: "No name was found in URL params.",
+			})
+			return
+		}
 		_, err := a.taskMgr.Get(&name)
 		if err != nil {
 			json.NewEncoder(w).Encode(response.Deploy{
@@ -337,6 +374,7 @@ func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 		for _, task := range queued {
 			if task.GetName() == name {
 				json.NewEncoder(w).Encode(response.Kill{Status: response.QUEUED, TaskName: name})
+				return
 			}
 		}
 

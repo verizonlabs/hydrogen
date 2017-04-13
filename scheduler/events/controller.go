@@ -9,6 +9,7 @@ import (
 	"encoding/gob"
 	"github.com/coreos/etcd/clientv3"
 	"github.com/golang/protobuf/proto"
+	"mesos-framework-sdk/ha"
 	"mesos-framework-sdk/include/mesos"
 	sched "mesos-framework-sdk/include/scheduler"
 	"mesos-framework-sdk/logging"
@@ -17,10 +18,12 @@ import (
 	"mesos-framework-sdk/resources"
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
-	"mesos-framework-sdk/scheduler/events"
 	sdkTaskManager "mesos-framework-sdk/task/manager"
+	"mesos-framework-sdk/utils"
+	"net"
 	"os"
 	sprintSched "sprint/scheduler"
+	"strconv"
 	"time"
 )
 
@@ -40,6 +43,8 @@ type SprintEventController struct {
 	kv              persistence.Storage
 	logger          logging.Logger
 	frameworkLease  *clientv3.LeaseID
+	status          ha.Status
+	name            string
 }
 
 // NOTE (tim): Cutting this signature down with newlines to make it easier to read.
@@ -51,7 +56,7 @@ func NewSprintEventController(
 	resourceManager *manager.DefaultResourceManager,
 	eventChan chan *sched.Event,
 	kv persistence.Storage,
-	logger logging.Logger) events.SchedulerEvent {
+	logger logging.Logger) *SprintEventController {
 
 	return &SprintEventController{
 		config:          config,
@@ -61,6 +66,115 @@ func NewSprintEventController(
 		resourcemanager: resourceManager,
 		kv:              kv,
 		logger:          logger,
+		status:          ha.Election,
+		name:            utils.UuidAsString(),
+	}
+}
+
+// This satisfies the Cluster Node Interface
+func (s *SprintEventController) Name() (string, error) {
+	return s.name, nil
+}
+
+func (s *SprintEventController) Status() (ha.Status, error) {
+	return s.status, nil
+}
+
+// Implements our logic for either listening or leading.
+func (s *SprintEventController) Communicate() {
+	// NOTE (tim): Using a generic Listener might be better so we don't have to assume TCP
+	// for all implementations in future?
+	addr, err := net.ResolveTCPAddr(s.config.Leader.AddressFamily, "["+s.config.Leader.IP+"]:"+
+		strconv.Itoa(s.config.Leader.ServerPort))
+	if err != nil {
+		s.logger.Emit(logging.ERROR, "Leader server exiting: %s", err.Error())
+		return
+	}
+
+	// We start listening for connections.
+	tcp, err := net.ListenTCP(s.config.Leader.AddressFamily, addr)
+	if err != nil {
+		s.logger.Emit(logging.ERROR, "Leader server exiting: %s", err.Error())
+		return
+	}
+
+	s.status = ha.Listening
+
+	for {
+		// Block here until we get a new connection.
+		// We don't want to do anything with the stream so move on without spawning a thread to handle the connection.
+		conn, err := tcp.AcceptTCP()
+		if err != nil {
+			s.logger.Emit(logging.ERROR, "Failed to accept client: %s", err.Error())
+			time.Sleep(s.config.Leader.ServerRetry)
+			continue
+		}
+
+		// TODO build out some config to use for setting the keep alive period here
+		if err := conn.SetKeepAlive(true); err != nil {
+			s.logger.Emit(logging.ERROR, "Failed to set keep alive: %s", err.Error())
+		}
+	}
+
+}
+
+func (s *SprintEventController) Election() {
+	for {
+		// This will only set us as the leader if there isn't an already existing leader.
+		s.CreateLeader()
+
+		leader := s.GetLeader()
+		if leader != s.config.Leader.IP {
+			s.status = ha.Listening
+			s.logger.Emit(logging.INFO, "Connecting to leader to determine when we need to wake up and perform leader election")
+
+			// Block here until we lose connection to the leader.
+			// Once the connection has been lost elect a new leader.
+			err := s.leaderClient(leader)
+
+			// Only delete the key if we've lost the connection, not timed out.
+			// This conditional requires Go 1.6+
+
+			// NOTE (tim): Casting here is dangerous and could lead to a panic
+			if err, ok := err.(net.Error); ok && err.Timeout() {
+				s.logger.Emit(logging.ERROR, "Timed out connecting to leader")
+			} else {
+				s.status = ha.Election
+				s.logger.Emit(logging.ERROR, "Lost connection to leader")
+				s.kv.Delete("/leader")
+			}
+		} else {
+			s.status = ha.Leading
+			s.logger.Emit(logging.INFO, "We're leading.")
+			// We are the leader, exit the loop and start the scheduler/API.
+			break
+		}
+	}
+}
+
+// Connects to the leader and determines if and when we should start the leader election process.
+func (s *SprintEventController) leaderClient(leader string) error {
+	conn, err := net.DialTimeout(s.config.Leader.AddressFamily, "["+leader+"]:"+
+		strconv.Itoa(s.config.Leader.ServerPort), 2*time.Second)
+	if err != nil {
+		return err
+	}
+
+	s.logger.Emit(logging.INFO, "Successfully connected to leader %s", leader)
+
+	// NOTE (tim): This cast has the potential to panic.
+	tcp := conn.(*net.TCPConn)
+	if err := tcp.SetKeepAlive(true); err != nil {
+		return err
+	}
+
+	s.status = ha.Talking
+	buffer := make([]byte, 1)
+	for {
+		_, err := tcp.Read(buffer)
+		if err != nil {
+			return err
+		}
 	}
 }
 
@@ -162,7 +276,7 @@ func (s *SprintEventController) restoreTasks() {
 func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	id := subEvent.GetFrameworkId()
 	idVal := id.GetValue()
-	s.scheduler.Info.Id = id
+	s.scheduler.FrameworkInfo.Id = id
 	s.logger.Emit(logging.INFO, "Subscribed with an ID of %s", idVal)
 
 	// We pull the engine directly here to use non-interface methods.
@@ -171,7 +285,7 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	var lease *clientv3.LeaseID
 	var err error
 	for {
-		lease, err = kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.Info.GetFailoverTimeout()))
+		lease, err = kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.FrameworkInfo.GetFailoverTimeout()))
 		if err != nil {
 			s.logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
 			time.Sleep(s.config.Persistence.RetryInterval)
@@ -194,10 +308,19 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 }
 
 func (s *SprintEventController) Run() {
+	// Start the election.
+	s.logger.Emit(logging.INFO, "Starting leader election socket server")
+	go s.Communicate()
+
+	// Block here until we either become a leader or a standby.
+	// If we are the leader we break out and continue to execute the rest of the scheduler.
+	// If we are a standby then we connect to the leader and wait for the process to start over again.
+	s.Election()
+
 	for {
 		id, err := s.kv.Read("/frameworkId")
 		if err == nil {
-			s.scheduler.Info.Id = &mesos_v1.FrameworkID{Value: &id[0]}
+			s.scheduler.FrameworkInfo.Id = &mesos_v1.FrameworkID{Value: &id[0]}
 			break
 		} else {
 			time.Sleep(s.config.Persistence.RetryInterval)
@@ -232,8 +355,8 @@ func (s *SprintEventController) Run() {
 			// If we wrongly think we are the leader and try to subscribe when there's already a leader then we will disconnect the leader.
 			// Both the leader and the incorrectly determined new leader will continue to disconnect each other.
 			if leader[0] != s.config.Leader.IP {
-				s.logger.Emit(logging.ERROR, "We are not the leader so we should not be subscribing")
-				s.logger.Emit(logging.ERROR, "This is most likely caused by a network partition between the leader and standbys")
+				s.logger.Emit(logging.ERROR, "We are not the leader so we should not be subscribing. "+
+					"This is most likely caused by a network partition between the leader and standbys")
 				os.Exit(1)
 			}
 
@@ -308,11 +431,7 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 
 	if err != nil {
 		s.logger.Emit(logging.INFO, "No tasks to launch.")
-		// Scheduler keeps track of suppression state.
-		// Ensures we don't send more than one suppression request.
-		if !s.Scheduler().IsSuppressed {
-			s.scheduler.Suppress()
-		}
+		s.scheduler.Suppress()
 
 		s.declineOffers(offerEvent.GetOffers(), refuseSeconds) // All offers to decline.
 		return
@@ -320,41 +439,43 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 
 	// Update our resources in the manager
 	s.resourcemanager.AddOffers(offerEvent.GetOffers())
-
-	offerIDs := []*mesos_v1.OfferID{}
-	operations := []*mesos_v1.Offer_Operation{}
+	accepts := make(map[*mesos_v1.OfferID][]*mesos_v1.Offer_Operation)
 
 	for _, mesosTask := range queued {
-		// See if we have resources.
-		if s.resourcemanager.HasResources() {
-			offer, err := s.resourcemanager.Assign(mesosTask)
-			if err != nil {
-				// It didn't match any offers.
-				s.logger.Emit(logging.ERROR, err.Error())
-				continue // We should decline.
-			}
-
-			t := &mesos_v1.TaskInfo{
-				Name:      mesosTask.Name,
-				TaskId:    mesosTask.GetTaskId(),
-				AgentId:   offer.GetAgentId(),
-				Command:   mesosTask.GetCommand(),
-				Container: mesosTask.GetContainer(),
-				Resources: mesosTask.GetResources(),
-			}
-
-			// TODO (aaron) investigate this state further as it might cause side effects.
-			// this is artificially set to STAGING, it does not correspond to when Mesos sets this task as STAGING.
-			// for example other parts of the codebase may check for STAGING and this would cause it to be set too early.
-			s.TaskManager().Set(sdkTaskManager.STAGING, t)
-
-			offerIDs = append(offerIDs, offer.Id)
-			// TODO (tim) The offer operations will need to be parsed for volume mounting and etc.
-			operations = append(operations, resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
+		if !s.resourcemanager.HasResources() {
+			break
 		}
+
+		offer, err := s.resourcemanager.Assign(mesosTask)
+		if err != nil {
+			// It didn't match any offers.
+			s.logger.Emit(logging.ERROR, err.Error())
+			continue // We should decline.
+		}
+
+		t := &mesos_v1.TaskInfo{
+			Name:      mesosTask.Name,
+			TaskId:    mesosTask.GetTaskId(),
+			AgentId:   offer.GetAgentId(),
+			Command:   mesosTask.GetCommand(),
+			Container: mesosTask.GetContainer(),
+			Resources: mesosTask.GetResources(),
+		}
+
+		// TODO (aaron) investigate this state further as it might cause side effects.
+		// this is artificially set to STAGING, it does not correspond to when Mesos sets this task as STAGING.
+		// for example other parts of the codebase may check for STAGING and this would cause it to be set too early.
+		s.TaskManager().Set(sdkTaskManager.STAGING, t)
+		accepts[offer.Id] = append(accepts[offer.Id], resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
 	}
 
-	s.scheduler.Accept(offerIDs, operations, nil)
+	// Multiplex our tasks onto as few offers as possible and launch them all.
+	for id, launches := range accepts {
+
+		// TODO (tim) The offer operations will need to be parsed for volume mounting and etc.)
+		s.scheduler.Accept([]*mesos_v1.OfferID{id}, launches, nil)
+	}
+
 	// Resource manager pops offers when they are accepted
 	// Offers() returns a list of what is left, therefore whatever is left is to be rejected.
 	s.declineOffers(s.ResourceManager().Offers(), refuseSeconds)
@@ -366,23 +487,30 @@ func (s *SprintEventController) Rescind(rescindEvent *sched.Event_Rescind) {
 }
 
 func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
-	s.logger.Emit(logging.INFO, updateEvent.GetStatus().GetMessage())
-	task, err := s.taskmanager.GetById(updateEvent.GetStatus().GetTaskId())
+	status := updateEvent.GetStatus()
+	taskId := status.GetTaskId()
+	task, err := s.taskmanager.GetById(taskId)
 	if err != nil {
 		// The event is from a task that has been deleted from the task manager,
 		// ignore updates.
 		// NOTE (tim): Do we want to keep deleted task history for a certain amount of time
 		// before it's deleted? We would record status updates after it's killed here.
+		// ACK update, return.
+		status := updateEvent.GetStatus()
+		s.scheduler.Acknowledge(status.GetAgentId(), status.GetTaskId(), status.GetUuid())
 		return
 	}
 
-	state := updateEvent.GetStatus().GetState()
+	state := status.GetState()
+	message := status.GetMessage()
+	agentId := status.GetAgentId()
 	s.taskmanager.Set(state, task)
 
 	switch state {
 	case mesos_v1.TaskState_TASK_FAILED:
 		// TODO (tim): Check task manager for task retry policy, then retry as given.
 		// Default for now is just retry forever.
+		s.logger.Emit(logging.ERROR, message)
 		s.taskmanager.Set(sdkTaskManager.UNKNOWN, task)
 	case mesos_v1.TaskState_TASK_STAGING:
 		// NOP, keep task set to "launched".
@@ -398,11 +526,18 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 		// Agent might be dead, master is unsure. Will return to RUNNING state possibly or die.
 	case mesos_v1.TaskState_TASK_KILLED:
 		// Task was killed.
+		s.logger.Emit(
+			logging.INFO,
+			"Task %s on agent %s was killed",
+			taskId.GetValue(),
+			agentId.GetValue(),
+		)
 		s.taskmanager.Delete(task)
 	case mesos_v1.TaskState_TASK_KILLING:
 		// Task is in the process of catching a SIGNAL and shutting down.
 	case mesos_v1.TaskState_TASK_LOST:
 		// Task is unknown to the master and lost. Should reschedule.
+		s.logger.Emit(logging.ALARM, "Task %s was lost", taskId.GetValue())
 	case mesos_v1.TaskState_TASK_RUNNING:
 	case mesos_v1.TaskState_TASK_STARTING:
 		// Task is still starting up. NOOP
@@ -414,8 +549,7 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 	default:
 	}
 
-	status := updateEvent.GetStatus()
-	s.scheduler.Acknowledge(status.GetAgentId(), status.GetTaskId(), status.GetUuid())
+	s.scheduler.Acknowledge(agentId, taskId, status.GetUuid())
 }
 
 func (s *SprintEventController) Message(msg *sched.Event_Message) {

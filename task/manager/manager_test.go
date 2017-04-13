@@ -1,14 +1,25 @@
 package manager
 
 import (
+	"errors"
 	"github.com/golang/protobuf/proto"
 	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/structures"
+	"mesos-framework-sdk/task/manager"
+	"os"
 	"sprint/scheduler"
 	"strconv"
 	"testing"
+	"time"
 )
+
+func TestMain(m *testing.M) {
+	os.Setenv("TESTING", "true")
+	ret := m.Run()
+	os.Unsetenv("TESTING")
+	os.Exit(ret)
+}
 
 type MockStorage struct{}
 
@@ -28,6 +39,27 @@ func (m *MockStorage) Driver() string {
 	return "mock"
 }
 func (m *MockStorage) Engine() interface{} {
+	return struct{}{}
+}
+
+type MockBrokenStorage struct{}
+
+func (m *MockBrokenStorage) Create(string, ...string) error {
+	return errors.New("Create is broken.")
+}
+func (m *MockBrokenStorage) Read(...string) ([]string, error) {
+	return nil, errors.New("Read is broken.")
+}
+func (m *MockBrokenStorage) Update(string, ...string) error {
+	return errors.New("Update is broken.")
+}
+func (m *MockBrokenStorage) Delete(string, ...string) error {
+	return errors.New("Delete is broken.")
+}
+func (m *MockBrokenStorage) Driver() string {
+	return ""
+}
+func (m *MockBrokenStorage) Engine() interface{} {
 	return struct{}{}
 }
 
@@ -207,6 +239,18 @@ func TestTaskManager_Set(t *testing.T) {
 	}
 
 	// KILLED and FINISHED delete the task from the task manager.
+	taskManager.Set(mesos_v1.TaskState_TASK_FINISHED, testTask)
+	tasks, err = taskManager.GetState(mesos_v1.TaskState_TASK_FINISHED)
+	if err == nil {
+		t.Log(err.Error())
+		t.FailNow()
+	}
+	if len(tasks) != 0 {
+		t.Logf("Tasks returned was %v, expecting 0", len(tasks))
+	}
+
+	taskManager.Add(testTask)
+
 	taskManager.Set(mesos_v1.TaskState_TASK_KILLED, testTask)
 
 	tasks, err = taskManager.GetState(mesos_v1.TaskState_TASK_KILLED)
@@ -253,4 +297,138 @@ func TestTaskManager_TotalTasks(t *testing.T) {
 		t.Logf("Expecting 1 tasks, got %v", tasksLength)
 		t.FailNow()
 	}
+
+	allTasks := taskManager.Tasks()
+	if allTasks.Length() != 1 {
+		t.Logf("Expecting 1 tasks, got %v", tasksLength)
+		t.FailNow()
+	}
+}
+
+func TestTaskManager_AddSameTask(t *testing.T) {
+	cmap := structures.NewConcurrentMap()
+	storage := &MockStorage{}
+	config := &scheduler.Configuration{}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	testTask := CreateTestTask("testTask")
+	taskManager.Add(testTask)
+	err := taskManager.Add(testTask)
+	if err == nil {
+		t.Log("Able to add two of the same task, failing.")
+		t.FailNow()
+	}
+}
+
+func TestTaskManager_DeleteFail(t *testing.T) {
+	cmap := structures.NewConcurrentMap()
+	storage := &MockStorage{}
+	config := &scheduler.Configuration{}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	testTask := CreateTestTask("testTask")
+	taskManager.Add(testTask)
+	taskManager.Delete(testTask)
+	taskManager.Delete(testTask) // This doesn't work, we need to make sure the storage driver fails.
+}
+
+func TestTaskManager_GetByIdFail(t *testing.T) {
+	cmap := structures.NewConcurrentMap()
+	storage := &MockStorage{}
+	config := &scheduler.Configuration{}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	testTask := CreateTestTask("testTask")
+	taskManager.Add(testTask)
+	taskManager.Delete(testTask)
+	_, err := taskManager.GetById(testTask.GetTaskId())
+	if err == nil {
+		t.Logf("Found a task by ID after deleting it %v", testTask)
+		t.FailNow()
+	}
+
+	testTask = CreateTestTask("testTask")
+	taskManager.Add(testTask)
+	_, err = taskManager.GetById(&mesos_v1.TaskID{Value: proto.String("Fail me")})
+	if err == nil {
+		t.Logf("Found a task that never existed: %v", testTask)
+		t.FailNow()
+	}
+}
+
+func TestTaskManager_HasTaskFail(t *testing.T) {
+	cmap := structures.NewConcurrentMap()
+	storage := &MockStorage{}
+	config := &scheduler.Configuration{}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	testTask := CreateTestTask("testTask")
+	taskManager.Add(testTask)
+	taskManager.Delete(testTask)
+	err := taskManager.HasTask(testTask)
+	if err {
+		t.Logf("Task manager still thinks it has a task after deleting it %v", testTask)
+		t.FailNow()
+	}
+}
+
+// TODO (tim): This will never pass, logic in manager is to retry forever.
+// Need to fix retry logic in manager
+func TestTaskManager_HasTaskFailWithBrokenStorage(t *testing.T) {
+	cmap := structures.NewConcurrentMap()
+	storage := &MockBrokenStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			RetryInterval: 1 * time.Second,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	testTask := CreateTestTask("testTask")
+	err := taskManager.Add(testTask)
+	if err == nil {
+		t.Log("Didn't fail with broken storage.")
+		t.FailNow()
+	}
+}
+
+func TestTaskManager_DeleteFailWithBrokenStorage(t *testing.T) {
+	cmap := structures.NewConcurrentMap()
+	storage := &MockBrokenStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			RetryInterval: 1 * time.Second,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	testTask := CreateTestTask("testTask")
+	taskManager.Delete(testTask)
+}
+
+func TestTaskManager_SetFailWithBrokenStorage(t *testing.T) {
+	cmap := structures.NewConcurrentMap()
+	storage := &MockBrokenStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			RetryInterval: 1 * time.Second,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	testTask := CreateTestTask("testTask")
+	taskManager.Set(manager.FAILED, testTask)
+}
+
+func TestTaskManager_EncodeFailWithBrokenStorage(t *testing.T) {
+	cmap := structures.NewConcurrentMap()
+	storage := &MockBrokenStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			RetryInterval: 1 * time.Second,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	taskManager.Add(nil) // Panic will fail testing if it occurs.
 }
