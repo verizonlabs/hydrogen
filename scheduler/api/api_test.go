@@ -31,10 +31,10 @@ var (
 	c                     = new(mockConfiguration.MockServerConfiguration)
 	s                     = new(scheduler.MockScheduler)
 	tm                    = new(testTaskManager.MockTaskManager)
-	r                     = new(mockResourceManager.MockResourceManager)
+	r                     = new(MockResourceManager.MockResourceManager)
 	h                     = http.NewServeMux()
 	v                     = "test"
-	l                     = new(mockLogging.MockLogger)
+	l                     = new(MockLogging.MockLogger)
 	validJSON             = fmt.Sprint(`{"name": "test", "resources": {"cpu": 0.5, "mem": 128.0}, "command": {"cmd": "echo hello"}}`)
 	killJSON              = fmt.Sprint(`{"name": "test"}`)
 	junkJSON              = fmt.Sprint(`not even json, how did this even get here`)
@@ -631,7 +631,7 @@ func TestApiDeployWithIoutilFail(t *testing.T) {
 }
 
 func TestApiDeployWithIoutilFilterFail(t *testing.T) {
-	broken := new(mockResourceManager.MockBrokenResourceManager)
+	broken := new(MockResourceManager.MockBrokenResourceManager)
 	srv := NewApiServer(c, s, tm, broken, h, v, l)
 	srv.setDefaultHandlers()
 

@@ -13,7 +13,6 @@ import (
 	"mesos-framework-sdk/include/mesos"
 	sched "mesos-framework-sdk/include/scheduler"
 	"mesos-framework-sdk/logging"
-	"mesos-framework-sdk/persistence"
 	"mesos-framework-sdk/persistence/drivers/etcd"
 	"mesos-framework-sdk/resources"
 	"mesos-framework-sdk/resources/manager"
@@ -36,11 +35,11 @@ const (
 
 type SprintEventController struct {
 	config          *sprintSched.Configuration
-	scheduler       *scheduler.DefaultScheduler
+	scheduler       scheduler.Scheduler
 	taskmanager     sdkTaskManager.TaskManager
-	resourcemanager *manager.DefaultResourceManager
+	resourcemanager manager.ResourceManager
 	events          chan *sched.Event
-	kv              persistence.Storage
+	kv              etcd.KeyValueStore
 	logger          logging.Logger
 	frameworkLease  *clientv3.LeaseID
 	status          ha.Status
@@ -51,11 +50,11 @@ type SprintEventController struct {
 // Please do this with any large signature to make it easier to parse.
 func NewSprintEventController(
 	config *sprintSched.Configuration,
-	scheduler *scheduler.DefaultScheduler,
+	scheduler scheduler.Scheduler,
 	manager sdkTaskManager.TaskManager,
-	resourceManager *manager.DefaultResourceManager,
+	resourceManager manager.ResourceManager,
 	eventChan chan *sched.Event,
-	kv persistence.Storage,
+	kv etcd.KeyValueStore,
 	logger logging.Logger) *SprintEventController {
 
 	return &SprintEventController{
@@ -179,7 +178,7 @@ func (s *SprintEventController) leaderClient(leader string) error {
 }
 
 // Getter functions
-func (s *SprintEventController) Scheduler() *scheduler.DefaultScheduler {
+func (s *SprintEventController) Scheduler() scheduler.Scheduler {
 	return s.scheduler
 }
 
@@ -189,7 +188,7 @@ func (s *SprintEventController) TaskManager() sdkTaskManager.TaskManager {
 }
 
 // Getter function
-func (s *SprintEventController) ResourceManager() *manager.DefaultResourceManager {
+func (s *SprintEventController) ResourceManager() manager.ResourceManager {
 	return s.resourcemanager
 }
 
@@ -216,7 +215,7 @@ func (s *SprintEventController) GetLeader() string {
 			continue
 		}
 
-		return leader[0]
+		return leader
 	}
 }
 
@@ -245,7 +244,7 @@ func (s *SprintEventController) restoreTasks() {
 	var tasks map[string]string
 	var err error
 	for {
-		tasks, err = s.kv.Engine().(*etcd.Etcd).ReadAll("/tasks")
+		tasks, err = s.kv.ReadAll("/tasks")
 		if err != nil {
 			s.logger.Emit(logging.ERROR, "Failed to get all task data: %s", err.Error())
 			time.Sleep(s.config.Persistence.RetryInterval)
@@ -253,7 +252,7 @@ func (s *SprintEventController) restoreTasks() {
 		}
 		break
 	}
-
+	s.logger.Emit(logging.INFO, "retoring tasks...")
 	for _, value := range tasks {
 		var task sdkTaskManager.Task
 		data, err := base64.StdEncoding.DecodeString(value)
@@ -276,16 +275,13 @@ func (s *SprintEventController) restoreTasks() {
 func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	id := subEvent.GetFrameworkId()
 	idVal := id.GetValue()
-	s.scheduler.FrameworkInfo.Id = id
+	s.scheduler.FrameworkInfo().Id = id
 	s.logger.Emit(logging.INFO, "Subscribed with an ID of %s", idVal)
-
-	// We pull the engine directly here to use non-interface methods.
-	kv := s.kv.Engine().(*etcd.Etcd)
 
 	var lease *clientv3.LeaseID
 	var err error
 	for {
-		lease, err = kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.FrameworkInfo.GetFailoverTimeout()))
+		lease, err = s.kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.FrameworkInfo().GetFailoverTimeout()))
 		if err != nil {
 			s.logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
 			time.Sleep(s.config.Persistence.RetryInterval)
@@ -320,7 +316,7 @@ func (s *SprintEventController) Run() {
 	for {
 		id, err := s.kv.Read("/frameworkId")
 		if err == nil {
-			s.scheduler.FrameworkInfo.Id = &mesos_v1.FrameworkID{Value: &id[0]}
+			s.scheduler.FrameworkInfo().Id = &mesos_v1.FrameworkID{Value: &id}
 			break
 		} else {
 			time.Sleep(s.config.Persistence.RetryInterval)
@@ -338,7 +334,7 @@ func (s *SprintEventController) Run() {
 
 	go func() {
 		for {
-			var leader []string
+			var leader string
 			var err error
 			for {
 				leader, err = s.kv.Read("/leader")
@@ -354,7 +350,7 @@ func (s *SprintEventController) Run() {
 			// If this happens we need to check if there really is another leader alive that we just can't reach.
 			// If we wrongly think we are the leader and try to subscribe when there's already a leader then we will disconnect the leader.
 			// Both the leader and the incorrectly determined new leader will continue to disconnect each other.
-			if leader[0] != s.config.Leader.IP {
+			if leader != s.config.Leader.IP {
 				s.logger.Emit(logging.ERROR, "We are not the leader so we should not be subscribing. "+
 					"This is most likely caused by a network partition between the leader and standbys")
 				os.Exit(1)
@@ -372,7 +368,7 @@ func (s *SprintEventController) Run() {
 	case e := <-s.events:
 		s.Subscribe(e.GetSubscribed())
 	}
-	s.Listen()
+	go s.Listen()
 }
 
 // Main event loop that listens on channels forever until framework terminates.
@@ -401,7 +397,7 @@ func (s *SprintEventController) Listen() {
 				s.Update(t.GetUpdate())
 			case sched.Event_HEARTBEAT:
 				for {
-					if err := s.kv.Engine().(*etcd.Etcd).RefreshLease(s.frameworkLease); err != nil {
+					if err := s.kv.RefreshLease(s.frameworkLease); err != nil {
 						s.logger.Emit(logging.ERROR, "Failed to refresh framework ID lease: %s", err.Error())
 						time.Sleep(s.config.Persistence.RetryInterval)
 						continue
