@@ -252,7 +252,7 @@ func (s *SprintEventController) restoreTasks() {
 		}
 		break
 	}
-	s.logger.Emit(logging.INFO, "retoring tasks...")
+
 	for _, value := range tasks {
 		var task sdkTaskManager.Task
 		data, err := base64.StdEncoding.DecodeString(value)
@@ -368,7 +368,7 @@ func (s *SprintEventController) Run() {
 	case e := <-s.events:
 		s.Subscribe(e.GetSubscribed())
 	}
-	go s.Listen()
+	s.Listen()
 }
 
 // Main event loop that listens on channels forever until framework terminates.
