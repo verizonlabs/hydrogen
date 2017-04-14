@@ -136,6 +136,8 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		defer r.Body.Close()
+
 		var m taskbuilder.ApplicationJSON
 		err = json.Unmarshal(dec, &m)
 		if err != nil {
@@ -197,6 +199,8 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		defer r.Body.Close()
+
 		var m taskbuilder.ApplicationJSON
 		err = json.Unmarshal(dec, &m)
 		if err != nil {
@@ -237,6 +241,8 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return
 		}
+
+		defer r.Body.Close()
 
 		var m taskbuilder.KillJson
 		err = json.Unmarshal(dec, &m)
