@@ -510,16 +510,21 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 		s.taskmanager.Set(sdkTaskManager.UNKNOWN, task)
 	case mesos_v1.TaskState_TASK_STAGING:
 		// NOP, keep task set to "launched".
+		s.logger.Emit(logging.INFO, message)
 	case mesos_v1.TaskState_TASK_DROPPED:
 		// Transient error, we should retry launching. Taskinfo is fine.
+		s.logger.Emit(logging.INFO, message)
 	case mesos_v1.TaskState_TASK_ERROR:
 		// TODO (tim): Error with the taskinfo sent to the agent. Give verbose reasoning back.
+		s.logger.Emit(logging.ERROR, message)
 	case mesos_v1.TaskState_TASK_FINISHED:
 		s.taskmanager.Delete(task)
 	case mesos_v1.TaskState_TASK_GONE:
 		// Agent is dead and task is lost.
+		s.logger.Emit(logging.ERROR, message)
 	case mesos_v1.TaskState_TASK_GONE_BY_OPERATOR:
 		// Agent might be dead, master is unsure. Will return to RUNNING state possibly or die.
+		s.logger.Emit(logging.ERROR, message)
 	case mesos_v1.TaskState_TASK_KILLED:
 		// Task was killed.
 		s.logger.Emit(
@@ -531,18 +536,22 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 		s.taskmanager.Delete(task)
 	case mesos_v1.TaskState_TASK_KILLING:
 		// Task is in the process of catching a SIGNAL and shutting down.
+		s.logger.Emit(logging.INFO, message)
 	case mesos_v1.TaskState_TASK_LOST:
 		// Task is unknown to the master and lost. Should reschedule.
 		s.logger.Emit(logging.ALARM, "Task %s was lost", taskId.GetValue())
 	case mesos_v1.TaskState_TASK_RUNNING:
+		s.logger.Emit(logging.INFO, message)
 	case mesos_v1.TaskState_TASK_STARTING:
 		// Task is still starting up. NOOP
 	case mesos_v1.TaskState_TASK_UNKNOWN:
 		// Task is unknown to the master. Should ignore.
 	case mesos_v1.TaskState_TASK_UNREACHABLE:
 		// Agent lost contact with master, could be a network error. No guarantee the task is still running.
-		// Should we reschedule after waiting a certain peroid of time?
+		// Should we reschedule after waiting a certain period of time?
+		s.logger.Emit(logging.INFO, message)
 	default:
+		// Somewhere in here the universe started.
 	}
 
 	s.scheduler.Acknowledge(agentId, taskId, status.GetUuid())
