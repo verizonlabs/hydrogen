@@ -68,13 +68,10 @@ func main() {
 		config.Persistence.KeepaliveTimeout,
 	)
 
-	// Storage Engine
-	engine := etcd.NewEtcdEngine(kv)
-
 	// Wire up dependencies for the event controller
 	t := sprintTaskManager.NewTaskManager(
 		structures.NewConcurrentMap(DEFAULT_MAP_SIZE),
-		engine,
+		kv,
 		config,
 		logger,
 	) // Manages our tasks
@@ -84,7 +81,7 @@ func main() {
 	s := sched.NewDefaultScheduler(c, frameworkInfo, logger)      // Manages how to route and schedule tasks.
 
 	// Event controller manages scheduler events and how they are handled.
-	e := events.NewSprintEventController(config, s, t, r, eventChan, engine, logger)
+	e := events.NewSprintEventController(config, s, t, r, eventChan, kv, logger)
 
 	logger.Emit(logging.INFO, "Starting API server")
 
