@@ -29,8 +29,7 @@ import (
 const (
 	// Note (tim): Is there a reasonable non-linear equation to determine refuse seconds?
 	// f^2/num_of_nodes_in_cluster where f is # of tasks to handle at once (per offer cycle).
-	//
-	refuseSeconds = 64.0
+	refuseSeconds = 30.0 // Setting this to 30 as a "reasonable default".
 )
 
 type SprintEventController struct {
@@ -271,7 +270,9 @@ func (s *SprintEventController) restoreTasks() {
 	}
 }
 
-// TODO think about renaming this to subscribed since the scheduler from the SDK is really handling the subscribe call.
+//////////////////////////
+// Mesos Event Callbacks
+//////////////////////////
 func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	id := subEvent.GetFrameworkId()
 	idVal := id.GetValue()
@@ -428,7 +429,6 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 	if err != nil {
 		s.logger.Emit(logging.INFO, "No tasks to launch.")
 		s.scheduler.Suppress()
-
 		s.declineOffers(offerEvent.GetOffers(), refuseSeconds) // All offers to decline.
 		return
 	}
@@ -483,6 +483,7 @@ func (s *SprintEventController) Rescind(rescindEvent *sched.Event_Rescind) {
 }
 
 func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
+
 	status := updateEvent.GetStatus()
 	taskId := status.GetTaskId()
 	task, err := s.taskmanager.GetById(taskId)
