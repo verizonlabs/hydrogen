@@ -25,7 +25,7 @@ func TestApplication(t *testing.T) {
 		Labels:      a,
 		Filters:     b,
 	}
-	lgr := new(mockLogging.MockLogger)
+	lgr := new(MockLogging.MockLogger)
 	_, err := Application(test, lgr)
 	if err != nil {
 		t.Log(err.Error())
@@ -46,7 +46,7 @@ func TestApplicationNoName(t *testing.T) {
 		Labels:      a,
 		Filters:     b,
 	}
-	lgr := new(mockLogging.MockLogger)
+	lgr := new(MockLogging.MockLogger)
 	_, err := Application(test, lgr)
 	if err == nil {
 		t.Log(err.Error())
@@ -67,7 +67,7 @@ func TestApplicationNoResources(t *testing.T) {
 		Labels:      a,
 		Filters:     b,
 	}
-	lgr := new(mockLogging.MockLogger)
+	lgr := new(MockLogging.MockLogger)
 	_, err := Application(test, lgr)
 	if err == nil {
 		t.Log(err.Error())
@@ -93,7 +93,7 @@ func TestApplicationCommandFail(t *testing.T) {
 		Labels:      a,
 		Filters:     b,
 	}
-	lgr := new(mockLogging.MockLogger)
+	lgr := new(MockLogging.MockLogger)
 	_, err := Application(test, lgr)
 	if err == nil {
 		t.Log(err.Error())
@@ -125,7 +125,7 @@ func TestApplicationContainerFail(t *testing.T) {
 		Labels:      a,
 		Filters:     b,
 	}
-	lgr := new(mockLogging.MockLogger)
+	lgr := new(MockLogging.MockLogger)
 	_, err := Application(test, lgr)
 	if err == nil {
 		t.Log(err)
@@ -154,7 +154,7 @@ func TestApplicationWithDockerContainer(t *testing.T) {
 		Labels:      a,
 		Filters:     b,
 	}
-	lgr := new(mockLogging.MockLogger)
+	lgr := new(MockLogging.MockLogger)
 	_, err := Application(test, lgr)
 	if err != nil {
 		t.Log(err.Error())
@@ -183,7 +183,7 @@ func TestApplicationFailResources(t *testing.T) {
 		Labels:      a,
 		Filters:     b,
 	}
-	lgr := new(mockLogging.MockLogger)
+	lgr := new(MockLogging.MockLogger)
 	_, err := Application(test, lgr)
 	if err == nil {
 		t.Log(err.Error())
@@ -213,7 +213,7 @@ func TestApplicationFailLabels(t *testing.T) {
 		Labels:      a,
 		Filters:     b,
 	}
-	lgr := new(mockLogging.MockLogger)
+	lgr := new(MockLogging.MockLogger)
 	_, err := Application(test, lgr)
 
 	if err == nil {

@@ -10,10 +10,10 @@ import (
 // Holds configuration for all of our components.
 type Configuration struct {
 	Persistence *PersistenceConfiguration
-	Leader      *leaderConfiguration
-	APIServer   *apiConfiguration
-	FileServer  *fileServerConfiguration
-	Scheduler   *schedulerConfiguration
+	Leader      *LeaderConfiguration
+	APIServer   *ApiConfiguration
+	FileServer  *FileServerConfiguration
+	Scheduler   *SchedulerConfiguration
 }
 
 // Persistence connection configuration.
@@ -26,7 +26,7 @@ type PersistenceConfiguration struct {
 }
 
 // Configuration for leader (HA) operation.
-type leaderConfiguration struct {
+type LeaderConfiguration struct {
 	IP            string
 	ServerPort    int
 	AddressFamily string
@@ -35,14 +35,14 @@ type leaderConfiguration struct {
 }
 
 // Holds configuration for the built-in REST API.
-type apiConfiguration struct {
+type ApiConfiguration struct {
 	Cert string
 	Key  string
 	Port int
 }
 
 // Configuration for the file (executor) server.
-type fileServerConfiguration struct {
+type FileServerConfiguration struct {
 	Cert string
 	Key  string
 	Port int
@@ -50,7 +50,7 @@ type fileServerConfiguration struct {
 }
 
 // Configuration for the main scheduler.
-type schedulerConfiguration struct {
+type SchedulerConfiguration struct {
 	MesosEndpoint     string
 	Name              string
 	User              string
@@ -70,10 +70,10 @@ type schedulerConfiguration struct {
 func (c *Configuration) Initialize() *Configuration {
 	return &Configuration{
 		Persistence: new(PersistenceConfiguration).initialize(),
-		Leader:      new(leaderConfiguration).initialize(),
-		APIServer:   new(apiConfiguration).initialize(),
-		FileServer:  new(fileServerConfiguration).initialize(),
-		Scheduler:   new(schedulerConfiguration).initialize(),
+		Leader:      new(LeaderConfiguration).initialize(),
+		APIServer:   new(ApiConfiguration).initialize(),
+		FileServer:  new(FileServerConfiguration).initialize(),
+		Scheduler:   new(SchedulerConfiguration).initialize(),
 	}
 }
 
@@ -97,7 +97,7 @@ func (c *PersistenceConfiguration) initialize() *PersistenceConfiguration {
 }
 
 // Applies default leader configuration.
-func (c *leaderConfiguration) initialize() *leaderConfiguration {
+func (c *LeaderConfiguration) initialize() *LeaderConfiguration {
 	flag.StringVar(&c.IP, "ha.leader.ip", "127.0.0.1", "IP address of the node where this framework is running")
 	flag.IntVar(&c.ServerPort, "ha.leader.server.port", 8082, "Port that the leader server listens on")
 	flag.StringVar(&c.AddressFamily, "ha.leader.address.family", "tcp4", "tcp4, tcp6, or tcp for dual stack")
@@ -110,7 +110,7 @@ func (c *leaderConfiguration) initialize() *leaderConfiguration {
 }
 
 // Applies default configuration to our API server.
-func (c *apiConfiguration) initialize() *apiConfiguration {
+func (c *ApiConfiguration) initialize() *ApiConfiguration {
 	flag.StringVar(&c.Cert, "api.server.cert", "", "API server's TLS certificate")
 	flag.StringVar(&c.Key, "api.server.key", "", "API server's TLS key")
 	flag.IntVar(&c.Port, "api.server.port", 8080, "API server's port")
@@ -119,7 +119,7 @@ func (c *apiConfiguration) initialize() *apiConfiguration {
 }
 
 // Applies default configuration to our file server.
-func (c *fileServerConfiguration) initialize() *fileServerConfiguration {
+func (c *FileServerConfiguration) initialize() *FileServerConfiguration {
 	flag.StringVar(&c.Cert, "file.server.cert", "", "File server's TLS certificate")
 	flag.StringVar(&c.Key, "file.server.key", "", "File server's TLS key")
 	flag.IntVar(&c.Port, "file.server.port", 8081, "File server's port")
@@ -129,7 +129,7 @@ func (c *fileServerConfiguration) initialize() *fileServerConfiguration {
 }
 
 // Applies default configuration for our scheduler.
-func (c *schedulerConfiguration) initialize() *schedulerConfiguration {
+func (c *SchedulerConfiguration) initialize() *SchedulerConfiguration {
 	u, err := user.Current()
 	if err != nil {
 		panic("Unable to detect current user: " + err.Error())
