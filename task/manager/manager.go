@@ -7,7 +7,6 @@ import (
 	"errors"
 	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/logging"
-	"mesos-framework-sdk/persistence"
 	"mesos-framework-sdk/persistence/drivers/etcd"
 	"mesos-framework-sdk/structures"
 	"mesos-framework-sdk/task/manager"
@@ -40,7 +39,7 @@ const (
 
 type SprintTaskManager struct {
 	tasks   structures.DistributedMap
-	storage persistence.Storage
+	storage etcd.KeyValueStore
 	config  *scheduler.Configuration
 	logger  logging.Logger
 }
