@@ -1,10 +1,10 @@
 package manager
 
 import (
-	"errors"
 	"github.com/golang/protobuf/proto"
 	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/logging"
+	"mesos-framework-sdk/persistence/drivers/etcd"
 	"mesos-framework-sdk/structures"
 	"mesos-framework-sdk/task/manager"
 	"os"
@@ -19,48 +19,6 @@ func TestMain(m *testing.M) {
 	ret := m.Run()
 	os.Unsetenv("TESTING")
 	os.Exit(ret)
-}
-
-type MockStorage struct{}
-
-func (m *MockStorage) Create(string, ...string) error {
-	return nil
-}
-func (m *MockStorage) Read(...string) ([]string, error) {
-	return []string{}, nil
-}
-func (m *MockStorage) Update(string, ...string) error {
-	return nil
-}
-func (m *MockStorage) Delete(string, ...string) error {
-	return nil
-}
-func (m *MockStorage) Driver() string {
-	return "mock"
-}
-func (m *MockStorage) Engine() interface{} {
-	return struct{}{}
-}
-
-type MockBrokenStorage struct{}
-
-func (m *MockBrokenStorage) Create(string, ...string) error {
-	return errors.New("Create is broken.")
-}
-func (m *MockBrokenStorage) Read(...string) ([]string, error) {
-	return nil, errors.New("Read is broken.")
-}
-func (m *MockBrokenStorage) Update(string, ...string) error {
-	return errors.New("Update is broken.")
-}
-func (m *MockBrokenStorage) Delete(string, ...string) error {
-	return errors.New("Delete is broken.")
-}
-func (m *MockBrokenStorage) Driver() string {
-	return ""
-}
-func (m *MockBrokenStorage) Engine() interface{} {
-	return struct{}{}
 }
 
 func CreateTestTask(name string) *mesos_v1.TaskInfo {
@@ -83,7 +41,7 @@ func CreateTestTask(name string) *mesos_v1.TaskInfo {
 
 func TestNewTaskManager(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &MockStorage{}
+	storage := &etcd.MockKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 
@@ -95,7 +53,7 @@ func TestNewTaskManager(t *testing.T) {
 
 func TestTaskManager_Cycle(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &MockStorage{}
+	storage := &etcd.MockKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 	testTask := CreateTestTask("testTask")
@@ -118,7 +76,7 @@ func TestTaskManager_Cycle(t *testing.T) {
 
 func TestTaskManager_Length(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &MockStorage{}
+	storage := &etcd.MockKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 	testTask := CreateTestTask("testTask")
@@ -159,7 +117,7 @@ func TestTaskManager_Length(t *testing.T) {
 
 func TestTaskManager_GetById(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &MockStorage{}
+	storage := &etcd.MockKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
@@ -186,7 +144,7 @@ func TestTaskManager_GetById(t *testing.T) {
 
 func TestTaskManager_GetState(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &MockStorage{}
+	storage := &etcd.MockKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
@@ -205,7 +163,7 @@ func TestTaskManager_GetState(t *testing.T) {
 
 func TestTaskManager_HasTask(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &MockStorage{}
+	storage := &etcd.MockKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
@@ -220,7 +178,7 @@ func TestTaskManager_HasTask(t *testing.T) {
 
 func TestTaskManager_Set(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &MockStorage{}
+	storage := &etcd.MockKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
@@ -265,7 +223,7 @@ func TestTaskManager_Set(t *testing.T) {
 
 func TestTaskManager_TotalTasks(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &MockStorage{}
+	storage := &etcd.MockKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
@@ -307,7 +265,7 @@ func TestTaskManager_TotalTasks(t *testing.T) {
 
 func TestTaskManager_AddSameTask(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &MockStorage{}
+	storage := &etcd.MockKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
@@ -322,7 +280,7 @@ func TestTaskManager_AddSameTask(t *testing.T) {
 
 func TestTaskManager_DeleteFail(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &MockStorage{}
+	storage := &etcd.MockBrokenKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
@@ -334,7 +292,7 @@ func TestTaskManager_DeleteFail(t *testing.T) {
 
 func TestTaskManager_GetByIdFail(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &MockStorage{}
+	storage := &etcd.MockKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
@@ -358,7 +316,7 @@ func TestTaskManager_GetByIdFail(t *testing.T) {
 
 func TestTaskManager_HasTaskFail(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &MockStorage{}
+	storage := &etcd.MockKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
@@ -376,7 +334,7 @@ func TestTaskManager_HasTaskFail(t *testing.T) {
 // Need to fix retry logic in manager
 func TestTaskManager_HasTaskFailWithBrokenStorage(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &MockBrokenStorage{}
+	storage := &etcd.MockBrokenKVStore{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			RetryInterval: 1 * time.Second,
@@ -394,7 +352,7 @@ func TestTaskManager_HasTaskFailWithBrokenStorage(t *testing.T) {
 
 func TestTaskManager_DeleteFailWithBrokenStorage(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &MockBrokenStorage{}
+	storage := &etcd.MockBrokenKVStore{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			RetryInterval: 1 * time.Second,
@@ -408,7 +366,7 @@ func TestTaskManager_DeleteFailWithBrokenStorage(t *testing.T) {
 
 func TestTaskManager_SetFailWithBrokenStorage(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &MockBrokenStorage{}
+	storage := &etcd.MockBrokenKVStore{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			RetryInterval: 1 * time.Second,
@@ -422,7 +380,7 @@ func TestTaskManager_SetFailWithBrokenStorage(t *testing.T) {
 
 func TestTaskManager_EncodeFailWithBrokenStorage(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &MockBrokenStorage{}
+	storage := &etcd.MockBrokenKVStore{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			RetryInterval: 1 * time.Second,
