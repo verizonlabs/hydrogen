@@ -423,13 +423,6 @@ func (s *SprintEventController) declineOffers(offers []*mesos_v1.Offer, refuseSe
 }
 
 func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
-	offers := offerEvent.GetOffers()
-
-	for _, o := range offers {
-		for _, r := range o.Resources {
-			s.logger.Emit(logging.INFO, "resources from offer: ", r)
-		}
-	}
 	// Check if we have any in the task manager we want to launch
 	queued, err := s.taskmanager.GetState(sdkTaskManager.UNKNOWN)
 
