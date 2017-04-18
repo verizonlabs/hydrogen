@@ -423,6 +423,13 @@ func (s *SprintEventController) declineOffers(offers []*mesos_v1.Offer, refuseSe
 }
 
 func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
+	offers := offerEvent.GetOffers()
+
+	for _, o := range offers {
+		for _, r := range o.Resources {
+			s.logger.Emit(logging.INFO, "resources from offer: ", r)
+		}
+	}
 	// Check if we have any in the task manager we want to launch
 	queued, err := s.taskmanager.GetState(sdkTaskManager.UNKNOWN)
 
@@ -467,7 +474,6 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 
 	// Multiplex our tasks onto as few offers as possible and launch them all.
 	for id, launches := range accepts {
-
 		// TODO (tim) The offer operations will need to be parsed for volume mounting and etc.)
 		s.scheduler.Accept([]*mesos_v1.OfferID{id}, launches, nil)
 	}
@@ -483,7 +489,7 @@ func (s *SprintEventController) Rescind(rescindEvent *sched.Event_Rescind) {
 }
 
 func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
-
+	s.logger.Emit(logging.INFO, "Update event: ", updateEvent.GetStatus())
 	status := updateEvent.GetStatus()
 	taskId := status.GetTaskId()
 	task, err := s.taskmanager.GetById(taskId)
