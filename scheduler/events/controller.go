@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/gob"
-	"github.com/coreos/etcd/clientv3"
 	"github.com/golang/protobuf/proto"
 	"mesos-framework-sdk/ha"
 	"mesos-framework-sdk/include/mesos"
@@ -40,7 +39,7 @@ type SprintEventController struct {
 	events          chan *sched.Event
 	kv              etcd.KeyValueStore
 	logger          logging.Logger
-	frameworkLease  *clientv3.LeaseID
+	frameworkLease  int64
 	status          ha.Status
 	name            string
 }
@@ -279,7 +278,7 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	s.scheduler.FrameworkInfo().Id = id
 	s.logger.Emit(logging.INFO, "Subscribed with an ID of %s", idVal)
 
-	var lease *clientv3.LeaseID
+	var lease int64
 	var err error
 	for {
 		lease, err = s.kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.FrameworkInfo().GetFailoverTimeout()))
