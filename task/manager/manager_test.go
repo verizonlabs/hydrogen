@@ -3,7 +3,7 @@ package manager
 import (
 	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/logging"
-	"mesos-framework-sdk/persistence/drivers/etcd"
+	"mesos-framework-sdk/persistence/drivers/etcd/test"
 	"mesos-framework-sdk/structures"
 	"mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
@@ -41,7 +41,7 @@ func CreateTestTask(name string) *mesos_v1.TaskInfo {
 
 func TestNewTaskManager(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &etcd.MockKVStore{}
+	storage := &test.MockKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 
@@ -53,7 +53,7 @@ func TestNewTaskManager(t *testing.T) {
 
 func TestTaskManager_Cycle(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &etcd.MockKVStore{}
+	storage := &test.MockKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 	testTask := CreateTestTask("testTask")
@@ -76,7 +76,7 @@ func TestTaskManager_Cycle(t *testing.T) {
 
 func TestTaskManager_Length(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &etcd.MockKVStore{}
+	storage := &test.MockKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 	testTask := CreateTestTask("testTask")
@@ -117,7 +117,7 @@ func TestTaskManager_Length(t *testing.T) {
 
 func TestTaskManager_GetById(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &etcd.MockKVStore{}
+	storage := &test.MockKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
@@ -144,7 +144,7 @@ func TestTaskManager_GetById(t *testing.T) {
 
 func TestTaskManager_GetState(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &etcd.MockKVStore{}
+	storage := &test.MockKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
@@ -163,7 +163,7 @@ func TestTaskManager_GetState(t *testing.T) {
 
 func TestTaskManager_HasTask(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &etcd.MockKVStore{}
+	storage := &test.MockKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
@@ -178,7 +178,7 @@ func TestTaskManager_HasTask(t *testing.T) {
 
 func TestTaskManager_Set(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &etcd.MockKVStore{}
+	storage := &test.MockKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
@@ -223,7 +223,7 @@ func TestTaskManager_Set(t *testing.T) {
 
 func TestTaskManager_TotalTasks(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &etcd.MockKVStore{}
+	storage := &test.MockKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
@@ -265,7 +265,7 @@ func TestTaskManager_TotalTasks(t *testing.T) {
 
 func TestTaskManager_AddSameTask(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &etcd.MockKVStore{}
+	storage := &test.MockKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
@@ -280,7 +280,7 @@ func TestTaskManager_AddSameTask(t *testing.T) {
 
 func TestTaskManager_DeleteFail(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &etcd.MockBrokenKVStore{}
+	storage := &test.MockBrokenKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
@@ -292,7 +292,7 @@ func TestTaskManager_DeleteFail(t *testing.T) {
 
 func TestTaskManager_GetByIdFail(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &etcd.MockKVStore{}
+	storage := &test.MockKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
@@ -316,7 +316,7 @@ func TestTaskManager_GetByIdFail(t *testing.T) {
 
 func TestTaskManager_HasTaskFail(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &etcd.MockKVStore{}
+	storage := &test.MockKVStore{}
 	config := &scheduler.Configuration{}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
@@ -334,7 +334,7 @@ func TestTaskManager_HasTaskFail(t *testing.T) {
 // Need to fix retry logic in manager
 func TestTaskManager_HasTaskFailWithBrokenStorage(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &etcd.MockBrokenKVStore{}
+	storage := &test.MockBrokenKVStore{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			RetryInterval: 1 * time.Second,
@@ -352,7 +352,7 @@ func TestTaskManager_HasTaskFailWithBrokenStorage(t *testing.T) {
 
 func TestTaskManager_DeleteFailWithBrokenStorage(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &etcd.MockBrokenKVStore{}
+	storage := &test.MockBrokenKVStore{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			RetryInterval: 1 * time.Second,
@@ -366,7 +366,7 @@ func TestTaskManager_DeleteFailWithBrokenStorage(t *testing.T) {
 
 func TestTaskManager_SetFailWithBrokenStorage(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &etcd.MockBrokenKVStore{}
+	storage := &test.MockBrokenKVStore{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			RetryInterval: 1 * time.Second,
@@ -380,7 +380,7 @@ func TestTaskManager_SetFailWithBrokenStorage(t *testing.T) {
 
 func TestTaskManager_EncodeFailWithBrokenStorage(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &etcd.MockBrokenKVStore{}
+	storage := &test.MockBrokenKVStore{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			RetryInterval: 1 * time.Second,
