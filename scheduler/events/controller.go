@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/gob"
-	"github.com/golang/protobuf/proto"
 	"mesos-framework-sdk/ha"
 	"mesos-framework-sdk/include/mesos"
 	sched "mesos-framework-sdk/include/scheduler"
@@ -418,7 +417,7 @@ func (s *SprintEventController) declineOffers(offers []*mesos_v1.Offer, refuseSe
 		declineIDs = append(declineIDs, id.GetId())
 	}
 
-	s.scheduler.Decline(declineIDs, &mesos_v1.Filters{RefuseSeconds: proto.Float64(refuseSeconds)})
+	s.scheduler.Decline(declineIDs, &mesos_v1.Filters{RefuseSeconds: utils.ProtoFloat64(refuseSeconds)})
 }
 
 func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
