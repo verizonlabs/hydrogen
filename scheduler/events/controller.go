@@ -7,8 +7,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/gob"
-	"github.com/coreos/etcd/clientv3"
-	"github.com/golang/protobuf/proto"
 	"mesos-framework-sdk/ha"
 	"mesos-framework-sdk/include/mesos"
 	sched "mesos-framework-sdk/include/scheduler"
@@ -29,8 +27,7 @@ import (
 const (
 	// Note (tim): Is there a reasonable non-linear equation to determine refuse seconds?
 	// f^2/num_of_nodes_in_cluster where f is # of tasks to handle at once (per offer cycle).
-	//
-	refuseSeconds = 64.0
+	refuseSeconds = 30.0 // Setting this to 30 as a "reasonable default".
 )
 
 type SprintEventController struct {
@@ -41,7 +38,7 @@ type SprintEventController struct {
 	events          chan *sched.Event
 	kv              etcd.KeyValueStore
 	logger          logging.Logger
-	frameworkLease  *clientv3.LeaseID
+	frameworkLease  int64
 	status          ha.Status
 	name            string
 }
@@ -271,14 +268,16 @@ func (s *SprintEventController) restoreTasks() {
 	}
 }
 
-// TODO think about renaming this to subscribed since the scheduler from the SDK is really handling the subscribe call.
+//////////////////////////
+// Mesos Event Callbacks
+//////////////////////////
 func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 	id := subEvent.GetFrameworkId()
 	idVal := id.GetValue()
 	s.scheduler.FrameworkInfo().Id = id
 	s.logger.Emit(logging.INFO, "Subscribed with an ID of %s", idVal)
 
-	var lease *clientv3.LeaseID
+	var lease int64
 	var err error
 	for {
 		lease, err = s.kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.FrameworkInfo().GetFailoverTimeout()))
@@ -418,7 +417,7 @@ func (s *SprintEventController) declineOffers(offers []*mesos_v1.Offer, refuseSe
 		declineIDs = append(declineIDs, id.GetId())
 	}
 
-	s.scheduler.Decline(declineIDs, &mesos_v1.Filters{RefuseSeconds: proto.Float64(refuseSeconds)})
+	s.scheduler.Decline(declineIDs, &mesos_v1.Filters{RefuseSeconds: utils.ProtoFloat64(refuseSeconds)})
 }
 
 func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
@@ -428,7 +427,6 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 	if err != nil {
 		s.logger.Emit(logging.INFO, "No tasks to launch.")
 		s.scheduler.Suppress()
-
 		s.declineOffers(offerEvent.GetOffers(), refuseSeconds) // All offers to decline.
 		return
 	}
@@ -467,7 +465,6 @@ func (s *SprintEventController) Offers(offerEvent *sched.Event_Offers) {
 
 	// Multiplex our tasks onto as few offers as possible and launch them all.
 	for id, launches := range accepts {
-
 		// TODO (tim) The offer operations will need to be parsed for volume mounting and etc.)
 		s.scheduler.Accept([]*mesos_v1.OfferID{id}, launches, nil)
 	}
@@ -483,6 +480,7 @@ func (s *SprintEventController) Rescind(rescindEvent *sched.Event_Rescind) {
 }
 
 func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
+	s.logger.Emit(logging.INFO, "Update event: ", updateEvent.GetStatus())
 	status := updateEvent.GetStatus()
 	taskId := status.GetTaskId()
 	task, err := s.taskmanager.GetById(taskId)
@@ -510,16 +508,21 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 		s.taskmanager.Set(sdkTaskManager.UNKNOWN, task)
 	case mesos_v1.TaskState_TASK_STAGING:
 		// NOP, keep task set to "launched".
+		s.logger.Emit(logging.INFO, message)
 	case mesos_v1.TaskState_TASK_DROPPED:
 		// Transient error, we should retry launching. Taskinfo is fine.
+		s.logger.Emit(logging.INFO, message)
 	case mesos_v1.TaskState_TASK_ERROR:
 		// TODO (tim): Error with the taskinfo sent to the agent. Give verbose reasoning back.
+		s.logger.Emit(logging.ERROR, message)
 	case mesos_v1.TaskState_TASK_FINISHED:
 		s.taskmanager.Delete(task)
 	case mesos_v1.TaskState_TASK_GONE:
 		// Agent is dead and task is lost.
+		s.logger.Emit(logging.ERROR, message)
 	case mesos_v1.TaskState_TASK_GONE_BY_OPERATOR:
 		// Agent might be dead, master is unsure. Will return to RUNNING state possibly or die.
+		s.logger.Emit(logging.ERROR, message)
 	case mesos_v1.TaskState_TASK_KILLED:
 		// Task was killed.
 		s.logger.Emit(
@@ -531,18 +534,22 @@ func (s *SprintEventController) Update(updateEvent *sched.Event_Update) {
 		s.taskmanager.Delete(task)
 	case mesos_v1.TaskState_TASK_KILLING:
 		// Task is in the process of catching a SIGNAL and shutting down.
+		s.logger.Emit(logging.INFO, message)
 	case mesos_v1.TaskState_TASK_LOST:
 		// Task is unknown to the master and lost. Should reschedule.
 		s.logger.Emit(logging.ALARM, "Task %s was lost", taskId.GetValue())
 	case mesos_v1.TaskState_TASK_RUNNING:
+		s.logger.Emit(logging.INFO, message)
 	case mesos_v1.TaskState_TASK_STARTING:
 		// Task is still starting up. NOOP
 	case mesos_v1.TaskState_TASK_UNKNOWN:
 		// Task is unknown to the master. Should ignore.
 	case mesos_v1.TaskState_TASK_UNREACHABLE:
 		// Agent lost contact with master, could be a network error. No guarantee the task is still running.
-		// Should we reschedule after waiting a certain peroid of time?
+		// Should we reschedule after waiting a certain period of time?
+		s.logger.Emit(logging.INFO, message)
 	default:
+		// Somewhere in here the universe started.
 	}
 
 	s.scheduler.Acknowledge(agentId, taskId, status.GetUuid())

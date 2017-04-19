@@ -1,12 +1,12 @@
 package main
 
 import (
-	"github.com/golang/protobuf/proto"
 	"mesos-framework-sdk/client"
 	"mesos-framework-sdk/executor"
 	"mesos-framework-sdk/include/executor"
 	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/logging"
+	"mesos-framework-sdk/utils"
 	"net"
 	"os"
 	"sprint/executor/events"
@@ -57,8 +57,8 @@ func getInternalNetworkInterface() (net.IP, error) {
 func main() {
 	logger := logging.NewDefaultLogger()
 	// Set implicitly by the Mesos agent.
-	fwId := &mesos_v1.FrameworkID{Value: proto.String(os.Getenv("MESOS_FRAMEWORK_ID"))}
-	execId := &mesos_v1.ExecutorID{Value: proto.String(os.Getenv("MESOS_EXECUTOR_ID"))}
+	fwId := &mesos_v1.FrameworkID{Value: utils.ProtoString(os.Getenv("MESOS_FRAMEWORK_ID"))}
+	execId := &mesos_v1.ExecutorID{Value: utils.ProtoString(os.Getenv("MESOS_EXECUTOR_ID"))}
 
 	// If an ENV VAR was set for an endpoint, we use that.
 	endpoint := os.Getenv("EXECUTOR_ENDPOINT")

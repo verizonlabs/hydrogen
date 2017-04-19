@@ -1,7 +1,6 @@
 package events
 
 import (
-	"github.com/golang/protobuf/proto"
 	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/include/scheduler"
 	"mesos-framework-sdk/logging/test"
@@ -51,17 +50,17 @@ func TestSprintEventController_Offers(t *testing.T) {
 	offers = []*mesos_v1.Offer{}
 	resources := []*mesos_v1.Resource{}
 	resources = append(resources, &mesos_v1.Resource{
-		Name: proto.String("cpu"),
+		Name: utils.ProtoString("cpu"),
 		Type: mesos_v1.Value_SCALAR.Enum(),
 		Scalar: &mesos_v1.Value_Scalar{
-			Value: proto.Float64(10.0),
+			Value: utils.ProtoFloat64(10.0),
 		},
 	})
 	offers = append(offers, &mesos_v1.Offer{
-		Id:          &mesos_v1.OfferID{Value: proto.String("id")},
-		FrameworkId: &mesos_v1.FrameworkID{Value: proto.String(utils.UuidAsString())},
-		AgentId:     &mesos_v1.AgentID{Value: proto.String(utils.UuidAsString())},
-		Hostname:    proto.String("Some host"),
+		Id:          &mesos_v1.OfferID{Value: utils.ProtoString("id")},
+		FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString(utils.UuidAsString())},
+		AgentId:     &mesos_v1.AgentID{Value: utils.ProtoString(utils.UuidAsString())},
+		Hostname:    utils.ProtoString("Some host"),
 		Resources:   resources,
 	})
 	ctrl.Offers(&mesos_v1_scheduler.Event_Offers{
@@ -92,17 +91,17 @@ func TestSprintEventController_OffersWithQueuedTasks(t *testing.T) {
 	offers = []*mesos_v1.Offer{}
 	resources := []*mesos_v1.Resource{}
 	resources = append(resources, &mesos_v1.Resource{
-		Name: proto.String("cpu"),
+		Name: utils.ProtoString("cpu"),
 		Type: mesos_v1.Value_SCALAR.Enum(),
 		Scalar: &mesos_v1.Value_Scalar{
-			Value: proto.Float64(10.0),
+			Value: utils.ProtoFloat64(10.0),
 		},
 	})
 	offers = append(offers, &mesos_v1.Offer{
-		Id:          &mesos_v1.OfferID{Value: proto.String("id")},
-		FrameworkId: &mesos_v1.FrameworkID{Value: proto.String(utils.UuidAsString())},
-		AgentId:     &mesos_v1.AgentID{Value: proto.String(utils.UuidAsString())},
-		Hostname:    proto.String("Some host"),
+		Id:          &mesos_v1.OfferID{Value: utils.ProtoString("id")},
+		FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString(utils.UuidAsString())},
+		AgentId:     &mesos_v1.AgentID{Value: utils.ProtoString(utils.UuidAsString())},
+		Hostname:    utils.ProtoString("Some host"),
 		Resources:   resources,
 	})
 	ctrl.Offers(&mesos_v1_scheduler.Event_Offers{
@@ -161,7 +160,7 @@ func TestSprintEventController_Update(t *testing.T) {
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	for _, state := range states {
 		ctrl.Update(&mesos_v1_scheduler.Event_Update{Status: &mesos_v1.TaskStatus{
-			TaskId: &mesos_v1.TaskID{Value: proto.String("id")},
+			TaskId: &mesos_v1.TaskID{Value: utils.ProtoString("id")},
 			State:  state,
 		}})
 	}
@@ -178,7 +177,7 @@ func TestSprintEventController_Subscribe(t *testing.T) {
 	kv := test.MockEtcd{}
 	lg := MockLogging.MockLogger{}
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
-	ctrl.Subscribe(&mesos_v1_scheduler.Event_Subscribed{FrameworkId: &mesos_v1.FrameworkID{Value: proto.String("id")}})
+	ctrl.Subscribe(&mesos_v1_scheduler.Event_Subscribed{FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString("id")}})
 }
 
 func TestSprintEventController_CreateAndGetLeader(t *testing.T) {
@@ -257,8 +256,8 @@ func TestSprintEventController_Message(t *testing.T) {
 	lg := MockLogging.MockLogger{}
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	ctrl.Message(&mesos_v1_scheduler.Event_Message{
-		AgentId:    &mesos_v1.AgentID{Value: proto.String("agent")},
-		ExecutorId: &mesos_v1.ExecutorID{Value: proto.String("id")},
+		AgentId:    &mesos_v1.AgentID{Value: utils.ProtoString("agent")},
+		ExecutorId: &mesos_v1.ExecutorID{Value: utils.ProtoString("id")},
 		Data:       []byte(`some message`),
 	})
 }
@@ -275,7 +274,7 @@ func TestSprintEventController_Failure(t *testing.T) {
 	lg := MockLogging.MockLogger{}
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	ctrl.Failure(&mesos_v1_scheduler.Event_Failure{
-		AgentId: &mesos_v1.AgentID{Value: proto.String("agent")},
+		AgentId: &mesos_v1.AgentID{Value: utils.ProtoString("agent")},
 	})
 }
 
@@ -293,9 +292,9 @@ func TestSprintEventController_InverseOffer(t *testing.T) {
 	ctrl.InverseOffer(&mesos_v1_scheduler.Event_InverseOffers{
 		InverseOffers: []*mesos_v1.InverseOffer{
 			{
-				Id:             &mesos_v1.OfferID{Value: proto.String("id")},
-				FrameworkId:    &mesos_v1.FrameworkID{Value: proto.String("id")},
-				Unavailability: &mesos_v1.Unavailability{Start: &mesos_v1.TimeInfo{Nanoseconds: proto.Int64(0)}},
+				Id:             &mesos_v1.OfferID{Value: utils.ProtoString("id")},
+				FrameworkId:    &mesos_v1.FrameworkID{Value: utils.ProtoString("id")},
+				Unavailability: &mesos_v1.Unavailability{Start: &mesos_v1.TimeInfo{Nanoseconds: utils.ProtoInt64(0)}},
 			},
 		},
 	})
@@ -313,7 +312,7 @@ func TestSprintEventController_RescindInverseOffer(t *testing.T) {
 	lg := MockLogging.MockLogger{}
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	ctrl.RescindInverseOffer(&mesos_v1_scheduler.Event_RescindInverseOffer{
-		InverseOfferId: &mesos_v1.OfferID{Value: proto.String("id")},
+		InverseOfferId: &mesos_v1.OfferID{Value: utils.ProtoString("id")},
 	})
 }
 
@@ -329,6 +328,6 @@ func TestSprintEventController_Error(t *testing.T) {
 	lg := MockLogging.MockLogger{}
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	ctrl.Error(&mesos_v1_scheduler.Event_Error{
-		Message: proto.String("message"),
+		Message: utils.ProtoString("message"),
 	})
 }

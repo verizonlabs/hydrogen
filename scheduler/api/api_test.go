@@ -12,7 +12,6 @@ import (
 	"mesos-framework-sdk/task/manager/test"
 	"net/http"
 	"net/http/httptest"
-	"sprint/scheduler/api/response"
 	"strings"
 	"testing"
 )
@@ -92,14 +91,14 @@ func TestApiDeploy(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Deploy
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
 
-	if m.Status == response.FAILED {
+	if m.Status == FAILED {
 		t.Logf("Task shouldn't of failed but did %v", m.Message)
 		t.FailNow()
 	}
@@ -122,14 +121,14 @@ func TestApiJunkDeploy(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Deploy
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
 
-	if m.Status != response.FAILED {
+	if m.Status != FAILED {
 		t.FailNow()
 	}
 }
@@ -153,14 +152,14 @@ func TestApiDeployBrokenTask(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Deploy
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
 
-	if m.Status != response.FAILED {
+	if m.Status != FAILED {
 		t.Logf("Task shouldn of failed but didn't %v", m.Message)
 		t.FailNow()
 	}
@@ -184,14 +183,14 @@ func TestApiUpdate(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Kill
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
 
-	if m.Status != response.UPDATE {
+	if m.Status != UPDATE {
 		t.Logf("Task should of been UPDATE but didn't %v", m.Message)
 		t.FailNow()
 	}
@@ -215,14 +214,14 @@ func TestApiUpdateFail(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Kill
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
 
-	if m.Status != response.FAILED {
+	if m.Status != FAILED {
 		t.Logf("Task should of been FAILED but wasn't %v", m.Message)
 		t.FailNow()
 	}
@@ -247,14 +246,14 @@ func TestApiUpdateFailTask(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Kill
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
 
-	if m.Status != response.FAILED {
+	if m.Status != FAILED {
 		t.Logf("Task should of been FAILED but wasn't %v", m.Message)
 		t.FailNow()
 	}
@@ -278,14 +277,14 @@ func TestApiKill(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Kill
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
 
-	if m.Status != response.KILLED {
+	if m.Status != FAILED {
 		t.Logf("Task shouldn't of failed but did %v", m.Message)
 		t.FailNow()
 	}
@@ -309,14 +308,14 @@ func TestApiKillFail(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Kill
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
 
-	if m.Status != response.FAILED {
+	if m.Status != FAILED {
 		t.Logf("Task should of failed but didn't:  %v", m.Message)
 		t.FailNow()
 	}
@@ -341,14 +340,14 @@ func TestApiKillFailTask(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Kill
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
 
-	if m.Status != response.NOTFOUND {
+	if m.Status != NOTFOUND {
 		t.Logf("Task should of been NOTFOUND but wasn't %v", m.Message)
 		t.FailNow()
 	}
@@ -373,14 +372,14 @@ func TestApiKillFailSchedulerCall(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Kill
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
 
-	if m.Status != response.FAILED {
+	if m.Status != FAILED {
 		t.Logf("Task should of been FAILED but wasn't %v", m.Message)
 		t.FailNow()
 	}
@@ -403,14 +402,14 @@ func TestApiState(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Deploy
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
 
-	if m.Status != response.LAUNCHED {
+	if m.Status != LAUNCHED {
 		t.Logf("Task should of been in state LAUNCHED but wasn't:  %v", m.Message)
 		t.FailNow()
 	}
@@ -433,14 +432,14 @@ func TestApiStateFail(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Deploy
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
 
-	if m.Status != response.FAILED {
+	if m.Status != FAILED {
 		t.Logf("API should of returned FAILED but didn't:  %v", m.Message)
 		t.FailNow()
 	}
@@ -464,14 +463,14 @@ func TestApiStateFailTask(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Deploy
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
 
-	if m.Status != response.FAILED {
+	if m.Status != FAILED {
 		t.Logf("API should of returned FAILED but didn't:  %v", m.Message)
 		t.FailNow()
 	}
@@ -494,14 +493,14 @@ func TestApiFailWrongMethod(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Deploy
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
 
-	if m.Status != response.FAILED {
+	if m.Status != FAILED {
 		t.Logf("API should of returned FAILED but didn't:  %v", m.Message)
 		t.FailNow()
 	}
@@ -524,14 +523,14 @@ func TestApiDeployWithNil(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Deploy
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
 
-	if m.Status != response.FAILED {
+	if m.Status != FAILED {
 		t.Logf("Task shouldn't of failed but did %v", m.Message)
 		t.FailNow()
 	}
@@ -555,14 +554,14 @@ func TestApiDeployWithFilters(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Deploy
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
 
-	if m.Status == response.FAILED {
+	if m.Status == FAILED {
 		t.Logf("Task shouldn't of failed but did %v", m.Message)
 		t.FailNow()
 	}
@@ -586,14 +585,14 @@ func TestApiDeployWithFiltersFail(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Deploy
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
 
-	if m.Status != response.FAILED {
+	if m.Status != FAILED {
 		t.Logf("Task should of failed but didn't %v", m.Message)
 		t.FailNow()
 	}
@@ -617,14 +616,14 @@ func TestApiDeployWithIoutilFail(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Deploy
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
 
-	if m.Status != response.FAILED {
+	if m.Status != FAILED {
 		t.Logf("Task should of failed but didn't %v", m.Message)
 		t.FailNow()
 	}
@@ -649,14 +648,14 @@ func TestApiDeployWithIoutilFilterFail(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Deploy
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
 
-	if m.Status != response.FAILED {
+	if m.Status != FAILED {
 		t.Logf("Task should of failed but didn't %v", m.Message)
 		t.FailNow()
 	}
@@ -680,14 +679,14 @@ func TestApiUpdateWithIoutilFail(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Deploy
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
 
-	if m.Status != response.FAILED {
+	if m.Status != FAILED {
 		t.Logf("Task should of failed but didn't %v", m.Message)
 		t.FailNow()
 	}
@@ -713,14 +712,14 @@ func TestApiStats(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Deploy
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
 
-	if m.Status != response.ACCEPTED {
+	if m.Status != ACCEPTED {
 		t.Logf("API should of returned ACCEPTED but didn't: %v", m.Message)
 		t.FailNow()
 	}
@@ -744,13 +743,13 @@ func TestApiStatsFail(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Deploy
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
-	if m.Status != response.FAILED {
+	if m.Status != FAILED {
 		t.Logf("API should of returned FAILED but didn't: %v", m.Message)
 		t.FailNow()
 	}
@@ -773,13 +772,13 @@ func TestApiStatsFailNoName(t *testing.T) {
 		t.FailNow()
 	}
 
-	var m response.Deploy
+	var m Response
 	err = json.Unmarshal(body, &m)
 	if err != nil {
 		t.Logf("error unmarshalling %v", err)
 		t.FailNow()
 	}
-	if m.Status != response.FAILED {
+	if m.Status != FAILED {
 		t.Logf("API should of returned FAILED but didn't: %v", m.Message)
 		t.FailNow()
 	}

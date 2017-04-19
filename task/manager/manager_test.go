@@ -1,12 +1,12 @@
 package manager
 
 import (
-	"github.com/golang/protobuf/proto"
 	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/persistence/drivers/etcd"
 	"mesos-framework-sdk/structures"
 	"mesos-framework-sdk/task/manager"
+	"mesos-framework-sdk/utils"
 	"os"
 	"sprint/scheduler"
 	"strconv"
@@ -23,15 +23,15 @@ func TestMain(m *testing.M) {
 
 func CreateTestTask(name string) *mesos_v1.TaskInfo {
 	return &mesos_v1.TaskInfo{
-		Name:    proto.String(name),
-		TaskId:  &mesos_v1.TaskID{Value: proto.String("")},
-		AgentId: &mesos_v1.AgentID{Value: proto.String("")},
+		Name:    utils.ProtoString(name),
+		TaskId:  &mesos_v1.TaskID{Value: utils.ProtoString("")},
+		AgentId: &mesos_v1.AgentID{Value: utils.ProtoString("")},
 		Command: &mesos_v1.CommandInfo{
-			Value: proto.String("/bin/sleep 50"),
+			Value: utils.ProtoString("/bin/sleep 50"),
 		},
 		Container: &mesos_v1.ContainerInfo{
 			Type:     mesos_v1.ContainerInfo_DOCKER.Enum(),
-			Hostname: proto.String("hostname"),
+			Hostname: utils.ProtoString("hostname"),
 			Mesos: &mesos_v1.ContainerInfo_MesosInfo{
 				Image: &mesos_v1.Image{Type: mesos_v1.Image_DOCKER.Enum()},
 			},
@@ -307,7 +307,7 @@ func TestTaskManager_GetByIdFail(t *testing.T) {
 
 	testTask = CreateTestTask("testTask")
 	taskManager.Add(testTask)
-	_, err = taskManager.GetById(&mesos_v1.TaskID{Value: proto.String("Fail me")})
+	_, err = taskManager.GetById(&mesos_v1.TaskID{Value: utils.ProtoString("Fail me")})
 	if err == nil {
 		t.Logf("Found a task that never existed: %v", testTask)
 		t.FailNow()

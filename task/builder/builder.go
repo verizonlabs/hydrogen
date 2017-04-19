@@ -2,7 +2,6 @@ package builder
 
 import (
 	"errors"
-	"github.com/golang/protobuf/proto"
 	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/logging"
 	resourcebuilder "mesos-framework-sdk/resources"
@@ -63,10 +62,10 @@ func Application(t *task.ApplicationJSON, lgr logging.Logger) (*mesos_v1.TaskInf
 
 	name := t.Name
 	hash := uuid
-	taskId := &mesos_v1.TaskID{Value: proto.String(name + "-" + hash)}
+	taskId := &mesos_v1.TaskID{Value: utils.ProtoString(name + "-" + hash)}
 
 	return resourcebuilder.CreateTaskInfo(
-		proto.String(name),
+		utils.ProtoString(name),
 		taskId,
 		cmd,
 		res,
