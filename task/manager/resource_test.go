@@ -1,7 +1,6 @@
 package manager
 
 import (
-	"github.com/golang/protobuf/proto"
 	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/task"
@@ -11,15 +10,15 @@ import (
 
 func createResources(cpu, mem float64) (r []*mesos_v1.Resource) {
 	r = append(r, &mesos_v1.Resource{
-		Name:   proto.String("cpu"),
+		Name:   utils.ProtoString("cpu"),
 		Type:   mesos_v1.Value_SCALAR.Enum(),
-		Scalar: &mesos_v1.Value_Scalar{Value: proto.Float64(cpu)},
+		Scalar: &mesos_v1.Value_Scalar{Value: utils.ProtoFloat64(cpu)},
 	})
 
 	r = append(r, &mesos_v1.Resource{
-		Name:   proto.String("mem"),
+		Name:   utils.ProtoString("mem"),
 		Type:   mesos_v1.Value_SCALAR.Enum(),
-		Scalar: &mesos_v1.Value_Scalar{Value: proto.Float64(mem)},
+		Scalar: &mesos_v1.Value_Scalar{Value: utils.ProtoFloat64(mem)},
 	})
 	return
 }
@@ -28,7 +27,7 @@ func createOffers(num int) (o []*mesos_v1.Offer) {
 	for i := 0; i < num; i++ {
 		u := utils.UuidAsString()
 		o = append(o, &mesos_v1.Offer{
-			Id:        &mesos_v1.OfferID{Value: proto.String(u)},
+			Id:        &mesos_v1.OfferID{Value: utils.ProtoString(u)},
 			Resources: createResources(10.0, 4096.0),
 		})
 	}
@@ -69,7 +68,7 @@ func TestResourceManager_AddFilter(t *testing.T) {
 	}
 	filters := []task.Filter{f}
 	if err := rm.AddFilter(&mesos_v1.TaskInfo{
-		Name:      proto.String("test"),
+		Name:      utils.ProtoString("test"),
 		Resources: createResources(1, 128),
 	}, filters); err != nil {
 		t.Log("Failed to add filter.")
@@ -81,7 +80,7 @@ func TestResourceManager_Assign(t *testing.T) {
 	rm := manager.NewDefaultResourceManager()
 	rm.AddOffers(createOffers(10))
 	o, err := rm.Assign(&mesos_v1.TaskInfo{
-		Name:      proto.String("test"),
+		Name:      utils.ProtoString("test"),
 		Resources: createResources(1, 128),
 	})
 	if err != nil {
