@@ -13,7 +13,6 @@ import (
 	sdkTaskManager "mesos-framework-sdk/task/manager"
 	"net/http"
 	"os"
-	"sprint/scheduler/api/response"
 	"sprint/task/builder"
 	"strconv"
 )
@@ -26,7 +25,21 @@ const (
 	updateEndpoint = "/update"
 	statsEndpoint  = "/stats"
 	retries        = 20
+
+	ACCEPTED = "Accepted"
+	LAUNCHED = "Launched"
+	FAILED   = "Failed"
+	KILLED   = "Killed"
+	NOTFOUND = "Not Found"
+	QUEUED   = "Queued"
+	UPDATE   = "Updated"
 )
+
+type Response struct {
+	Status   string
+	TaskName string
+	Message  string
+}
 
 type ApiServer struct {
 	cfg         server.Configuration
@@ -118,8 +131,8 @@ func (a *ApiServer) methodFilter(w http.ResponseWriter, r *http.Request, methods
 		}
 	}
 
-	json.NewEncoder(w).Encode(response.Deploy{
-		Status:  response.FAILED,
+	json.NewEncoder(w).Encode(Response{
+		Status:  FAILED,
 		Message: r.Method + " is not allowed on this endpoint.",
 	})
 }
@@ -129,8 +142,8 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 	a.methodFilter(w, r, []string{"POST"}, func() {
 		dec, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			json.NewEncoder(w).Encode(response.Deploy{
-				Status:  response.FAILED,
+			json.NewEncoder(w).Encode(Response{
+				Status:  FAILED,
 				Message: err.Error(),
 			})
 			return
@@ -141,8 +154,8 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 		var m taskbuilder.ApplicationJSON
 		err = json.Unmarshal(dec, &m)
 		if err != nil {
-			json.NewEncoder(w).Encode(response.Deploy{
-				Status:  response.FAILED,
+			json.NewEncoder(w).Encode(Response{
+				Status:  FAILED,
 				Message: err.Error(),
 			})
 			return
@@ -150,8 +163,8 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 
 		task, err := builder.Application(&m, a.logger)
 		if err != nil {
-			json.NewEncoder(w).Encode(response.Deploy{
-				Status:   response.FAILED,
+			json.NewEncoder(w).Encode(Response{
+				Status:   FAILED,
 				TaskName: task.GetName(),
 				Message:  err.Error(),
 			})
@@ -161,8 +174,8 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 		// If we have any filters, let the resource manager know.
 		if len(m.Filters) > 0 {
 			if err := a.resourceMgr.AddFilter(task, m.Filters); err != nil {
-				json.NewEncoder(w).Encode(response.Deploy{
-					Status:   response.FAILED,
+				json.NewEncoder(w).Encode(Response{
+					Status:   FAILED,
 					TaskName: task.GetName(),
 					Message:  err.Error(),
 				})
@@ -172,8 +185,8 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err := a.taskMgr.Add(task); err != nil {
-			json.NewEncoder(w).Encode(response.Deploy{
-				Status:   response.FAILED,
+			json.NewEncoder(w).Encode(Response{
+				Status:   FAILED,
 				TaskName: task.GetName(),
 				Message:  err.Error(),
 			})
@@ -181,8 +194,8 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 		}
 		a.sched.Revive()
 
-		json.NewEncoder(w).Encode(response.Deploy{
-			Status:   response.QUEUED,
+		json.NewEncoder(w).Encode(Response{
+			Status:   QUEUED,
 			TaskName: task.GetName(),
 		})
 	})
@@ -192,8 +205,8 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 	a.methodFilter(w, r, []string{"PUT"}, func() {
 		dec, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			json.NewEncoder(w).Encode(response.Deploy{
-				Status:  response.FAILED,
+			json.NewEncoder(w).Encode(Response{
+				Status:  FAILED,
 				Message: err.Error(),
 			})
 			return
@@ -204,8 +217,8 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 		var m taskbuilder.ApplicationJSON
 		err = json.Unmarshal(dec, &m)
 		if err != nil {
-			json.NewEncoder(w).Encode(response.Deploy{
-				Status:  response.FAILED,
+			json.NewEncoder(w).Encode(Response{
+				Status:  FAILED,
 				Message: err.Error(),
 			})
 			return
@@ -214,8 +227,8 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 		// Check if this task already exists
 		taskToKill, err := a.taskMgr.Get(&m.Name)
 		if err != nil {
-			json.NewEncoder(w).Encode(response.Deploy{
-				Status:   response.FAILED,
+			json.NewEncoder(w).Encode(Response{
+				Status:   FAILED,
 				TaskName: taskToKill.GetName(),
 				Message:  err.Error(),
 			})
@@ -228,8 +241,8 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 		a.sched.Kill(taskToKill.GetTaskId(), taskToKill.GetAgentId())
 		a.sched.Revive()
 
-		json.NewEncoder(w).Encode(response.Deploy{
-			Status:  response.UPDATE,
+		json.NewEncoder(w).Encode(Response{
+			Status:  UPDATE,
 			Message: fmt.Sprintf("Updating %v", task.GetName()),
 		})
 	})
@@ -247,8 +260,8 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 		var m taskbuilder.KillJson
 		err = json.Unmarshal(dec, &m)
 		if err != nil {
-			json.NewEncoder(w).Encode(response.Deploy{
-				Status:  response.FAILED,
+			json.NewEncoder(w).Encode(Response{
+				Status:  FAILED,
 				Message: err.Error(),
 			})
 			return
@@ -259,7 +272,7 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 			// Look up task in task manager
 			t, err := a.taskMgr.Get(m.Name)
 			if err != nil {
-				json.NewEncoder(w).Encode(response.Kill{Status: response.NOTFOUND, TaskName: *m.Name})
+				json.NewEncoder(w).Encode(Response{Status: NOTFOUND, TaskName: *m.Name})
 				return
 			}
 			// Get all tasks in RUNNING state.
@@ -280,8 +293,8 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 							// We've tried twice and still failed.
 							// Send back an error message.
 							json.NewEncoder(w).Encode(
-								response.Kill{
-									Status:   response.FAILED,
+								Response{
+									Status:   FAILED,
 									TaskName: *m.Name,
 									Message:  "Response Status to Kill: " + resp.Status,
 								},
@@ -293,7 +306,7 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 					a.taskMgr.Delete(t)
 					a.resourceMgr.ClearFilters(t)
 					// Response appropriately.
-					json.NewEncoder(w).Encode(response.Kill{Status: response.KILLED, TaskName: *m.Name})
+					json.NewEncoder(w).Encode(Response{Status: KILLED, TaskName: *m.Name})
 					return
 				}
 			}
@@ -303,11 +316,11 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 			// or get an appropriate offer.
 			a.taskMgr.Delete(t)
 			a.resourceMgr.ClearFilters(t)
-			json.NewEncoder(w).Encode(response.Kill{Status: response.KILLED, TaskName: *m.Name})
+			json.NewEncoder(w).Encode(Response{Status: KILLED, TaskName: *m.Name})
 			return
 		}
 		// If we get here, there was no name passed in and the kill function failed.
-		json.NewEncoder(w).Encode(response.Kill{Status: response.FAILED, TaskName: *m.Name})
+		json.NewEncoder(w).Encode(Response{Status: FAILED, TaskName: *m.Name})
 		return
 	})
 }
@@ -316,8 +329,8 @@ func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
 	a.methodFilter(w, r, []string{"GET"}, func() {
 		name := r.URL.Query().Get("name")
 		if name == "" {
-			json.NewEncoder(w).Encode(response.Deploy{
-				Status:  response.FAILED,
+			json.NewEncoder(w).Encode(Response{
+				Status:  FAILED,
 				Message: "No name was found in URL params.",
 			})
 			return
@@ -329,7 +342,7 @@ func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
 				TaskName string
 				Message  string
 			}{
-				response.FAILED,
+				FAILED,
 				name,
 				"Failed to get state for task.",
 			})
@@ -344,7 +357,7 @@ func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
 				TaskName string
 				State    string
 			}{
-				response.ACCEPTED,
+				ACCEPTED,
 				t.GetName(),
 				task.(sdkTaskManager.Task).State.String(),
 			})
@@ -358,16 +371,16 @@ func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 	a.methodFilter(w, r, []string{"GET"}, func() {
 		name := r.URL.Query().Get("name")
 		if name == "" {
-			json.NewEncoder(w).Encode(response.Deploy{
-				Status:  response.FAILED,
+			json.NewEncoder(w).Encode(Response{
+				Status:  FAILED,
 				Message: "No name was found in URL params.",
 			})
 			return
 		}
 		_, err := a.taskMgr.Get(&name)
 		if err != nil {
-			json.NewEncoder(w).Encode(response.Deploy{
-				Status:  response.FAILED,
+			json.NewEncoder(w).Encode(Response{
+				Status:  FAILED,
 				Message: err.Error(),
 			})
 			return
@@ -379,11 +392,11 @@ func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 
 		for _, task := range queued {
 			if task.GetName() == name {
-				json.NewEncoder(w).Encode(response.Kill{Status: response.QUEUED, TaskName: name})
+				json.NewEncoder(w).Encode(Response{Status: QUEUED, TaskName: name})
 				return
 			}
 		}
 
-		json.NewEncoder(w).Encode(response.Kill{Status: response.LAUNCHED, TaskName: name})
+		json.NewEncoder(w).Encode(Response{Status: LAUNCHED, TaskName: name})
 	})
 }
