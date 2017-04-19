@@ -1,9 +1,9 @@
 package builder
 
 import (
-	"github.com/golang/protobuf/proto"
 	"mesos-framework-sdk/logging/test"
 	"mesos-framework-sdk/task"
+	"mesos-framework-sdk/utils"
 	"testing"
 )
 
@@ -18,7 +18,7 @@ func TestApplication(t *testing.T) {
 			Mem: 128.0,
 		},
 		Command: &task.CommandJSON{
-			Cmd: proto.String("/bin/sleep 1"),
+			Cmd: utils.ProtoString("/bin/sleep 1"),
 		},
 		Container:   &task.ContainerJSON{},
 		HealthCheck: &task.HealthCheckJSON{},
@@ -105,7 +105,7 @@ func TestApplicationContainerFail(t *testing.T) {
 	a := make([]map[string]string, 0)
 	b := make([]task.Filter, 0)
 	l := make([]task.VolumesJSON, 1)
-	l = append(l, task.VolumesJSON{HostPath: proto.String("/home/someone")})
+	l = append(l, task.VolumesJSON{HostPath: utils.ProtoString("/home/someone")})
 	// Test
 	test := &task.ApplicationJSON{
 		Name: "Test Task",
@@ -114,11 +114,11 @@ func TestApplicationContainerFail(t *testing.T) {
 			Mem: 128.0,
 		},
 		Command: &task.CommandJSON{
-			Cmd: proto.String("/bin/sleep 1"),
+			Cmd: utils.ProtoString("/bin/sleep 1"),
 		},
 		Container: &task.ContainerJSON{
 			ImageName:     nil,
-			ContainerType: proto.String("docker"),
+			ContainerType: utils.ProtoString("docker"),
 			Volumes:       l,
 		},
 		HealthCheck: &task.HealthCheckJSON{},
@@ -144,11 +144,11 @@ func TestApplicationWithDockerContainer(t *testing.T) {
 			Mem: 128.0,
 		},
 		Command: &task.CommandJSON{
-			Cmd: proto.String("/bin/sleep 1"),
+			Cmd: utils.ProtoString("/bin/sleep 1"),
 		},
 		Container: &task.ContainerJSON{
-			ImageName:     proto.String("debian:latest"),
-			ContainerType: proto.String("docker"),
+			ImageName:     utils.ProtoString("debian:latest"),
+			ContainerType: utils.ProtoString("docker"),
 		},
 		HealthCheck: &task.HealthCheckJSON{},
 		Labels:      a,
@@ -173,11 +173,11 @@ func TestApplicationFailResources(t *testing.T) {
 			Mem: 0,
 		},
 		Command: &task.CommandJSON{
-			Cmd: proto.String("/bin/sleep 1"),
+			Cmd: utils.ProtoString("/bin/sleep 1"),
 		},
 		Container: &task.ContainerJSON{
-			ImageName:     proto.String("debian:latest"),
-			ContainerType: proto.String("docker"),
+			ImageName:     utils.ProtoString("debian:latest"),
+			ContainerType: utils.ProtoString("docker"),
 		},
 		HealthCheck: &task.HealthCheckJSON{},
 		Labels:      a,
@@ -203,11 +203,11 @@ func TestApplicationFailLabels(t *testing.T) {
 			Mem: 128.0,
 		},
 		Command: &task.CommandJSON{
-			Cmd: proto.String("/bin/sleep 1"),
+			Cmd: utils.ProtoString("/bin/sleep 1"),
 		},
 		Container: &task.ContainerJSON{
-			ImageName:     proto.String("debian:latest"),
-			ContainerType: proto.String("docker"),
+			ImageName:     utils.ProtoString("debian:latest"),
+			ContainerType: utils.ProtoString("docker"),
 		},
 		HealthCheck: &task.HealthCheckJSON{},
 		Labels:      a,
