@@ -94,8 +94,6 @@ func (s *SprintEventController) Communicate() {
 		return
 	}
 
-	s.status = ha.Listening
-
 	for {
 		// Block here until we get a new connection.
 		// We don't want to do anything with the stream so move on without spawning a thread to handle the connection.
@@ -305,6 +303,7 @@ func (s *SprintEventController) Subscribe(subEvent *sched.Event_Subscribed) {
 func (s *SprintEventController) Run() {
 	// Start the election.
 	s.logger.Emit(logging.INFO, "Starting leader election socket server")
+	s.status = ha.Listening
 	go s.Communicate()
 
 	// Block here until we either become a leader or a standby.
