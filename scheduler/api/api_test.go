@@ -12,7 +12,7 @@ import (
 	"mesos-framework-sdk/task/manager/test"
 	"net/http"
 	"net/http/httptest"
-	"sprint/scheduler/api/manager"
+	"sprint/scheduler/api/manager/test"
 	"strings"
 	"testing"
 )
@@ -31,8 +31,8 @@ var (
 	h                     = http.NewServeMux()
 	v                     = "test"
 	l                     = new(MockLogging.MockLogger)
-	apiMgr                = new(apimanager.MockApiManager)
-	apiBrokenMgr          = new(apimanager.MockBrokenApiManager)
+	apiMgr                = new(mockapi.MockApiManager)
+	apiBrokenMgr          = new(mockapi.MockBrokenApiManager)
 	validJSON             = fmt.Sprint(`{"name": "test", "resources": {"cpu": 0.5, "mem": 128.0}, "command": {"cmd": "echo hello"}}`)
 	killJSON              = fmt.Sprint(`{"name": "test"}`)
 	junkJSON              = fmt.Sprint(`not even json, how did this even get here`)
