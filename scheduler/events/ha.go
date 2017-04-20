@@ -92,7 +92,7 @@ func (s *SprintEventController) Election() {
 			} else {
 				s.status = ha.Election
 				s.logger.Emit(logging.ERROR, "Lost connection to leader")
-				s.kv.Delete("/leader")
+				s.deleteLeader()
 			}
 		} else {
 			s.status = ha.Leading

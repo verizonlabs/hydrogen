@@ -4,7 +4,6 @@ import (
 	"mesos-framework-sdk/include/scheduler"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/task/manager"
-	"time"
 )
 
 //
@@ -18,19 +17,7 @@ func (s *SprintEventController) Subscribe(subEvent *mesos_v1_scheduler.Event_Sub
 	s.scheduler.FrameworkInfo().Id = id
 	s.logger.Emit(logging.INFO, "Subscribed with an ID of %s", idVal)
 
-	var lease int64
-	var err error
-	for {
-		lease, err = s.kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.FrameworkInfo().GetFailoverTimeout()))
-		if err != nil {
-			s.logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
-			time.Sleep(s.config.Persistence.RetryInterval)
-			continue
-		}
-		break
-	}
-
-	s.frameworkLease = lease
+	s.createLeaderLease(idVal)
 
 	// Get all launched non-terminal tasks.
 	launched, err := s.taskmanager.GetState(manager.RUNNING)
