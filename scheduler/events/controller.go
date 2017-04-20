@@ -92,6 +92,8 @@ func (s *SprintEventController) ResourceManager() manager.ResourceManager {
 // This method blocks forever, or until the scheduler is brought down.
 //
 func (s *SprintEventController) Run() {
+	s.signalHandlers()
+
 	// Start the election.
 	s.logger.Emit(logging.INFO, "Starting leader election socket server")
 	s.status = ha.Listening
