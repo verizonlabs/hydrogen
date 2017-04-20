@@ -66,7 +66,7 @@ func (s *SprintEventController) deleteLeader() {
 	s.kv.Delete("/leader")
 }
 
-func (s *SprintEventController) createLeaderLease(idVal int) {
+func (s *SprintEventController) createLeaderLease(idVal string) {
 	for {
 		lease, err := s.kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.FrameworkInfo().GetFailoverTimeout()))
 		if err != nil {

@@ -284,7 +284,7 @@ func TestApiKill(t *testing.T) {
 		t.FailNow()
 	}
 
-	if m.Status != FAILED {
+	if m.Status != KILLED {
 		t.Logf("Task shouldn't of failed but did %v", m.Message)
 		t.FailNow()
 	}
