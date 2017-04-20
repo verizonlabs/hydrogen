@@ -4,16 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/logging"
-	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
 	"mesos-framework-sdk/server"
-	taskbuilder "mesos-framework-sdk/task"
-	sdkTaskManager "mesos-framework-sdk/task/manager"
 	"net/http"
 	"os"
-	"sprint/task/builder"
+	"sprint/scheduler/api/manager"
 	"strconv"
 )
 
@@ -23,12 +19,11 @@ const (
 	statusEndpoint = "/status"
 	killEndpoint   = "/kill"
 	updateEndpoint = "/update"
-	statsEndpoint  = "/stats"
-	retries        = 20
 
 	ACCEPTED = "Accepted"
 	LAUNCHED = "Launched"
 	FAILED   = "Failed"
+	RUNNING  = "Running"
 	KILLED   = "Killed"
 	NOTFOUND = "Not Found"
 	QUEUED   = "Queued"
@@ -42,34 +37,29 @@ type Response struct {
 }
 
 type ApiServer struct {
-	cfg         server.Configuration
-	mux         *http.ServeMux
-	handle      map[string]http.HandlerFunc
-	sched       scheduler.Scheduler
-	taskMgr     sdkTaskManager.TaskManager
-	resourceMgr manager.ResourceManager
-	version     string
-	logger      logging.Logger
+	cfg     server.Configuration
+	mux     *http.ServeMux
+	handle  map[string]http.HandlerFunc
+	sched   scheduler.Scheduler
+	manager apimanager.ApiManager
+	version string
+	logger  logging.Logger
 }
 
 func NewApiServer(
 	cfg server.Configuration,
-	s scheduler.Scheduler,
-	t sdkTaskManager.TaskManager,
-	r manager.ResourceManager,
+	mgr apimanager.ApiManager,
 	mux *http.ServeMux,
 	version string,
 	lgr logging.Logger) *ApiServer {
 
 	return &ApiServer{
-		cfg:         cfg,
-		handle:      make(map[string]http.HandlerFunc),
-		sched:       s,
-		taskMgr:     t,
-		resourceMgr: r,
-		mux:         mux,
-		version:     version,
-		logger:      lgr,
+		cfg:     cfg,
+		handle:  make(map[string]http.HandlerFunc),
+		manager: mgr,
+		mux:     mux,
+		version: version,
+		logger:  lgr,
 	}
 }
 
@@ -84,7 +74,6 @@ func (a *ApiServer) setDefaultHandlers() {
 	a.handle[baseUrl+statusEndpoint] = a.state
 	a.handle[baseUrl+killEndpoint] = a.kill
 	a.handle[baseUrl+updateEndpoint] = a.update
-	a.handle[baseUrl+statsEndpoint] = a.stats
 }
 
 func (a *ApiServer) setHandlers(handles map[string]http.HandlerFunc) {
@@ -151,8 +140,7 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 
 		defer r.Body.Close()
 
-		var m taskbuilder.ApplicationJSON
-		err = json.Unmarshal(dec, &m)
+		task, err := a.manager.Deploy(dec)
 		if err != nil {
 			json.NewEncoder(w).Encode(Response{
 				Status:  FAILED,
@@ -161,43 +149,11 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		task, err := builder.Application(&m, a.logger)
-		if err != nil {
-			json.NewEncoder(w).Encode(Response{
-				Status:   FAILED,
-				TaskName: task.GetName(),
-				Message:  err.Error(),
-			})
-			return
-		}
-
-		// If we have any filters, let the resource manager know.
-		if len(m.Filters) > 0 {
-			if err := a.resourceMgr.AddFilter(task, m.Filters); err != nil {
-				json.NewEncoder(w).Encode(Response{
-					Status:   FAILED,
-					TaskName: task.GetName(),
-					Message:  err.Error(),
-				})
-				return
-			}
-
-		}
-
-		if err := a.taskMgr.Add(task); err != nil {
-			json.NewEncoder(w).Encode(Response{
-				Status:   FAILED,
-				TaskName: task.GetName(),
-				Message:  err.Error(),
-			})
-			return
-		}
-		a.sched.Revive()
-
 		json.NewEncoder(w).Encode(Response{
 			Status:   QUEUED,
 			TaskName: task.GetName(),
 		})
+		return
 	})
 }
 
@@ -214,8 +170,7 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 
 		defer r.Body.Close()
 
-		var m taskbuilder.ApplicationJSON
-		err = json.Unmarshal(dec, &m)
+		newTask, err := a.manager.Update(dec)
 		if err != nil {
 			json.NewEncoder(w).Encode(Response{
 				Status:  FAILED,
@@ -224,26 +179,9 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Check if this task already exists
-		taskToKill, err := a.taskMgr.Get(&m.Name)
-		if err != nil {
-			json.NewEncoder(w).Encode(Response{
-				Status:   FAILED,
-				TaskName: taskToKill.GetName(),
-				Message:  err.Error(),
-			})
-			return
-		}
-
-		task, err := builder.Application(&m, a.logger)
-
-		a.taskMgr.Set(sdkTaskManager.UNKNOWN, task)
-		a.sched.Kill(taskToKill.GetTaskId(), taskToKill.GetAgentId())
-		a.sched.Revive()
-
 		json.NewEncoder(w).Encode(Response{
 			Status:  UPDATE,
-			Message: fmt.Sprintf("Updating %v", task.GetName()),
+			Message: fmt.Sprintf("Updating %v", newTask.GetName()),
 		})
 	})
 }
@@ -257,8 +195,7 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 
 		defer r.Body.Close()
 
-		var m taskbuilder.KillJson
-		err = json.Unmarshal(dec, &m)
+		err = a.manager.Kill(dec)
 		if err != nil {
 			json.NewEncoder(w).Encode(Response{
 				Status:  FAILED,
@@ -266,102 +203,10 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-
-		// Make sure we have a name to look up
-		if m.Name != nil {
-			// Look up task in task manager
-			t, err := a.taskMgr.Get(m.Name)
-			if err != nil {
-				json.NewEncoder(w).Encode(Response{Status: NOTFOUND, TaskName: *m.Name})
-				return
-			}
-			// Get all tasks in RUNNING state.
-			running, _ := a.taskMgr.GetState(mesos_v1.TaskState_TASK_RUNNING)
-			// If we get an error, it means no tasks are currently in the running state.
-			// We safely ignore this- the range over the empty list will be skipped regardless.
-
-			// Check if our task is in the list of RUNNING tasks.
-			for _, task := range running {
-				// If it is, then send the kill signal.
-				if task.GetName() == t.GetName() {
-					// First Kill call to the mesos-master.
-					_, err := a.sched.Kill(t.GetTaskId(), t.GetAgentId())
-					if err != nil {
-						// If it fails, try to kill it again.
-						resp, err := a.sched.Kill(t.GetTaskId(), t.GetAgentId())
-						if err != nil {
-							// We've tried twice and still failed.
-							// Send back an error message.
-							json.NewEncoder(w).Encode(
-								Response{
-									Status:   FAILED,
-									TaskName: *m.Name,
-									Message:  "Response Status to Kill: " + resp.Status,
-								},
-							)
-							return
-						}
-					}
-					// Our kill call has worked, delete it from the task queue.
-					a.taskMgr.Delete(t)
-					a.resourceMgr.ClearFilters(t)
-					// Response appropriately.
-					json.NewEncoder(w).Encode(Response{Status: KILLED, TaskName: *m.Name})
-					return
-				}
-			}
-			// If we get here, our task isn't in the list of RUNNING tasks.
-			// Delete it from the queue regardless.
-			// We run into this case if a task is flapping or unable to launch
-			// or get an appropriate offer.
-			a.taskMgr.Delete(t)
-			a.resourceMgr.ClearFilters(t)
-			json.NewEncoder(w).Encode(Response{Status: KILLED, TaskName: *m.Name})
-			return
-		}
-		// If we get here, there was no name passed in and the kill function failed.
-		json.NewEncoder(w).Encode(Response{Status: FAILED, TaskName: *m.Name})
-		return
-	})
-}
-
-func (a *ApiServer) stats(w http.ResponseWriter, r *http.Request) {
-	a.methodFilter(w, r, []string{"GET"}, func() {
-		name := r.URL.Query().Get("name")
-		if name == "" {
-			json.NewEncoder(w).Encode(Response{
-				Status:  FAILED,
-				Message: "No name was found in URL params.",
-			})
-			return
-		}
-		t, err := a.taskMgr.Get(&name)
-		if err != nil {
-			json.NewEncoder(w).Encode(struct {
-				Status   string
-				TaskName string
-				Message  string
-			}{
-				FAILED,
-				name,
-				"Failed to get state for task.",
-			})
-			return
-		}
-		task := a.taskMgr.Tasks().Get(t.GetName())
-
-		switch task.(type) {
-		case sdkTaskManager.Task:
-			json.NewEncoder(w).Encode(struct {
-				Status   string
-				TaskName string
-				State    string
-			}{
-				ACCEPTED,
-				t.GetName(),
-				task.(sdkTaskManager.Task).State.String(),
-			})
-		}
+		json.NewEncoder(w).Encode(Response{
+			Status:  KILLED,
+			Message: "Successfully killed task.",
+		})
 		return
 	})
 }
@@ -377,7 +222,7 @@ func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		_, err := a.taskMgr.Get(&name)
+		_, err := a.manager.Status(name)
 		if err != nil {
 			json.NewEncoder(w).Encode(Response{
 				Status:  FAILED,
@@ -385,18 +230,8 @@ func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		queued, err := a.taskMgr.GetState(sdkTaskManager.STAGING)
-		if err != nil {
-			a.logger.Emit(logging.INFO, err.Error())
-		}
 
-		for _, task := range queued {
-			if task.GetName() == name {
-				json.NewEncoder(w).Encode(Response{Status: QUEUED, TaskName: name})
-				return
-			}
-		}
-
-		json.NewEncoder(w).Encode(Response{Status: LAUNCHED, TaskName: name})
+		json.NewEncoder(w).Encode(Response{Status: RUNNING, TaskName: name})
+		return
 	})
 }
