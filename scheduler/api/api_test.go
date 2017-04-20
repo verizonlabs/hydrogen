@@ -12,13 +12,10 @@ import (
 	"mesos-framework-sdk/task/manager/test"
 	"net/http"
 	"net/http/httptest"
+	"sprint/scheduler/api/manager"
 	"strings"
 	"testing"
 )
-
-// TODO think about how/where to keep these mocks as other tests start using them
-// It sounds like a common pattern is to make a place for mocks and put them all in their own package(s).
-// Since you cannot reference types in tests from tests in other packages people seem to be putting them in non-test files.
 
 type brokenReader struct{}
 
@@ -34,6 +31,8 @@ var (
 	h                     = http.NewServeMux()
 	v                     = "test"
 	l                     = new(MockLogging.MockLogger)
+	apiMgr                = new(apimanager.MockApiManager)
+	apiBrokenMgr          = new(apimanager.MockBrokenApiManager)
 	validJSON             = fmt.Sprint(`{"name": "test", "resources": {"cpu": 0.5, "mem": 128.0}, "command": {"cmd": "echo hello"}}`)
 	killJSON              = fmt.Sprint(`{"name": "test"}`)
 	junkJSON              = fmt.Sprint(`not even json, how did this even get here`)
@@ -44,23 +43,21 @@ var (
 
 // Ensures all components are set correctly when creating the API server.
 func TestNewApiServer(t *testing.T) {
-	srv := NewApiServer(c, s, tm, r, h, v, l)
-	if srv.cfg != c || srv.sched != s || srv.taskMgr != tm || srv.resourceMgr != r ||
-		srv.mux != h || srv.version != v || srv.logger != l {
+	srv := NewApiServer(c, apiMgr, h, v, l)
+	if srv.cfg != c || srv.mux != h || srv.version != v || srv.logger != l {
 		t.Fatal("API does not contain the correct components")
 	}
 }
 
 func TestNewApiServerRun(t *testing.T) {
-	srv := NewApiServer(c, s, tm, r, h, v, l)
-	if srv.cfg != c || srv.sched != s || srv.taskMgr != tm || srv.resourceMgr != r ||
-		srv.mux != h || srv.version != v || srv.logger != l {
+	srv := NewApiServer(c, apiMgr, h, v, l)
+	if srv.cfg != c || srv.mux != h || srv.version != v || srv.logger != l {
 		t.Fatal("API does not contain the correct components")
 	}
 }
 
 func TestApiServer_Handle(t *testing.T) {
-	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv := NewApiServer(c, apiMgr, h, v, l)
 	handles := map[string]http.HandlerFunc{
 		"test1": func(w http.ResponseWriter, r *http.Request) {},
 		"test2": func(w http.ResponseWriter, r *http.Request) {},
@@ -74,7 +71,7 @@ func TestApiServer_Handle(t *testing.T) {
 }
 
 func TestApiDeploy(t *testing.T) {
-	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv := NewApiServer(c, apiMgr, h, v, l)
 	srv.setDefaultHandlers()
 
 	a := strings.NewReader(validJSON)
@@ -105,7 +102,7 @@ func TestApiDeploy(t *testing.T) {
 }
 
 func TestApiJunkDeploy(t *testing.T) {
-	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv := NewApiServer(c, apiBrokenMgr, h, v, l)
 	srv.setDefaultHandlers()
 	req := httptest.NewRequest("POST", "localhost:9999/v1/api/deploy", strings.NewReader(
 		fmt.Sprint(`{"test":"something"}`),
@@ -134,8 +131,7 @@ func TestApiJunkDeploy(t *testing.T) {
 }
 
 func TestApiDeployBrokenTask(t *testing.T) {
-	broken := new(testTaskManager.MockBrokenTaskManager)
-	srv := NewApiServer(c, s, broken, r, h, v, l)
+	srv := NewApiServer(c, apiBrokenMgr, h, v, l)
 	srv.setDefaultHandlers()
 
 	a := strings.NewReader(validJSON)
@@ -166,7 +162,7 @@ func TestApiDeployBrokenTask(t *testing.T) {
 }
 
 func TestApiUpdate(t *testing.T) {
-	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv := NewApiServer(c, apiMgr, h, v, l)
 	srv.setDefaultHandlers()
 
 	a := strings.NewReader(validJSON)
@@ -197,7 +193,7 @@ func TestApiUpdate(t *testing.T) {
 }
 
 func TestApiUpdateFail(t *testing.T) {
-	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv := NewApiServer(c, apiBrokenMgr, h, v, l)
 	srv.setDefaultHandlers()
 
 	a := strings.NewReader(junkJSON)
@@ -228,8 +224,7 @@ func TestApiUpdateFail(t *testing.T) {
 }
 
 func TestApiUpdateFailTask(t *testing.T) {
-	broken := new(testTaskManager.MockBrokenTaskManager)
-	srv := NewApiServer(c, s, broken, r, h, v, l)
+	srv := NewApiServer(c, apiBrokenMgr, h, v, l)
 	srv.setDefaultHandlers()
 
 	a := strings.NewReader(validJSON)
@@ -260,7 +255,7 @@ func TestApiUpdateFailTask(t *testing.T) {
 }
 
 func TestApiKill(t *testing.T) {
-	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv := NewApiServer(c, apiMgr, h, v, l)
 	srv.setDefaultHandlers()
 
 	a := strings.NewReader(killJSON)
@@ -284,14 +279,14 @@ func TestApiKill(t *testing.T) {
 		t.FailNow()
 	}
 
-	if m.Status != FAILED {
+	if m.Status != KILLED {
 		t.Logf("Task shouldn't of failed but did %v", m.Message)
 		t.FailNow()
 	}
 }
 
 func TestApiKillFail(t *testing.T) {
-	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv := NewApiServer(c, apiBrokenMgr, h, v, l)
 	srv.setDefaultHandlers()
 
 	a := strings.NewReader(junkJSON)
@@ -322,8 +317,7 @@ func TestApiKillFail(t *testing.T) {
 }
 
 func TestApiKillFailTask(t *testing.T) {
-	broken := new(testTaskManager.MockBrokenTaskManager)
-	srv := NewApiServer(c, s, broken, r, h, v, l)
+	srv := NewApiServer(c, apiBrokenMgr, h, v, l)
 	srv.setDefaultHandlers()
 
 	a := strings.NewReader(validJSON)
@@ -347,15 +341,14 @@ func TestApiKillFailTask(t *testing.T) {
 		t.FailNow()
 	}
 
-	if m.Status != NOTFOUND {
+	if m.Status != FAILED {
 		t.Logf("Task should of been NOTFOUND but wasn't %v", m.Message)
 		t.FailNow()
 	}
 }
 
 func TestApiKillFailSchedulerCall(t *testing.T) {
-	broken := new(scheduler.MockBrokenScheduler)
-	srv := NewApiServer(c, broken, tm, r, h, v, l)
+	srv := NewApiServer(c, apiBrokenMgr, h, v, l)
 	srv.setDefaultHandlers()
 
 	a := strings.NewReader(validJSON)
@@ -386,7 +379,7 @@ func TestApiKillFailSchedulerCall(t *testing.T) {
 }
 
 func TestApiState(t *testing.T) {
-	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv := NewApiServer(c, apiMgr, h, v, l)
 	srv.setDefaultHandlers()
 
 	req := httptest.NewRequest("GET", "http://127.0.0.1:9999/v1/api/status?name=test", nil)
@@ -409,14 +402,14 @@ func TestApiState(t *testing.T) {
 		t.FailNow()
 	}
 
-	if m.Status != LAUNCHED {
-		t.Logf("Task should of been in state LAUNCHED but wasn't:  %v", m.Message)
+	if m.Status != RUNNING {
+		t.Logf("Task should of been in state RUNNING but wasn't:  %v", m.Message)
 		t.FailNow()
 	}
 }
 
 func TestApiStateFail(t *testing.T) {
-	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv := NewApiServer(c, apiMgr, h, v, l)
 	srv.setDefaultHandlers()
 
 	req := httptest.NewRequest("GET", "http://127.0.0.1:9999/v1/api/status?junkvalue", nil)
@@ -446,8 +439,7 @@ func TestApiStateFail(t *testing.T) {
 }
 
 func TestApiStateFailTask(t *testing.T) {
-	broken := new(testTaskManager.MockBrokenTaskManager)
-	srv := NewApiServer(c, s, broken, r, h, v, l)
+	srv := NewApiServer(c, apiBrokenMgr, h, v, l)
 	srv.setDefaultHandlers()
 
 	req := httptest.NewRequest("GET", "http://127.0.0.1:9999/v1/api/status?name=junk", nil)
@@ -477,7 +469,7 @@ func TestApiStateFailTask(t *testing.T) {
 }
 
 func TestApiFailWrongMethod(t *testing.T) {
-	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv := NewApiServer(c, apiMgr, h, v, l)
 	srv.setDefaultHandlers()
 
 	req := httptest.NewRequest("GET", "http://127.0.0.1:9999/v1/api/kill", nil)
@@ -507,7 +499,7 @@ func TestApiFailWrongMethod(t *testing.T) {
 }
 
 func TestApiDeployWithNil(t *testing.T) {
-	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv := NewApiServer(c, apiBrokenMgr, h, v, l)
 	srv.setDefaultHandlers()
 
 	req := httptest.NewRequest("POST", "http://127.0.0.1:9999/v1/api/deploy", nil)
@@ -531,13 +523,14 @@ func TestApiDeployWithNil(t *testing.T) {
 	}
 
 	if m.Status != FAILED {
+		t.Log(m)
 		t.Logf("Task shouldn't of failed but did %v", m.Message)
 		t.FailNow()
 	}
 }
 
 func TestApiDeployWithFilters(t *testing.T) {
-	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv := NewApiServer(c, apiMgr, h, v, l)
 	srv.setDefaultHandlers()
 
 	a := strings.NewReader(filtersJSON)
@@ -568,7 +561,7 @@ func TestApiDeployWithFilters(t *testing.T) {
 }
 
 func TestApiDeployWithFiltersFail(t *testing.T) {
-	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv := NewApiServer(c, apiBrokenMgr, h, v, l)
 	srv.setDefaultHandlers()
 
 	a := strings.NewReader(badFiltersJSON)
@@ -599,7 +592,7 @@ func TestApiDeployWithFiltersFail(t *testing.T) {
 }
 
 func TestApiDeployWithIoutilFail(t *testing.T) {
-	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv := NewApiServer(c, apiMgr, h, v, l)
 	srv.setDefaultHandlers()
 
 	a := brokenReader{}
@@ -630,8 +623,7 @@ func TestApiDeployWithIoutilFail(t *testing.T) {
 }
 
 func TestApiDeployWithIoutilFilterFail(t *testing.T) {
-	broken := new(MockResourceManager.MockBrokenResourceManager)
-	srv := NewApiServer(c, s, tm, broken, h, v, l)
+	srv := NewApiServer(c, apiBrokenMgr, h, v, l)
 	srv.setDefaultHandlers()
 
 	a := strings.NewReader(invalidFilterTypeJSON)
@@ -662,7 +654,7 @@ func TestApiDeployWithIoutilFilterFail(t *testing.T) {
 }
 
 func TestApiUpdateWithIoutilFail(t *testing.T) {
-	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv := NewApiServer(c, apiMgr, h, v, l)
 	srv.setDefaultHandlers()
 
 	a := brokenReader{}
@@ -692,100 +684,8 @@ func TestApiUpdateWithIoutilFail(t *testing.T) {
 	}
 }
 
-// TODO (tim): Fix how Stats end point works.
-// Concurrent map needs to be mocks since we cast a type from it in stats to get it's State value.
-
-func TestApiStats(t *testing.T) {
-	srv := NewApiServer(c, s, tm, r, h, v, l)
-	srv.setDefaultHandlers()
-
-	req := httptest.NewRequest("GET", "http://127.0.0.1:9999/v1/api/stats?name=test", nil)
-	w := httptest.NewRecorder()
-
-	srv.stats(w, req)
-
-	resp := w.Result()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Logf("Error %v", err.Error())
-		t.FailNow()
-	}
-
-	var m Response
-	err = json.Unmarshal(body, &m)
-	if err != nil {
-		t.Logf("error unmarshalling %v", err)
-		t.FailNow()
-	}
-
-	if m.Status != ACCEPTED {
-		t.Logf("API should of returned ACCEPTED but didn't: %v", m.Message)
-		t.FailNow()
-	}
-}
-
-func TestApiStatsFail(t *testing.T) {
-	broken := new(testTaskManager.MockBrokenTaskManager)
-	srv := NewApiServer(c, s, broken, r, h, v, l)
-	srv.setDefaultHandlers()
-
-	req := httptest.NewRequest("GET", "http://127.0.0.1:9999/v1/api/stats?name=test", nil)
-	w := httptest.NewRecorder()
-
-	srv.stats(w, req)
-
-	resp := w.Result()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Logf("Error %v", err.Error())
-		t.FailNow()
-	}
-
-	var m Response
-	err = json.Unmarshal(body, &m)
-	if err != nil {
-		t.Logf("error unmarshalling %v", err)
-		t.FailNow()
-	}
-	if m.Status != FAILED {
-		t.Logf("API should of returned FAILED but didn't: %v", m.Message)
-		t.FailNow()
-	}
-}
-func TestApiStatsFailNoName(t *testing.T) {
-	broken := new(testTaskManager.MockBrokenTaskManager)
-	srv := NewApiServer(c, s, broken, r, h, v, l)
-	srv.setDefaultHandlers()
-
-	req := httptest.NewRequest("GET", "http://127.0.0.1:9999/v1/api/stats?somejunk", nil)
-	w := httptest.NewRecorder()
-
-	srv.stats(w, req)
-
-	resp := w.Result()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Logf("Error %v", err.Error())
-		t.FailNow()
-	}
-
-	var m Response
-	err = json.Unmarshal(body, &m)
-	if err != nil {
-		t.Logf("error unmarshalling %v", err)
-		t.FailNow()
-	}
-	if m.Status != FAILED {
-		t.Logf("API should of returned FAILED but didn't: %v", m.Message)
-		t.FailNow()
-	}
-}
-
 func TestMain(m *testing.M) {
-	srv := NewApiServer(c, s, tm, r, h, v, l)
+	srv := NewApiServer(c, apiMgr, h, v, l)
 	go srv.RunAPI(nil) // default handlers
 	m.Run()
 }

@@ -1,7 +1,6 @@
 package builder
 
 import (
-	"mesos-framework-sdk/logging/test"
 	"mesos-framework-sdk/task"
 	"mesos-framework-sdk/utils"
 	"testing"
@@ -25,8 +24,7 @@ func TestApplication(t *testing.T) {
 		Labels:      a,
 		Filters:     b,
 	}
-	lgr := new(MockLogging.MockLogger)
-	_, err := Application(test, lgr)
+	_, err := Application(test)
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -46,8 +44,7 @@ func TestApplicationNoName(t *testing.T) {
 		Labels:      a,
 		Filters:     b,
 	}
-	lgr := new(MockLogging.MockLogger)
-	_, err := Application(test, lgr)
+	_, err := Application(test)
 	if err == nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -67,8 +64,7 @@ func TestApplicationNoResources(t *testing.T) {
 		Labels:      a,
 		Filters:     b,
 	}
-	lgr := new(MockLogging.MockLogger)
-	_, err := Application(test, lgr)
+	_, err := Application(test)
 	if err == nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -93,8 +89,7 @@ func TestApplicationCommandFail(t *testing.T) {
 		Labels:      a,
 		Filters:     b,
 	}
-	lgr := new(MockLogging.MockLogger)
-	_, err := Application(test, lgr)
+	_, err := Application(test)
 	if err == nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -125,8 +120,7 @@ func TestApplicationContainerFail(t *testing.T) {
 		Labels:      a,
 		Filters:     b,
 	}
-	lgr := new(MockLogging.MockLogger)
-	_, err := Application(test, lgr)
+	_, err := Application(test)
 	if err == nil {
 		t.Log(err)
 		t.FailNow()
@@ -154,8 +148,7 @@ func TestApplicationWithDockerContainer(t *testing.T) {
 		Labels:      a,
 		Filters:     b,
 	}
-	lgr := new(MockLogging.MockLogger)
-	_, err := Application(test, lgr)
+	_, err := Application(test)
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -183,8 +176,7 @@ func TestApplicationFailResources(t *testing.T) {
 		Labels:      a,
 		Filters:     b,
 	}
-	lgr := new(MockLogging.MockLogger)
-	_, err := Application(test, lgr)
+	_, err := Application(test)
 	if err == nil {
 		t.Log(err.Error())
 		t.FailNow()
@@ -213,8 +205,7 @@ func TestApplicationFailLabels(t *testing.T) {
 		Labels:      a,
 		Filters:     b,
 	}
-	lgr := new(MockLogging.MockLogger)
-	_, err := Application(test, lgr)
+	_, err := Application(test)
 
 	if err == nil {
 		t.FailNow()

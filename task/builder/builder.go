@@ -3,7 +3,6 @@ package builder
 import (
 	"errors"
 	"mesos-framework-sdk/include/mesos"
-	"mesos-framework-sdk/logging"
 	resourcebuilder "mesos-framework-sdk/resources"
 	"mesos-framework-sdk/task"
 	"mesos-framework-sdk/task/command"
@@ -17,7 +16,7 @@ var NoNameError = errors.New("A name is required for the application. Please set
 var NoResourcesError = errors.New("Application requested with no resources. Please set some resources.")
 
 // Parses a JSON request and turns it into a TaskInfo.
-func Application(t *task.ApplicationJSON, lgr logging.Logger) (*mesos_v1.TaskInfo, error) {
+func Application(t *task.ApplicationJSON) (*mesos_v1.TaskInfo, error) {
 	// Check for required name.
 	if t.Name == "" {
 		// Fail
@@ -56,7 +55,6 @@ func Application(t *task.ApplicationJSON, lgr logging.Logger) (*mesos_v1.TaskInf
 
 	labels, err := labels.ParseLabels(t.Labels)
 	if err != nil {
-		lgr.Emit(logging.ERROR, err.Error())
 		return nil, err
 	}
 

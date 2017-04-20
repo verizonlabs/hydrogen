@@ -18,9 +18,18 @@ import (
 /*
 Satisfies the TaskManager interface in sdk
 
-Sprint Task Manager integrates logging and storage backend-
+Sprint Task Manager integrates logging and storage backend.
 All tasks are written only during creation, updates and deletes.
 Reads are reserved for reconciliation calls.
+
+
+NOTE (tim): We store tasks with a particular set of metadata in the struct
+"Task".  However the interface specifies that we get a task info back,
+rather than our custom struct back.
+
+We need to make the storage of our tasks consistent, as well as be able to handle
+additional metadata about tasks.
+
 */
 
 var IS_TESTING bool
