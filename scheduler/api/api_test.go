@@ -16,10 +16,6 @@ import (
 	"testing"
 )
 
-// TODO think about how/where to keep these mocks as other tests start using them
-// It sounds like a common pattern is to make a place for mocks and put them all in their own package(s).
-// Since you cannot reference types in tests from tests in other packages people seem to be putting them in non-test files.
-
 type brokenReader struct{}
 
 func (b brokenReader) Read(n []byte) (int, error) {
