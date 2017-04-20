@@ -61,3 +61,42 @@ func (s *SprintEventController) readLeader() string {
 		return leader
 	}
 }
+
+func (s *SprintEventController) deleteLeader() {
+	s.kv.Delete("/leader")
+}
+
+func (s *SprintEventController) createLeaderLease(idVal int) {
+	for {
+		lease, err := s.kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.FrameworkInfo().GetFailoverTimeout()))
+		if err != nil {
+			s.logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
+			time.Sleep(s.config.Persistence.RetryInterval)
+			continue
+		}
+		s.frameworkLease = lease
+		return
+	}
+}
+func (s *SprintEventController) refreshLeaderLease() {
+	for {
+		if err := s.kv.RefreshLease(s.frameworkLease); err != nil {
+			s.logger.Emit(logging.ERROR, "Failed to refresh framework ID lease: %s", err.Error())
+			time.Sleep(s.config.Persistence.RetryInterval)
+			continue
+		}
+		return
+	}
+}
+
+func (s *SprintEventController) getAllTasks() map[string]string {
+	for {
+		tasks, err := s.kv.ReadAll("/tasks")
+		if err != nil {
+			s.logger.Emit(logging.ERROR, "Failed to get all task data: %s", err.Error())
+			time.Sleep(s.config.Persistence.RetryInterval)
+			continue
+		}
+		return tasks
+	}
+}

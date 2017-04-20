@@ -6,7 +6,6 @@ import (
 	"encoding/gob"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/task/manager"
-	"time"
 )
 
 //
@@ -14,18 +13,7 @@ import (
 // If no tasks exist in the data store then we can consider this a fresh run and safely move on.
 //
 func (s *SprintEventController) restoreTasks() {
-	var tasks map[string]string
-	var err error
-	for {
-		tasks, err = s.kv.ReadAll("/tasks")
-		if err != nil {
-			s.logger.Emit(logging.ERROR, "Failed to get all task data: %s", err.Error())
-			time.Sleep(s.config.Persistence.RetryInterval)
-			continue
-		}
-		break
-	}
-
+	tasks := s.getAllTasks()
 	for _, value := range tasks {
 		var task manager.Task
 		data, err := base64.StdEncoding.DecodeString(value)

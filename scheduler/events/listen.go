@@ -3,7 +3,6 @@ package events
 import (
 	scheduler "mesos-framework-sdk/include/scheduler"
 	"mesos-framework-sdk/logging"
-	"time"
 )
 
 //
@@ -35,14 +34,7 @@ func (s *SprintEventController) Listen() {
 			case scheduler.Event_UPDATE:
 				s.Update(t.GetUpdate())
 			case scheduler.Event_HEARTBEAT:
-				for {
-					if err := s.kv.RefreshLease(s.frameworkLease); err != nil {
-						s.logger.Emit(logging.ERROR, "Failed to refresh framework ID lease: %s", err.Error())
-						time.Sleep(s.config.Persistence.RetryInterval)
-						continue
-					}
-					break
-				}
+				s.refreshLeaderLease()
 			case scheduler.Event_UNKNOWN:
 				s.logger.Emit(logging.ALARM, "Unknown event received")
 			}
