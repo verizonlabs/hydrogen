@@ -101,16 +101,8 @@ func (s *SprintEventController) Run() {
 	// If we are a standby then we connect to the leader and wait for the process to start over again.
 	s.Election()
 
-	for {
-		id, err := s.kv.Read("/frameworkId")
-		if err == nil {
-			s.scheduler.FrameworkInfo().Id = &mesos_v1.FrameworkID{Value: &id}
-			break
-		} else {
-			time.Sleep(s.config.Persistence.RetryInterval)
-			continue
-		}
-	}
+	// Get the frameworkId from etcd and set it to our frameworkID in our struct.
+	s.setFrameworkId()
 
 	// Recover our state (if any) in the event we (or the server) go down.
 	s.logger.Emit(logging.INFO, "Restoring any persisted state from data store")
@@ -122,17 +114,7 @@ func (s *SprintEventController) Run() {
 
 	go func() {
 		for {
-			var leader string
-			var err error
-			for {
-				leader, err = s.kv.Read("/leader")
-				if err != nil {
-					s.logger.Emit(logging.ERROR, "Failed to find the leader: %s", err.Error())
-					time.Sleep(s.config.Persistence.RetryInterval)
-					continue
-				}
-				break
-			}
+			leader := s.readLeader()
 
 			// We should only ever reach here if we hit a network partition and the standbys lose connection to the leader.
 			// If this happens we need to check if there really is another leader alive that we just can't reach.
@@ -144,7 +126,7 @@ func (s *SprintEventController) Run() {
 				os.Exit(1)
 			}
 
-			_, err = s.scheduler.Subscribe(s.events)
+			_, err := s.scheduler.Subscribe(s.events)
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to subscribe: %s", err.Error())
 				time.Sleep(time.Duration(s.config.Scheduler.SubscribeRetry))

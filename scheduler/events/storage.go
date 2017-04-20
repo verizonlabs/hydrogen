@@ -1,6 +1,7 @@
 package events
 
 import (
+	"mesos-framework-sdk/include/mesos"
 	"mesos-framework-sdk/logging"
 	"time"
 )
@@ -32,6 +33,31 @@ func (s *SprintEventController) GetLeader() string {
 			continue
 		}
 
+		return leader
+	}
+}
+
+func (s *SprintEventController) setFrameworkId() {
+	for {
+		id, err := s.kv.Read("/frameworkId")
+		if err == nil {
+			s.scheduler.FrameworkInfo().Id = &mesos_v1.FrameworkID{Value: &id}
+			return
+		} else {
+			time.Sleep(s.config.Persistence.RetryInterval)
+			continue
+		}
+	}
+}
+
+func (s *SprintEventController) readLeader() string {
+	for {
+		leader, err := s.kv.Read("/leader")
+		if err != nil {
+			s.logger.Emit(logging.ERROR, "Failed to find the leader: %s", err.Error())
+			time.Sleep(s.config.Persistence.RetryInterval)
+			continue
+		}
 		return leader
 	}
 }
