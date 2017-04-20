@@ -77,7 +77,7 @@ func (m *SprintTaskManager) encode(task *mesos_v1.TaskInfo, state mesos_v1.TaskS
 func (m *SprintTaskManager) Add(t *mesos_v1.TaskInfo) error {
 	defer func() {
 		if r := recover(); r != nil {
-			m.logger.Emit(logging.INFO, "Recovered in ADD", r)
+			m.logger.Emit(logging.INFO, "Recovered in Task manager Add", r)
 			return
 		}
 	}()
@@ -190,8 +190,8 @@ func (m *SprintTaskManager) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) 
 			if IS_TESTING {
 				return
 			}
-
 			m.logger.Emit(logging.ERROR, "Failed to update task %s with name %s to persistent data store", id, t.GetName())
+			// NOTE(tim): This will hang everything if we retry forever.
 			time.Sleep(m.config.Persistence.RetryInterval)
 			continue
 		}
