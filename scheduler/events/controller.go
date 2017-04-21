@@ -162,12 +162,13 @@ func (s *SprintEventController) periodicReconcile() {
 
 // Handle appropriate signals for graceful shutdowns.
 func (s *SprintEventController) signalHandlers() {
-	sigs := make(chan os.Signal, 1)
+	sigs := make(chan os.Signal)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigs
 
 		// Refresh our lease before we die so that we start an accurate countdown.
 		s.refreshLeaderLease()
+		os.Exit(0)
 	}()
 }
