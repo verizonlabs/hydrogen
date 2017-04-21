@@ -10,7 +10,9 @@ import (
 	sdkTaskManager "mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
 	"os"
+	"os/signal"
 	sprintSched "sprint/scheduler"
+	"syscall"
 	"time"
 )
 
@@ -90,6 +92,8 @@ func (s *SprintEventController) ResourceManager() manager.ResourceManager {
 // This method blocks forever, or until the scheduler is brought down.
 //
 func (s *SprintEventController) Run() {
+	s.registerShutdownHandlers()
+
 	// Start the election.
 	s.logger.Emit(logging.INFO, "Starting leader election socket server")
 	s.status = ha.Listening
@@ -154,4 +158,17 @@ func (s *SprintEventController) periodicReconcile() {
 			s.Scheduler().Reconcile(recon)
 		}
 	}
+}
+
+// Handle appropriate signals for graceful shutdowns.
+func (s *SprintEventController) registerShutdownHandlers() {
+	sigs := make(chan os.Signal)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigs
+
+		// Refresh our lease before we die so that we start an accurate countdown.
+		s.refreshLeaderLease()
+		os.Exit(0)
+	}()
 }
