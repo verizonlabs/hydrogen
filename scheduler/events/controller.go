@@ -92,7 +92,7 @@ func (s *SprintEventController) ResourceManager() manager.ResourceManager {
 // This method blocks forever, or until the scheduler is brought down.
 //
 func (s *SprintEventController) Run() {
-	s.signalHandlers()
+	s.registerShutdownHandlers()
 
 	// Start the election.
 	s.logger.Emit(logging.INFO, "Starting leader election socket server")
@@ -161,7 +161,7 @@ func (s *SprintEventController) periodicReconcile() {
 }
 
 // Handle appropriate signals for graceful shutdowns.
-func (s *SprintEventController) signalHandlers() {
+func (s *SprintEventController) registerShutdownHandlers() {
 	sigs := make(chan os.Signal)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
