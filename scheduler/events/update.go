@@ -5,6 +5,7 @@ import (
 	"mesos-framework-sdk/include/scheduler"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/task/manager"
+	"sprint/task/retry"
 )
 
 //
@@ -43,6 +44,8 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 		}
 		if err != nil {
 			s.logger.Emit(logging.INFO, err.Error())
+			// set default policy, we should never get here, this would mean an error in serialization or our api.
+			s.taskmanager.AddPolicy(retry.NewDefaultPolicy(task.GetName()), task)
 		}
 		s.taskmanager.RunPolicy(policy, retryFunc)
 	case mesos_v1.TaskState_TASK_STAGING:
