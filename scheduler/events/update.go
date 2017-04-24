@@ -33,10 +33,18 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 
 	switch state {
 	case mesos_v1.TaskState_TASK_FAILED:
-		// TODO (tim): Check task manager for task retry policy, then retry as given.
-		// Default for now is just retry forever.
 		s.logger.Emit(logging.ERROR, message)
-		s.taskmanager.Set(manager.UNKNOWN, task)
+
+		// If there's an error, fallback to the regular policy.
+		policy, err := s.taskmanager.CheckPolicy(task)
+		retryFunc := func() {
+			s.taskmanager.Set(manager.UNKNOWN, task)
+			s.Scheduler().Revive()
+		}
+		if err != nil {
+			s.logger.Emit(logging.INFO, err.Error())
+		}
+		s.taskmanager.RunPolicy(policy, retryFunc)
 	case mesos_v1.TaskState_TASK_STAGING:
 		// NOP, keep task set to "launched".
 		s.logger.Emit(logging.INFO, message)
