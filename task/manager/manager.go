@@ -17,22 +17,13 @@ import (
 	"time"
 )
 
-/*
-Satisfies the TaskManager interface in sdk
-
-Sprint Task Manager integrates logging and storage backend.
-All tasks are written only during creation, updates and deletes.
-Reads are reserved for reconciliation calls.
-
-
-NOTE (tim): We store tasks with a particular set of metadata in the struct
-"Task".  However the interface specifies that we get a task info back,
-rather than our custom struct back.
-
-We need to make the storage of our tasks consistent, as well as be able to handle
-additional metadata about tasks.
-
-*/
+//
+//Satisfies the TaskManager interface in sdk
+//
+//Sprint Task Manager integrates logging and storage backend.
+//All tasks are written only during creation, updates and deletes.
+//Reads are reserved for reconciliation calls.
+//
 
 var IS_TESTING bool
 
@@ -152,8 +143,13 @@ func (s *SprintTaskHandler) ClearPolicy(mesosTask *mesos_v1.TaskInfo) error {
 	return errors.New("Nil mesos task passed in")
 }
 
-///
+//
+// End of Methods to satisfy Retry Interface
+//
 
+//
+// Task Manager Methods
+//
 func (m *SprintTaskHandler) Add(t *mesos_v1.TaskInfo) error {
 	defer func() {
 		if r := recover(); r != nil {
@@ -307,3 +303,7 @@ func (m *SprintTaskHandler) GetState(state mesos_v1.TaskState) ([]*mesos_v1.Task
 
 	return tasks, nil
 }
+
+//
+// End of task manager methods.
+//
