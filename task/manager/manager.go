@@ -66,7 +66,7 @@ func NewTaskManager(
 	cmap structures.DistributedMap,
 	storage etcd.KeyValueStore,
 	config *scheduler.Configuration,
-	logger logging.Logger) *SprintTaskHandler {
+	logger logging.Logger) SprintTaskManager {
 
 	IS_TESTING = IsTesting()
 	return &SprintTaskHandler{
