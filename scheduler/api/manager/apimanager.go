@@ -99,6 +99,11 @@ func (m *Manager) Update(decoded []byte) (*mesos_v1.TaskInfo, error) {
 
 	if a.Retry != nil {
 		m.taskManager.AddPolicy(a.Retry, mesosTask)
+	} else {
+		err := m.taskManager.AddPolicy(DEFAULT_RETRY_POLICY, mesosTask)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	m.taskManager.Set(t.UNKNOWN, mesosTask)
