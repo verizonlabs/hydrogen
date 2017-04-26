@@ -8,6 +8,14 @@ import (
 	"mesos-framework-sdk/task"
 	t "mesos-framework-sdk/task/manager"
 	"sprint/task/builder"
+	"sprint/task/manager"
+)
+
+var (
+	DEFAULT_RETRY_POLICY = &task.TimeRetry{
+		Time:    "1.5",
+		Backoff: true,
+	}
 )
 
 //api manager will hold refs to task/resource manager.
@@ -22,12 +30,12 @@ type (
 
 	Manager struct {
 		resourceManager r.ResourceManager
-		taskManager     t.TaskManager
+		taskManager     manager.SprintTaskManager
 		scheduler       scheduler.Scheduler
 	}
 )
 
-func NewApiManager(r r.ResourceManager, t t.TaskManager, s scheduler.Scheduler) *Manager {
+func NewApiManager(r r.ResourceManager, t manager.SprintTaskManager, s scheduler.Scheduler) *Manager {
 	return &Manager{
 		resourceManager: r,
 		taskManager:     t,
@@ -47,6 +55,18 @@ func (m *Manager) Deploy(decoded []byte) (*mesos_v1.TaskInfo, error) {
 	// If we have any filters, let the resource manager know.
 	if len(a.Filters) > 0 {
 		if err := m.resourceManager.AddFilter(mesosTask, a.Filters); err != nil {
+			return nil, err
+		}
+	}
+
+	if a.Retry != nil {
+		err := m.taskManager.AddPolicy(a.Retry, mesosTask)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		err := m.taskManager.AddPolicy(DEFAULT_RETRY_POLICY, mesosTask)
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -75,6 +95,15 @@ func (m *Manager) Update(decoded []byte) (*mesos_v1.TaskInfo, error) {
 	mesosTask, err := builder.Application(&a)
 	if err != nil {
 		return nil, err
+	}
+
+	if a.Retry != nil {
+		m.taskManager.AddPolicy(a.Retry, mesosTask)
+	} else {
+		err := m.taskManager.AddPolicy(DEFAULT_RETRY_POLICY, mesosTask)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	m.taskManager.Set(t.UNKNOWN, mesosTask)

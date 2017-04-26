@@ -7,11 +7,14 @@ import (
 	"mesos-framework-sdk/persistence/drivers/etcd"
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
+	"mesos-framework-sdk/scheduler/events"
 	sdkTaskManager "mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
 	"os"
+
 	"os/signal"
 	sprintSched "sprint/scheduler"
+	sprintTask "sprint/task/manager"
 	"syscall"
 	"time"
 )
@@ -34,18 +37,24 @@ const (
 	refuseSeconds = 30.0 // Setting this to 30 as a "reasonable default".
 )
 
-type SprintEventController struct {
-	config          *sprintSched.Configuration
-	scheduler       scheduler.Scheduler
-	taskmanager     sdkTaskManager.TaskManager
-	resourcemanager manager.ResourceManager
-	events          chan *sched.Event
-	kv              etcd.KeyValueStore
-	logger          logging.Logger
-	frameworkLease  int64
-	status          ha.Status
-	name            string
-}
+type (
+	EventController interface {
+		events.SchedulerEvent
+		ha.Node
+	}
+	SprintEventController struct {
+		config          *sprintSched.Configuration
+		scheduler       scheduler.Scheduler
+		taskmanager     sprintTask.SprintTaskManager
+		resourcemanager manager.ResourceManager
+		events          chan *sched.Event
+		kv              etcd.KeyValueStore
+		logger          logging.Logger
+		frameworkLease  int64
+		status          ha.Status
+		name            string
+	}
+)
 
 //
 // Passes back a new sprint event controller.
@@ -53,11 +62,11 @@ type SprintEventController struct {
 func NewSprintEventController(
 	config *sprintSched.Configuration,
 	scheduler scheduler.Scheduler,
-	manager sdkTaskManager.TaskManager,
+	manager sprintTask.SprintTaskManager,
 	resourceManager manager.ResourceManager,
 	eventChan chan *sched.Event,
 	kv etcd.KeyValueStore,
-	logger logging.Logger) *SprintEventController {
+	logger logging.Logger) EventController {
 
 	return &SprintEventController{
 		config:          config,
@@ -77,7 +86,7 @@ func (s *SprintEventController) Scheduler() scheduler.Scheduler {
 	return s.scheduler
 }
 
-func (s *SprintEventController) TaskManager() sdkTaskManager.TaskManager {
+func (s *SprintEventController) TaskManager() sprintTask.SprintTaskManager {
 	return s.taskmanager
 }
 

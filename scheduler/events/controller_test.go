@@ -212,23 +212,6 @@ func TestSprintEventController_Run(t *testing.T) {
 }
 */
 
-func TestSprintEventController_TaskManager(t *testing.T) {
-	rm := MockResourceManager.MockResourceManager{}
-	mg := testTaskManager.MockTaskManagerQueued{}
-	sh := sched.MockScheduler{}
-	cfg := &scheduler.Configuration{
-		Leader: &scheduler.LeaderConfiguration{},
-	}
-	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := test.MockEtcd{}
-	lg := MockLogging.MockLogger{}
-	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
-	a := ctrl.TaskManager()
-	if a == nil {
-		t.FailNow()
-	}
-}
-
 func TestSprintEventController_Communicate(t *testing.T) {
 	rm := MockResourceManager.MockResourceManager{}
 	mg := testTaskManager.MockTaskManagerQueued{}
