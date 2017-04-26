@@ -177,7 +177,10 @@ func (s *SprintEventController) registerShutdownHandlers() {
 		<-sigs
 
 		// Refresh our lease before we die so that we start an accurate countdown.
-		s.refreshLeaderLease()
+		if s.frameworkLease != 0 {
+			s.refreshLeaderLease()
+		}
+
 		os.Exit(0)
 	}()
 }
