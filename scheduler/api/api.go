@@ -9,7 +9,7 @@ import (
 	"mesos-framework-sdk/server"
 	"net/http"
 	"os"
-	"sprint/scheduler/api/manager"
+	apiManager "sprint/scheduler/api/manager"
 	"strconv"
 )
 
@@ -41,14 +41,14 @@ type ApiServer struct {
 	mux     *http.ServeMux
 	handle  map[string]http.HandlerFunc
 	sched   scheduler.Scheduler
-	manager apimanager.ApiManager
+	manager apiManager.ApiManager
 	version string
 	logger  logging.Logger
 }
 
 func NewApiServer(
 	cfg server.Configuration,
-	mgr apimanager.ApiManager,
+	mgr apiManager.ApiManager,
 	mux *http.ServeMux,
 	version string,
 	lgr logging.Logger) *ApiServer {

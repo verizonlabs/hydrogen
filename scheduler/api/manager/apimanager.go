@@ -1,4 +1,4 @@
-package apimanager
+package manager
 
 import (
 	"encoding/json"

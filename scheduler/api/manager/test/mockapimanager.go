@@ -1,4 +1,4 @@
-package mockapi
+package test
 
 import (
 	"errors"
