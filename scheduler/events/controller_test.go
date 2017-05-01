@@ -7,9 +7,9 @@ import (
 	"mesos-framework-sdk/persistence/drivers/etcd/test"
 	"mesos-framework-sdk/resources/manager/test"
 	sched "mesos-framework-sdk/scheduler/test"
-	"mesos-framework-sdk/task/manager/test"
 	"mesos-framework-sdk/utils"
 	"sprint/scheduler"
+	testTaskManager "sprint/task/manager/test"
 	"testing"
 )
 

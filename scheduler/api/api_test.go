@@ -9,10 +9,10 @@ import (
 	"mesos-framework-sdk/resources/manager/test"
 	"mesos-framework-sdk/scheduler/test"
 	"mesos-framework-sdk/server/test"
-	"mesos-framework-sdk/task/manager/test"
 	"net/http"
 	"net/http/httptest"
 	"sprint/scheduler/api/manager/test"
+	testTaskManager "sprint/task/manager/test"
 	"strings"
 	"testing"
 )
