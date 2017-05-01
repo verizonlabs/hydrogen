@@ -47,7 +47,7 @@ type (
 	SprintTaskHandler struct {
 		tasks   structures.DistributedMap
 		storage etcd.KeyValueStore
-		retries map[string]*retry.TaskRetry
+		retries structures.DistributedMap
 		config  *scheduler.Configuration
 		logger  logging.Logger
 	}
@@ -63,7 +63,7 @@ func NewTaskManager(
 	return &SprintTaskHandler{
 		tasks:   cmap,
 		storage: storage,
-		retries: make(map[string]*retry.TaskRetry),
+		retries: structures.NewConcurrentMap(),
 		config:  config,
 		logger:  logger,
 	}
@@ -94,12 +94,12 @@ func (s *SprintTaskHandler) AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v
 			return errors.New("Invalid time given in policy.")
 		}
 
-		s.retries[mesosTask.GetName()] = &retry.TaskRetry{
+		s.retries.Set(mesosTask.GetName(), &retry.TaskRetry{
 			TotalRetries: 0,
 			RetryTime:    t,
 			Backoff:      policy.Backoff,
 			Name:         mesosTask.GetName(),
-		}
+		})
 		return nil
 	}
 	return errors.New("Nil mesos task passed in")
@@ -128,8 +128,9 @@ func (s *SprintTaskHandler) RunPolicy(policy *retry.TaskRetry, f func()) error {
 
 func (s *SprintTaskHandler) CheckPolicy(mesosTask *mesos_v1.TaskInfo) (*retry.TaskRetry, error) {
 	if mesosTask != nil {
-		if policy, ok := s.retries[mesosTask.GetName()]; ok {
-			return policy, nil
+		policy := s.retries.Get(mesosTask.GetName())
+		if policy != nil {
+			return policy.(*retry.TaskRetry), nil
 		}
 	}
 	return nil, errors.New("No policy exists for this task.")
@@ -137,7 +138,7 @@ func (s *SprintTaskHandler) CheckPolicy(mesosTask *mesos_v1.TaskInfo) (*retry.Ta
 
 func (s *SprintTaskHandler) ClearPolicy(mesosTask *mesos_v1.TaskInfo) error {
 	if mesosTask != nil {
-		delete(s.retries, mesosTask.GetTaskId().GetValue())
+		s.retries.Delete(mesosTask.GetTaskId().GetValue())
 		return nil
 	}
 	return errors.New("Nil mesos task passed in")
