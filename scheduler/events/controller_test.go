@@ -1,26 +1,26 @@
 package events
 
 import (
-	"mesos-framework-sdk/include/mesos"
-	"mesos-framework-sdk/include/scheduler"
-	"mesos-framework-sdk/logging/test"
-	"mesos-framework-sdk/persistence/drivers/etcd/test"
-	"mesos-framework-sdk/resources/manager/test"
+	"mesos-framework-sdk/include/mesos_v1"
+	"mesos-framework-sdk/include/mesos_v1_scheduler"
+	mockLogger "mesos-framework-sdk/logging/test"
+	mockEtcd "mesos-framework-sdk/persistence/drivers/etcd/test"
+	mockResourceManager "mesos-framework-sdk/resources/manager/test"
 	sched "mesos-framework-sdk/scheduler/test"
 	"mesos-framework-sdk/utils"
 	"sprint/scheduler"
-	testTaskManager "sprint/task/manager/test"
+	mockTaskManager "sprint/task/manager/test"
 	"testing"
 )
 
 func TestNewSprintEventController(t *testing.T) {
-	rm := MockResourceManager.MockResourceManager{}
-	mg := testTaskManager.MockTaskManager{}
+	rm := mockResourceManager.MockResourceManager{}
+	mg := mockTaskManager.MockTaskManager{}
 	sh := sched.MockScheduler{}
 	cfg := &scheduler.Configuration{}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := test.MockEtcd{}
-	lg := MockLogging.MockLogger{}
+	kv := mockEtcd.MockEtcd{}
+	lg := mockLogger.MockLogger{}
 
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	if ctrl == nil {
@@ -29,15 +29,15 @@ func TestNewSprintEventController(t *testing.T) {
 }
 
 func TestSprintEventController_Offers(t *testing.T) {
-	rm := MockResourceManager.MockResourceManager{}
-	mg := testTaskManager.MockTaskManager{}
+	rm := mockResourceManager.MockResourceManager{}
+	mg := mockTaskManager.MockTaskManager{}
 	sh := sched.MockScheduler{}
 	cfg := &scheduler.Configuration{
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := test.MockEtcd{}
-	lg := MockLogging.MockLogger{}
+	kv := mockEtcd.MockEtcd{}
+	lg := mockLogger.MockLogger{}
 
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	// Test empty offers.
@@ -70,15 +70,15 @@ func TestSprintEventController_Offers(t *testing.T) {
 }
 
 func TestSprintEventController_OffersWithQueuedTasks(t *testing.T) {
-	rm := MockResourceManager.MockResourceManager{}
-	mg := testTaskManager.MockTaskManagerQueued{}
+	rm := mockResourceManager.MockResourceManager{}
+	mg := mockTaskManager.MockTaskManagerQueued{}
 	sh := sched.MockScheduler{}
 	cfg := &scheduler.Configuration{
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := test.MockEtcd{}
-	lg := MockLogging.MockLogger{}
+	kv := mockEtcd.MockEtcd{}
+	lg := mockLogger.MockLogger{}
 
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	// Test empty offers.
@@ -111,15 +111,15 @@ func TestSprintEventController_OffersWithQueuedTasks(t *testing.T) {
 }
 
 func TestSprintEventController_Name(t *testing.T) {
-	rm := MockResourceManager.MockResourceManager{}
-	mg := testTaskManager.MockTaskManagerQueued{}
+	rm := mockResourceManager.MockResourceManager{}
+	mg := mockTaskManager.MockTaskManagerQueued{}
 	sh := sched.MockScheduler{}
 	cfg := &scheduler.Configuration{
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := test.MockEtcd{}
-	lg := MockLogging.MockLogger{}
+	kv := mockEtcd.MockEtcd{}
+	lg := mockLogger.MockLogger{}
 
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	_, err := ctrl.Name()
@@ -130,15 +130,15 @@ func TestSprintEventController_Name(t *testing.T) {
 }
 
 func TestSprintEventController_Update(t *testing.T) {
-	rm := MockResourceManager.MockResourceManager{}
-	mg := testTaskManager.MockTaskManagerQueued{}
+	rm := mockResourceManager.MockResourceManager{}
+	mg := mockTaskManager.MockTaskManagerQueued{}
 	sh := sched.MockScheduler{}
 	cfg := &scheduler.Configuration{
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := test.MockEtcd{}
-	lg := MockLogging.MockLogger{}
+	kv := mockEtcd.MockEtcd{}
+	lg := mockLogger.MockLogger{}
 
 	states := []*mesos_v1.TaskState{
 		mesos_v1.TaskState_TASK_RUNNING.Enum(),
@@ -167,76 +167,59 @@ func TestSprintEventController_Update(t *testing.T) {
 }
 
 func TestSprintEventController_Subscribe(t *testing.T) {
-	rm := MockResourceManager.MockResourceManager{}
-	mg := testTaskManager.MockTaskManagerQueued{}
+	rm := mockResourceManager.MockResourceManager{}
+	mg := mockTaskManager.MockTaskManagerQueued{}
 	sh := sched.MockScheduler{}
 	cfg := &scheduler.Configuration{
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := test.MockEtcd{}
-	lg := MockLogging.MockLogger{}
+	kv := mockEtcd.MockEtcd{}
+	lg := mockLogger.MockLogger{}
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	ctrl.Subscribe(&mesos_v1_scheduler.Event_Subscribed{FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString("id")}})
 }
 
 func TestSprintEventController_CreateAndGetLeader(t *testing.T) {
-	rm := MockResourceManager.MockResourceManager{}
-	mg := testTaskManager.MockTaskManagerQueued{}
+	rm := mockResourceManager.MockResourceManager{}
+	mg := mockTaskManager.MockTaskManagerQueued{}
 	sh := sched.MockScheduler{}
 	cfg := &scheduler.Configuration{
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := test.MockEtcd{}
-	lg := MockLogging.MockLogger{}
+	kv := mockEtcd.MockEtcd{}
+	lg := mockLogger.MockLogger{}
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	ctrl.CreateLeader()
 	ctrl.GetLeader()
 }
 
-/*
-func TestSprintEventController_Run(t *testing.T) {
-	rm := MockResourceManager.MockResourceManager{}
-	mg := testTaskManager.MockTaskManagerQueued{}
-	sh := sched.NewMockScheduler()
-	cfg := &scheduler.Configuration{
-		Leader: &scheduler.LeaderConfiguration{},
-	}
-	eventChan := make(chan *mesos_v1_scheduler.Event, 10)
-	kv := test.MockEtcd{}
-	lg := MockLogging.MockLogger{}
-	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
-	t.Log("Testing Run...")
-	ctrl.Run()
-}
-*/
-
 func TestSprintEventController_Communicate(t *testing.T) {
-	rm := MockResourceManager.MockResourceManager{}
-	mg := testTaskManager.MockTaskManagerQueued{}
+	rm := mockResourceManager.MockResourceManager{}
+	mg := mockTaskManager.MockTaskManagerQueued{}
 	sh := sched.MockScheduler{}
 	cfg := &scheduler.Configuration{
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := test.MockEtcd{}
-	lg := MockLogging.MockLogger{}
+	kv := mockEtcd.MockEtcd{}
+	lg := mockLogger.MockLogger{}
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	go ctrl.Communicate() // this never gets covered since this test closes too fast
 	ctrl.Election()
 }
 
 func TestSprintEventController_Message(t *testing.T) {
-	rm := MockResourceManager.MockResourceManager{}
-	mg := testTaskManager.MockTaskManagerQueued{}
+	rm := mockResourceManager.MockResourceManager{}
+	mg := mockTaskManager.MockTaskManagerQueued{}
 	sh := sched.MockScheduler{}
 	cfg := &scheduler.Configuration{
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := test.MockEtcd{}
-	lg := MockLogging.MockLogger{}
+	kv := mockEtcd.MockEtcd{}
+	lg := mockLogger.MockLogger{}
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	ctrl.Message(&mesos_v1_scheduler.Event_Message{
 		AgentId:    &mesos_v1.AgentID{Value: utils.ProtoString("agent")},
@@ -246,15 +229,15 @@ func TestSprintEventController_Message(t *testing.T) {
 }
 
 func TestSprintEventController_Failure(t *testing.T) {
-	rm := MockResourceManager.MockResourceManager{}
-	mg := testTaskManager.MockTaskManagerQueued{}
+	rm := mockResourceManager.MockResourceManager{}
+	mg := mockTaskManager.MockTaskManagerQueued{}
 	sh := sched.MockScheduler{}
 	cfg := &scheduler.Configuration{
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := test.MockEtcd{}
-	lg := MockLogging.MockLogger{}
+	kv := mockEtcd.MockEtcd{}
+	lg := mockLogger.MockLogger{}
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	ctrl.Failure(&mesos_v1_scheduler.Event_Failure{
 		AgentId: &mesos_v1.AgentID{Value: utils.ProtoString("agent")},
@@ -262,15 +245,15 @@ func TestSprintEventController_Failure(t *testing.T) {
 }
 
 func TestSprintEventController_InverseOffer(t *testing.T) {
-	rm := MockResourceManager.MockResourceManager{}
-	mg := testTaskManager.MockTaskManagerQueued{}
+	rm := mockResourceManager.MockResourceManager{}
+	mg := mockTaskManager.MockTaskManagerQueued{}
 	sh := sched.MockScheduler{}
 	cfg := &scheduler.Configuration{
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := test.MockEtcd{}
-	lg := MockLogging.MockLogger{}
+	kv := mockEtcd.MockEtcd{}
+	lg := mockLogger.MockLogger{}
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	ctrl.InverseOffer(&mesos_v1_scheduler.Event_InverseOffers{
 		InverseOffers: []*mesos_v1.InverseOffer{
@@ -284,15 +267,15 @@ func TestSprintEventController_InverseOffer(t *testing.T) {
 }
 
 func TestSprintEventController_RescindInverseOffer(t *testing.T) {
-	rm := MockResourceManager.MockResourceManager{}
-	mg := testTaskManager.MockTaskManagerQueued{}
+	rm := mockResourceManager.MockResourceManager{}
+	mg := mockTaskManager.MockTaskManagerQueued{}
 	sh := sched.MockScheduler{}
 	cfg := &scheduler.Configuration{
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := test.MockEtcd{}
-	lg := MockLogging.MockLogger{}
+	kv := mockEtcd.MockEtcd{}
+	lg := mockLogger.MockLogger{}
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	ctrl.RescindInverseOffer(&mesos_v1_scheduler.Event_RescindInverseOffer{
 		InverseOfferId: &mesos_v1.OfferID{Value: utils.ProtoString("id")},
@@ -300,15 +283,15 @@ func TestSprintEventController_RescindInverseOffer(t *testing.T) {
 }
 
 func TestSprintEventController_Error(t *testing.T) {
-	rm := MockResourceManager.MockResourceManager{}
-	mg := testTaskManager.MockTaskManagerQueued{}
+	rm := mockResourceManager.MockResourceManager{}
+	mg := mockTaskManager.MockTaskManagerQueued{}
 	sh := sched.MockScheduler{}
 	cfg := &scheduler.Configuration{
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := test.MockEtcd{}
-	lg := MockLogging.MockLogger{}
+	kv := mockEtcd.MockEtcd{}
+	lg := mockLogger.MockLogger{}
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	ctrl.Error(&mesos_v1_scheduler.Event_Error{
 		Message: utils.ProtoString("message"),

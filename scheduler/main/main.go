@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"mesos-framework-sdk/client"
-	"mesos-framework-sdk/include/mesos"
-	"mesos-framework-sdk/include/scheduler"
+	"mesos-framework-sdk/include/mesos_v1"
+	"mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/persistence/drivers/etcd"
 	"mesos-framework-sdk/resources/manager"
@@ -15,7 +15,7 @@ import (
 	"net/http"
 	"sprint/scheduler"
 	"sprint/scheduler/api"
-	"sprint/scheduler/api/manager"
+	apiManager "sprint/scheduler/api/manager"
 	"sprint/scheduler/events"
 	sprintTaskManager "sprint/task/manager"
 	"strings"
@@ -80,7 +80,7 @@ func main() {
 	r := manager.NewDefaultResourceManager()                      // Manages resources from the cluster
 	c := client.NewClient(config.Scheduler.MesosEndpoint, logger) // Manages HTTP calls
 	s := sched.NewDefaultScheduler(c, frameworkInfo, logger)      // Manages how to route and schedule tasks.
-	apiManager := apimanager.NewApiManager(r, t, s)               // Middleware for our API.
+	m := apiManager.NewApiManager(r, t, s)                        // Middleware for our API.
 
 	// Event controller manages scheduler events and how they are handled.
 	e := events.NewSprintEventController(config, s, t, r, eventChan, kv, logger)
@@ -95,7 +95,7 @@ func main() {
 		config.APIServer.Port,
 	)
 
-	apiSrv := api.NewApiServer(apiSrvCfg, apiManager, http.NewServeMux(), API_VERSION, logger)
+	apiSrv := api.NewApiServer(apiSrvCfg, m, http.NewServeMux(), API_VERSION, logger)
 	go apiSrv.RunAPI(nil) // nil means to use default handlers.
 
 	// Run our event controller

@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/gob"
 	"errors"
-	"mesos-framework-sdk/include/mesos"
+	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/persistence/drivers/etcd"
 	"mesos-framework-sdk/structures"

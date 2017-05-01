@@ -5,14 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"mesos-framework-sdk/logging/test"
-	"mesos-framework-sdk/resources/manager/test"
-	"mesos-framework-sdk/scheduler/test"
-	"mesos-framework-sdk/server/test"
+	mockLogger "mesos-framework-sdk/logging/test"
+	mockResourceManager "mesos-framework-sdk/resources/manager/test"
+	mockScheduler "mesos-framework-sdk/scheduler/test"
+	mockServer "mesos-framework-sdk/server/test"
 	"net/http"
 	"net/http/httptest"
-	"sprint/scheduler/api/manager/test"
-	testTaskManager "sprint/task/manager/test"
+	mockApiManager "sprint/scheduler/api/manager/test"
+	mockTaskManager "sprint/task/manager/test"
 	"strings"
 	"testing"
 )
@@ -24,15 +24,15 @@ func (b brokenReader) Read(n []byte) (int, error) {
 }
 
 var (
-	c                     = new(mockConfiguration.MockServerConfiguration)
-	s                     = new(scheduler.MockScheduler)
-	tm                    = new(testTaskManager.MockTaskManager)
-	r                     = new(MockResourceManager.MockResourceManager)
+	c                     = new(mockServer.MockServerConfiguration)
+	s                     = new(mockScheduler.MockScheduler)
+	tm                    = new(mockTaskManager.MockTaskManager)
+	r                     = new(mockResourceManager.MockResourceManager)
 	h                     = http.NewServeMux()
 	v                     = "test"
-	l                     = new(MockLogging.MockLogger)
-	apiMgr                = new(mockapi.MockApiManager)
-	apiBrokenMgr          = new(mockapi.MockBrokenApiManager)
+	l                     = new(mockLogger.MockLogger)
+	apiMgr                = new(mockApiManager.MockApiManager)
+	apiBrokenMgr          = new(mockApiManager.MockBrokenApiManager)
 	validJSON             = fmt.Sprint(`{"name": "test", "resources": {"cpu": 0.5, "mem": 128.0}, "command": {"cmd": "echo hello"}}`)
 	killJSON              = fmt.Sprint(`{"name": "test"}`)
 	junkJSON              = fmt.Sprint(`not even json, how did this even get here`)
