@@ -2,7 +2,7 @@ package manager
 
 import (
 	"encoding/json"
-	"mesos-framework-sdk/include/mesos"
+	"mesos-framework-sdk/include/mesos_v1"
 	r "mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
 	"mesos-framework-sdk/task"

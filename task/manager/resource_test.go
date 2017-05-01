@@ -1,7 +1,7 @@
 package manager
 
 import (
-	"mesos-framework-sdk/include/mesos"
+	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/task"
 	"mesos-framework-sdk/utils"

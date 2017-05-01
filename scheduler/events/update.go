@@ -1,8 +1,8 @@
 package events
 
 import (
-	"mesos-framework-sdk/include/mesos"
-	"mesos-framework-sdk/include/scheduler"
+	"mesos-framework-sdk/include/mesos_v1"
+	"mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/task/manager"
 	apiManager "sprint/scheduler/api/manager"

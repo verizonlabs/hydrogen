@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"mesos-framework-sdk/client"
-	"mesos-framework-sdk/include/mesos"
-	"mesos-framework-sdk/include/scheduler"
+	"mesos-framework-sdk/include/mesos_v1"
+	"mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/persistence/drivers/etcd"
 	"mesos-framework-sdk/resources/manager"
