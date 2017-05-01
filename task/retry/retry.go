@@ -1,7 +1,7 @@
 package retry
 
 import (
-	"mesos-framework-sdk/include/mesos"
+	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/task"
 	"time"
 )

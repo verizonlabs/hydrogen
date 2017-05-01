@@ -1,7 +1,7 @@
 package events
 
 import (
-	scheduler "mesos-framework-sdk/include/scheduler"
+	scheduler "mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
 )
 

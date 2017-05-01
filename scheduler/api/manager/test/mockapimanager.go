@@ -1,8 +1,8 @@
-package mockapi
+package test
 
 import (
 	"errors"
-	"mesos-framework-sdk/include/mesos"
+	"mesos-framework-sdk/include/mesos_v1"
 )
 
 type (

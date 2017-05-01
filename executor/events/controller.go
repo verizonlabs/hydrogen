@@ -7,8 +7,8 @@ import (
 	"fmt"
 	e "mesos-framework-sdk/executor"
 	"mesos-framework-sdk/executor/events"
-	exec "mesos-framework-sdk/include/executor"
-	"mesos-framework-sdk/include/mesos"
+	"mesos-framework-sdk/include/mesos_v1"
+	exec "mesos-framework-sdk/include/mesos_v1_executor"
 	"mesos-framework-sdk/logging"
 	"time"
 )

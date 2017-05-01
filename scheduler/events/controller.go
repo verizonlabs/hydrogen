@@ -2,7 +2,7 @@ package events
 
 import (
 	"mesos-framework-sdk/ha"
-	sched "mesos-framework-sdk/include/scheduler"
+	sched "mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/persistence/drivers/etcd"
 	"mesos-framework-sdk/resources/manager"
