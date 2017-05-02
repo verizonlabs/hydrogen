@@ -279,13 +279,6 @@ func (m *SprintTaskHandler) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) 
 		Info:  t,
 		State: state,
 	})
-
-	switch state {
-	case manager.FINISHED:
-		m.Delete(t)
-	case manager.KILLED:
-		m.Delete(t)
-	}
 }
 
 // Get's all tasks within a certain state.
