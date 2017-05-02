@@ -158,6 +158,12 @@ func (m *SprintTaskHandler) Add(t *mesos_v1.TaskInfo) error {
 			return
 		}
 	}()
+
+	name := t.GetName()
+	if m.tasks.Get(name) != nil {
+		return errors.New("Task " + name + " already exists")
+	}
+
 	// Write forward.
 	encoded, err := m.encode(t, manager.UNKNOWN)
 	if err != nil {
@@ -176,11 +182,6 @@ func (m *SprintTaskHandler) Add(t *mesos_v1.TaskInfo) error {
 			continue
 		}
 		break
-	}
-
-	name := t.GetName()
-	if m.tasks.Get(name) != nil {
-		return errors.New("Task " + name + " already exists")
 	}
 
 	m.tasks.Set(t.GetName(), manager.Task{
