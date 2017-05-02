@@ -74,17 +74,24 @@ func (s *SprintEventController) createLeaderLease(idVal string) {
 			time.Sleep(s.config.Persistence.RetryInterval)
 			continue
 		}
+
+		s.lock.Lock()
 		s.frameworkLease = lease
+		s.lock.Unlock()
+
 		return
 	}
 }
 func (s *SprintEventController) refreshLeaderLease() {
 	for {
+		s.lock.RLock()
 		if err := s.kv.RefreshLease(s.frameworkLease); err != nil {
 			s.logger.Emit(logging.ERROR, "Failed to refresh framework ID lease: %s", err.Error())
 			time.Sleep(s.config.Persistence.RetryInterval)
 			continue
 		}
+		s.lock.RUnlock()
+
 		return
 	}
 }
