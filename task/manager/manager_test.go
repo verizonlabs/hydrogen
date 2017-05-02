@@ -199,12 +199,12 @@ func TestTaskManager_Set(t *testing.T) {
 	// KILLED and FINISHED delete the task from the task manager.
 	taskManager.Set(mesos_v1.TaskState_TASK_FINISHED, testTask)
 	tasks, err = taskManager.GetState(mesos_v1.TaskState_TASK_FINISHED)
-	if err == nil {
+	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
 	}
-	if len(tasks) != 0 {
-		t.Logf("Tasks returned was %v, expecting 0", len(tasks))
+	if len(tasks) != 1 {
+		t.Logf("Tasks returned was %v, expecting 1", len(tasks))
 	}
 
 	taskManager.Add(testTask)
@@ -212,11 +212,11 @@ func TestTaskManager_Set(t *testing.T) {
 	taskManager.Set(mesos_v1.TaskState_TASK_KILLED, testTask)
 
 	tasks, err = taskManager.GetState(mesos_v1.TaskState_TASK_KILLED)
-	if err == nil {
+	if err != nil {
 		t.FailNow()
 	}
-	if len(tasks) != 0 {
-		t.Logf("Tasks returned was %v, expecting 0", len(tasks))
+	if len(tasks) != 1 {
+		t.Logf("Tasks returned was %v, expecting 1", len(tasks))
 		t.FailNow()
 	}
 }
