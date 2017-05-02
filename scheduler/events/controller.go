@@ -15,6 +15,7 @@ import (
 	"os/signal"
 	sprintSched "sprint/scheduler"
 	sprintTask "sprint/task/manager"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -53,6 +54,7 @@ type (
 		frameworkLease  int64
 		status          ha.Status
 		name            string
+		lock            sync.RWMutex
 	}
 )
 
@@ -177,6 +179,8 @@ func (s *SprintEventController) registerShutdownHandlers() {
 		<-sigs
 
 		// Refresh our lease before we die so that we start an accurate countdown.
+		s.lock.RLock()
+		defer s.lock.RUnlock()
 		if s.frameworkLease != 0 {
 			s.refreshLeaderLease()
 		}

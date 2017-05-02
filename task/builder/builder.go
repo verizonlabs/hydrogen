@@ -51,16 +51,13 @@ func Application(t *task.ApplicationJSON) (*mesos_v1.TaskInfo, error) {
 		return nil, err
 	}
 
-	uuid := utils.UuidAsString()
-
 	labels, err := labels.ParseLabels(t.Labels)
 	if err != nil {
 		return nil, err
 	}
 
 	name := t.Name
-	hash := uuid
-	taskId := &mesos_v1.TaskID{Value: utils.ProtoString(name + "-" + hash)}
+	taskId := &mesos_v1.TaskID{Value: utils.ProtoString(name)}
 
 	return resourcebuilder.CreateTaskInfo(
 		utils.ProtoString(name),
