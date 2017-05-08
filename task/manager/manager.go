@@ -128,9 +128,9 @@ func (s *SprintTaskHandler) RunPolicy(policy *retry.TaskRetry, f func() error) e
 	}
 
 	policy.RetryTime = delay // update with new time.
-	time.Sleep(delay)
 	err := f()
 	if err != nil {
+		time.Sleep(delay)
 		return s.RunPolicy(policy, f)
 	}
 
