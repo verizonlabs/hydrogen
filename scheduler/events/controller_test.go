@@ -171,6 +171,9 @@ func TestSprintEventController_Subscribe(t *testing.T) {
 	mg := mockTaskManager.MockTaskManagerQueued{}
 	sh := sched.MockScheduler{}
 	cfg := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
@@ -185,6 +188,9 @@ func TestSprintEventController_CreateAndGetLeader(t *testing.T) {
 	mg := mockTaskManager.MockTaskManagerQueued{}
 	sh := sched.MockScheduler{}
 	cfg := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
@@ -200,6 +206,9 @@ func TestSprintEventController_Communicate(t *testing.T) {
 	mg := mockTaskManager.MockTaskManagerQueued{}
 	sh := sched.MockScheduler{}
 	cfg := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)

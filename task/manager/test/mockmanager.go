@@ -21,7 +21,7 @@ func (m MockTaskManager) CheckPolicy(*mesos_v1.TaskInfo) (*retry.TaskRetry, erro
 func (m MockTaskManager) ClearPolicy(*mesos_v1.TaskInfo) error {
 	return nil
 }
-func (m MockTaskManager) RunPolicy(*retry.TaskRetry, func()) error {
+func (m MockTaskManager) RunPolicy(*retry.TaskRetry, func() error) error {
 	return nil
 }
 
@@ -29,8 +29,8 @@ func (m MockTaskManager) Add(*mesos_v1.TaskInfo) error {
 	return nil
 }
 
-func (m MockTaskManager) Delete(*mesos_v1.TaskInfo) {
-
+func (m MockTaskManager) Delete(*mesos_v1.TaskInfo) error {
+	return nil
 }
 
 func (m MockTaskManager) Get(*string) (*mesos_v1.TaskInfo, error) {
@@ -45,8 +45,8 @@ func (m MockTaskManager) HasTask(*mesos_v1.TaskInfo) bool {
 	return false
 }
 
-func (m MockTaskManager) Set(mesos_v1.TaskState, *mesos_v1.TaskInfo) {
-
+func (m MockTaskManager) Set(mesos_v1.TaskState, *mesos_v1.TaskInfo) error {
+	return nil
 }
 
 func (m MockTaskManager) GetState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
@@ -77,7 +77,7 @@ func (m MockBrokenTaskManager) CheckPolicy(*mesos_v1.TaskInfo) (*retry.TaskRetry
 func (m MockBrokenTaskManager) ClearPolicy(*mesos_v1.TaskInfo) error {
 	return nil
 }
-func (m MockBrokenTaskManager) RunPolicy(*retry.TaskRetry, func()) error {
+func (m MockBrokenTaskManager) RunPolicy(*retry.TaskRetry, func() error) error {
 	return nil
 }
 
@@ -85,8 +85,8 @@ func (m MockBrokenTaskManager) Add(*mesos_v1.TaskInfo) error {
 	return errors.New("Broken.")
 }
 
-func (m MockBrokenTaskManager) Delete(*mesos_v1.TaskInfo) {
-
+func (m MockBrokenTaskManager) Delete(*mesos_v1.TaskInfo) error {
+	return errors.New("Broken.")
 }
 
 func (m MockBrokenTaskManager) Get(*string) (*mesos_v1.TaskInfo, error) {
@@ -101,8 +101,8 @@ func (m MockBrokenTaskManager) HasTask(*mesos_v1.TaskInfo) bool {
 	return false
 }
 
-func (m MockBrokenTaskManager) Set(mesos_v1.TaskState, *mesos_v1.TaskInfo) {
-
+func (m MockBrokenTaskManager) Set(mesos_v1.TaskState, *mesos_v1.TaskInfo) error {
+	return errors.New("Broken.")
 }
 
 func (m MockBrokenTaskManager) GetState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
@@ -128,7 +128,7 @@ func (m MockTaskManagerQueued) CheckPolicy(*mesos_v1.TaskInfo) (*retry.TaskRetry
 func (m MockTaskManagerQueued) ClearPolicy(*mesos_v1.TaskInfo) error {
 	return nil
 }
-func (m MockTaskManagerQueued) RunPolicy(*retry.TaskRetry, func()) error {
+func (m MockTaskManagerQueued) RunPolicy(*retry.TaskRetry, func() error) error {
 	return nil
 }
 
@@ -136,8 +136,8 @@ func (m MockTaskManagerQueued) Add(*mesos_v1.TaskInfo) error {
 	return nil
 }
 
-func (m MockTaskManagerQueued) Delete(*mesos_v1.TaskInfo) {
-
+func (m MockTaskManagerQueued) Delete(*mesos_v1.TaskInfo) error {
+	return nil
 }
 
 func (m MockTaskManagerQueued) Get(*string) (*mesos_v1.TaskInfo, error) {
@@ -152,8 +152,8 @@ func (m MockTaskManagerQueued) HasTask(*mesos_v1.TaskInfo) bool {
 	return false
 }
 
-func (m MockTaskManagerQueued) Set(mesos_v1.TaskState, *mesos_v1.TaskInfo) {
-
+func (m MockTaskManagerQueued) Set(mesos_v1.TaskState, *mesos_v1.TaskInfo) error {
+	return nil
 }
 
 func (m MockTaskManagerQueued) GetState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
