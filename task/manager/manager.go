@@ -211,8 +211,8 @@ func (m *SprintTaskHandler) Add(t *mesos_v1.TaskInfo) error {
 	return nil
 }
 
-func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) {
-	m.RunPolicy(&retry.TaskRetry{
+func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) error {
+	err := m.RunPolicy(&retry.TaskRetry{
 		MaxRetries: m.config.Persistence.MaxRetries,
 		Backoff:    true,
 	}, func() error {
@@ -224,8 +224,14 @@ func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) {
 		return err
 	})
 
+	if err != nil {
+		return err
+	}
+
 	m.tasks.Delete(task.GetName())
 	m.ClearPolicy(task)
+
+	return nil
 }
 
 func (m *SprintTaskHandler) Get(name *string) (*mesos_v1.TaskInfo, error) {
@@ -244,9 +250,9 @@ func (m *SprintTaskHandler) GetById(id *mesos_v1.TaskID) (*mesos_v1.TaskInfo, er
 	}
 
 	for v := range m.tasks.Iterate() {
-		task := v.Value.(manager.Task)
-		if task.Info.GetTaskId().GetValue() == id.GetValue() {
-			return task.Info, nil
+		t := v.Value.(manager.Task)
+		if t.Info.GetTaskId().GetValue() == id.GetValue() {
+			return t.Info, nil
 		}
 	}
 
@@ -271,7 +277,7 @@ func (m *SprintTaskHandler) Tasks() structures.DistributedMap {
 }
 
 // Update a task with a certain state.
-func (m *SprintTaskHandler) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) {
+func (m *SprintTaskHandler) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) error {
 	// Write forward.
 	encoded, err := m.encode(t, state)
 	if err != nil {
@@ -280,7 +286,7 @@ func (m *SprintTaskHandler) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) 
 
 	id := t.TaskId.GetValue()
 
-	m.RunPolicy(&retry.TaskRetry{
+	err = m.RunPolicy(&retry.TaskRetry{
 		MaxRetries: m.config.Persistence.MaxRetries,
 		Backoff:    true,
 	}, func() error {
@@ -296,19 +302,25 @@ func (m *SprintTaskHandler) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) 
 		return err
 	})
 
+	if err != nil {
+		return err
+	}
+
 	m.tasks.Set(t.GetName(), manager.Task{
 		Info:  t,
 		State: state,
 	})
+
+	return nil
 }
 
 // Get's all tasks within a certain state.
 func (m *SprintTaskHandler) GetState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
 	tasks := []*mesos_v1.TaskInfo{}
 	for v := range m.tasks.Iterate() {
-		task := v.Value.(manager.Task)
-		if task.State == state {
-			tasks = append(tasks, task.Info)
+		t := v.Value.(manager.Task)
+		if t.State == state {
+			tasks = append(tasks, t.Info)
 		}
 	}
 
