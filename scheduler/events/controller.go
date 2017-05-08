@@ -116,11 +116,18 @@ func (s *SprintEventController) Run() {
 	s.Election()
 
 	// Get the frameworkId from etcd and set it to our frameworkID in our struct.
-	s.setFrameworkId()
+	err := s.setFrameworkId()
+	if err != nil {
+		s.logger.Emit(logging.ERROR, "Failed to get the framework ID from persistent storage: %s", err.Error())
+	}
 
 	// Recover our state (if any) in the event we (or the server) go down.
 	s.logger.Emit(logging.INFO, "Restoring any persisted state from data store")
-	s.restoreTasks()
+	err = s.restoreTasks()
+	if err != nil {
+		s.logger.Emit(logging.INFO, "Failed to restore persisted state: %s", err.Error())
+		os.Exit(2)
+	}
 
 	// Kick off our scheduled reconciling.
 	s.logger.Emit(logging.INFO, "Starting periodic reconciler thread with a %g minute interval", s.config.Scheduler.ReconcileInterval.Minutes())
@@ -128,7 +135,11 @@ func (s *SprintEventController) Run() {
 
 	go func() {
 		for {
-			leader := s.GetLeader()
+			leader, err := s.GetLeader()
+			if err != nil {
+				s.logger.Emit(logging.ERROR, "Failed to get leader information: %s", err.Error())
+				os.Exit(5)
+			}
 
 			// We should only ever reach here if we hit a network partition and the standbys lose connection to the leader.
 			// If this happens we need to check if there really is another leader alive that we just can't reach.
@@ -140,7 +151,7 @@ func (s *SprintEventController) Run() {
 				os.Exit(1)
 			}
 
-			_, err := s.scheduler.Subscribe(s.events)
+			_, err = s.scheduler.Subscribe(s.events)
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to subscribe: %s", err.Error())
 				time.Sleep(time.Duration(s.config.Scheduler.SubscribeRetry))
@@ -182,7 +193,10 @@ func (s *SprintEventController) registerShutdownHandlers() {
 		s.lock.RLock()
 		defer s.lock.RUnlock()
 		if s.frameworkLease != 0 {
-			s.refreshLeaderLease()
+			err := s.refreshLeaderLease()
+			if err != nil {
+				s.logger.Emit(logging.ERROR, "Failed to refresh leader lease before exiting: %s", err.Error())
+			}
 		}
 
 		os.Exit(0)

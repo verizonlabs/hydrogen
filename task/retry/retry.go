@@ -21,12 +21,3 @@ type (
 		Name         string
 	}
 )
-
-func NewDefaultPolicy(name string) *TaskRetry {
-	return &TaskRetry{
-		TotalRetries: 0,
-		RetryTime:    1 * time.Second,
-		Backoff:      true,
-		Name:         name,
-	}
-}

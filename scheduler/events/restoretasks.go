@@ -12,8 +12,12 @@ import (
 // Get all of our persisted tasks, convert them back into TaskInfo's, and add them to our task manager.
 // If no tasks exist in the data store then we can consider this a fresh run and safely move on.
 //
-func (s *SprintEventController) restoreTasks() {
-	tasks := s.getAllTasks()
+func (s *SprintEventController) restoreTasks() error {
+	tasks, err := s.getAllTasks()
+	if err != nil {
+		return err
+	}
+
 	for _, value := range tasks {
 		var task manager.Task
 		data, err := base64.StdEncoding.DecodeString(value)
@@ -26,8 +30,11 @@ func (s *SprintEventController) restoreTasks() {
 		d := gob.NewDecoder(&b)
 		err = d.Decode(&task)
 		if err != nil {
-			s.logger.Emit(logging.ERROR, err.Error())
+			return err
 		}
+
 		s.TaskManager().Set(task.State, task.Info)
 	}
+
+	return nil
 }

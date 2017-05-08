@@ -11,8 +11,8 @@ import (
 //
 
 // Atomically create leader information.
-func (s *SprintEventController) CreateLeader() {
-	s.taskmanager.RunPolicy(&retry.TaskRetry{
+func (s *SprintEventController) CreateLeader() error {
+	return s.taskmanager.RunPolicy(&retry.TaskRetry{
 		MaxRetries: s.config.Persistence.MaxRetries,
 		Backoff:    true,
 	}, func() error {
@@ -26,9 +26,9 @@ func (s *SprintEventController) CreateLeader() {
 }
 
 // Atomically get leader information.
-func (s *SprintEventController) GetLeader() string {
+func (s *SprintEventController) GetLeader() (string, error) {
 	var leader string
-	s.taskmanager.RunPolicy(&retry.TaskRetry{
+	err := s.taskmanager.RunPolicy(&retry.TaskRetry{
 		MaxRetries: s.config.Persistence.MaxRetries,
 		Backoff:    true,
 	}, func() error {
@@ -42,11 +42,15 @@ func (s *SprintEventController) GetLeader() string {
 		return nil
 	})
 
-	return leader
+	if err != nil {
+		return "", err
+	}
+
+	return leader, nil
 }
 
-func (s *SprintEventController) setFrameworkId() {
-	s.taskmanager.RunPolicy(&retry.TaskRetry{
+func (s *SprintEventController) setFrameworkId() error {
+	return s.taskmanager.RunPolicy(&retry.TaskRetry{
 		MaxRetries: s.config.Persistence.MaxRetries,
 		Backoff:    true,
 	}, func() error {
@@ -61,8 +65,8 @@ func (s *SprintEventController) setFrameworkId() {
 	})
 }
 
-func (s *SprintEventController) deleteLeader() {
-	s.taskmanager.RunPolicy(&retry.TaskRetry{
+func (s *SprintEventController) deleteLeader() error {
+	return s.taskmanager.RunPolicy(&retry.TaskRetry{
 		MaxRetries: s.config.Persistence.MaxRetries,
 		Backoff:    true,
 	}, func() error {
@@ -76,8 +80,8 @@ func (s *SprintEventController) deleteLeader() {
 
 }
 
-func (s *SprintEventController) createLeaderLease(idVal string) {
-	s.taskmanager.RunPolicy(&retry.TaskRetry{
+func (s *SprintEventController) createLeaderLease(idVal string) error {
+	return s.taskmanager.RunPolicy(&retry.TaskRetry{
 		MaxRetries: s.config.Persistence.MaxRetries,
 		Backoff:    true,
 	}, func() error {
@@ -95,8 +99,8 @@ func (s *SprintEventController) createLeaderLease(idVal string) {
 	})
 }
 
-func (s *SprintEventController) refreshLeaderLease() {
-	s.taskmanager.RunPolicy(&retry.TaskRetry{
+func (s *SprintEventController) refreshLeaderLease() error {
+	return s.taskmanager.RunPolicy(&retry.TaskRetry{
 		MaxRetries: s.config.Persistence.MaxRetries,
 		Backoff:    true,
 	}, func() error {
@@ -112,9 +116,9 @@ func (s *SprintEventController) refreshLeaderLease() {
 	})
 }
 
-func (s *SprintEventController) getAllTasks() map[string]string {
+func (s *SprintEventController) getAllTasks() (map[string]string, error) {
 	var tasks map[string]string
-	s.taskmanager.RunPolicy(&retry.TaskRetry{
+	err := s.taskmanager.RunPolicy(&retry.TaskRetry{
 		MaxRetries: s.config.Persistence.MaxRetries,
 		Backoff:    true,
 	}, func() error {
@@ -128,5 +132,9 @@ func (s *SprintEventController) getAllTasks() map[string]string {
 		return nil
 	})
 
-	return tasks
+	if err != nil {
+		return nil, err
+	}
+
+	return tasks, nil
 }
