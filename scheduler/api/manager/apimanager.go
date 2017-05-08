@@ -13,8 +13,9 @@ import (
 
 var (
 	DEFAULT_RETRY_POLICY = &task.TimeRetry{
-		Time:    "1.5",
-		Backoff: true,
+		Time:       "1.5",
+		Backoff:    true,
+		MaxRetries: 3,
 	}
 )
 

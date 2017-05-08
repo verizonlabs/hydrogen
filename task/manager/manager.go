@@ -96,6 +96,7 @@ func (s *SprintTaskHandler) AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v
 
 		s.retries.Set(mesosTask.GetName(), &retry.TaskRetry{
 			TotalRetries: 0,
+			MaxRetries:   policy.MaxRetries,
 			RetryTime:    t,
 			Backoff:      policy.Backoff,
 			Name:         mesosTask.GetName(),
@@ -106,7 +107,12 @@ func (s *SprintTaskHandler) AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v
 }
 
 func (s *SprintTaskHandler) RunPolicy(policy *retry.TaskRetry, f func()) error {
+	if policy.TotalRetries == policy.MaxRetries {
+		return errors.New("Retry limit reached")
+	}
+
 	policy.TotalRetries += 1 // Increment retry counter.
+
 	// Minimum is 1 seconds, max is 60.
 	if policy.RetryTime < 1*time.Second {
 		policy.RetryTime = 1 * time.Second
@@ -123,6 +129,7 @@ func (s *SprintTaskHandler) RunPolicy(policy *retry.TaskRetry, f func()) error {
 
 	policy.RetryTime = delay // update with new time.
 	time.AfterFunc(delay, f)
+
 	return nil
 }
 

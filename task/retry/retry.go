@@ -15,6 +15,7 @@ type (
 	}
 	TaskRetry struct {
 		TotalRetries int
+		MaxRetries   int
 		RetryTime    time.Duration
 		Backoff      bool
 		Name         string

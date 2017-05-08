@@ -38,16 +38,16 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 
 		// If there's an error, fallback to the regular policy.
 		policy, err := s.taskmanager.CheckPolicy(task)
-		retryFunc := func() {
-			s.taskmanager.Set(manager.UNKNOWN, task)
-			s.Scheduler().Revive()
-		}
 		if err != nil {
-			s.logger.Emit(logging.INFO, err.Error())
+			s.logger.Emit(logging.ERROR, err.Error())
 			// set default policy, we should never get here, this would mean an error in serialization or our api.
 			s.taskmanager.AddPolicy(apiManager.DEFAULT_RETRY_POLICY, task)
 		}
-		s.taskmanager.RunPolicy(policy, retryFunc)
+
+		s.taskmanager.RunPolicy(policy, func() {
+			s.taskmanager.Set(manager.UNKNOWN, task)
+			s.Scheduler().Revive()
+		})
 	case mesos_v1.TaskState_TASK_STAGING:
 		// NOP, keep task set to "launched".
 		s.logger.Emit(logging.INFO, message)
