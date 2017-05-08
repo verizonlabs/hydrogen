@@ -44,9 +44,14 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 			s.taskmanager.AddPolicy(apiManager.DEFAULT_RETRY_POLICY, task)
 		}
 
-		s.taskmanager.RunPolicy(policy, func() {
+		s.taskmanager.RunPolicy(policy, func() error {
 			s.taskmanager.Set(manager.UNKNOWN, task)
-			s.Scheduler().Revive()
+			_, err := s.Scheduler().Revive()
+			if err != nil {
+				s.logger.Emit(logging.ERROR, err.Error())
+			}
+
+			return err
 		})
 	case mesos_v1.TaskState_TASK_STAGING:
 		// NOP, keep task set to "launched".

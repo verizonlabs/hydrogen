@@ -23,6 +23,7 @@ type PersistenceConfiguration struct {
 	KeepaliveTime    time.Duration
 	KeepaliveTimeout time.Duration
 	RetryInterval    time.Duration
+	MaxRetries       int
 }
 
 // Configuration for leader (HA) operation.
@@ -92,6 +93,7 @@ func (c *PersistenceConfiguration) initialize() *PersistenceConfiguration {
 												       even after that the connection is closed`)
 	flag.DurationVar(&c.RetryInterval, "persistence.retry.interval", 2*time.Second, `How long to wait before
 												retrying persistence operations`)
+	flag.IntVar(&c.MaxRetries, "persistence.retry.max", 3, "How many times persistence operations will be retried")
 
 	return c
 }

@@ -106,7 +106,7 @@ func (s *SprintTaskHandler) AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v
 	return errors.New("Nil mesos task passed in")
 }
 
-func (s *SprintTaskHandler) RunPolicy(policy *retry.TaskRetry, f func()) error {
+func (s *SprintTaskHandler) RunPolicy(policy *retry.TaskRetry, f func() error) error {
 	if policy.TotalRetries == policy.MaxRetries {
 		return errors.New("Retry limit reached")
 	}
@@ -128,7 +128,11 @@ func (s *SprintTaskHandler) RunPolicy(policy *retry.TaskRetry, f func()) error {
 	}
 
 	policy.RetryTime = delay // update with new time.
-	time.AfterFunc(delay, f)
+	time.Sleep(delay)
+	err := f()
+	if err != nil {
+		return s.RunPolicy(policy, f)
+	}
 
 	return nil
 }
@@ -176,19 +180,27 @@ func (m *SprintTaskHandler) Add(t *mesos_v1.TaskInfo) error {
 	if err != nil {
 		return err
 	}
+
 	id := t.TaskId.GetValue()
-
-	for {
-		if err := m.storage.Create(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes())); err != nil {
-			if IS_TESTING {
-				return errors.New("Failed to ADD.")
-			}
-
-			m.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, t.GetName())
-			time.Sleep(m.config.Persistence.RetryInterval)
-			continue
+	err = m.RunPolicy(&retry.TaskRetry{
+		MaxRetries: m.config.Persistence.MaxRetries,
+		Backoff:    true,
+	}, func() error {
+		err := m.storage.Create(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
+		if err != nil {
+			m.logger.Emit(
+				logging.ERROR,
+				"Failed to save task %s with name %s to persistent data store. Retrying...",
+				id,
+				t.GetName(),
+			)
 		}
-		break
+
+		return err
+	})
+
+	if err != nil {
+		return err
 	}
 
 	m.tasks.Set(t.GetName(), manager.Task{
@@ -200,19 +212,17 @@ func (m *SprintTaskHandler) Add(t *mesos_v1.TaskInfo) error {
 }
 
 func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) {
-	for {
+	m.RunPolicy(&retry.TaskRetry{
+		MaxRetries: m.config.Persistence.MaxRetries,
+		Backoff:    true,
+	}, func() error {
 		err := m.storage.Delete(TASK_DIRECTORY + task.GetTaskId().GetValue())
 		if err != nil {
-			if IS_TESTING {
-				return
-			}
-
 			m.logger.Emit(logging.ERROR, err.Error())
-			time.Sleep(m.config.Persistence.RetryInterval)
-			continue
 		}
-		break
-	}
+
+		return err
+	})
 
 	m.tasks.Delete(task.GetName())
 	m.ClearPolicy(task)
@@ -270,18 +280,21 @@ func (m *SprintTaskHandler) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) 
 
 	id := t.TaskId.GetValue()
 
-	for {
-		if err := m.storage.Update(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes())); err != nil {
-			if IS_TESTING {
-				return
-			}
-			m.logger.Emit(logging.ERROR, "Failed to update task %s with name %s to persistent data store", id, t.GetName())
-			// NOTE(tim): This will hang everything if we retry forever.
-			time.Sleep(m.config.Persistence.RetryInterval)
-			continue
+	m.RunPolicy(&retry.TaskRetry{
+		MaxRetries: m.config.Persistence.MaxRetries,
+		Backoff:    true,
+	}, func() error {
+		err := m.storage.Update(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
+		if err != nil {
+			m.logger.Emit(
+				logging.ERROR, "Failed to update task %s with name %s to persistent data store. Retrying...",
+				id,
+				t.GetName(),
+			)
 		}
-		break
-	}
+
+		return err
+	})
 
 	m.tasks.Set(t.GetName(), manager.Task{
 		Info:  t,
