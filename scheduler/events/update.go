@@ -39,7 +39,7 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 		// If there's an error, fallback to the regular policy.
 		policy, err := s.taskmanager.CheckPolicy(task)
 		if err != nil {
-			s.logger.Emit(logging.ERROR, err.Error())
+			s.logger.Emit(logging.INFO, err.Error())
 			// set default policy, we should never get here, this would mean an error in serialization or our api.
 			s.taskmanager.AddPolicy(apiManager.DEFAULT_RETRY_POLICY, task)
 		}
