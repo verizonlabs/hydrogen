@@ -22,7 +22,6 @@ type PersistenceConfiguration struct {
 	Timeout          time.Duration
 	KeepaliveTime    time.Duration
 	KeepaliveTimeout time.Duration
-	RetryInterval    time.Duration
 	MaxRetries       int
 }
 
@@ -91,8 +90,6 @@ func (c *PersistenceConfiguration) initialize() *PersistenceConfiguration {
 												       the client waits for this duration
 												       and if no activity is seen
 												       even after that the connection is closed`)
-	flag.DurationVar(&c.RetryInterval, "persistence.retry.interval", 2*time.Second, `How long to wait before
-												retrying persistence operations`)
 	flag.IntVar(&c.MaxRetries, "persistence.retry.max", 3, "How many times persistence operations will be retried")
 
 	return c

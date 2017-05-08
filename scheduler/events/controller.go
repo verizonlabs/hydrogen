@@ -128,7 +128,7 @@ func (s *SprintEventController) Run() {
 
 	go func() {
 		for {
-			leader := s.readLeader()
+			leader := s.GetLeader()
 
 			// We should only ever reach here if we hit a network partition and the standbys lose connection to the leader.
 			// If this happens we need to check if there really is another leader alive that we just can't reach.

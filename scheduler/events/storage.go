@@ -3,7 +3,7 @@ package events
 import (
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/logging"
-	"time"
+	"sprint/task/retry"
 )
 
 //
@@ -12,98 +12,121 @@ import (
 
 // Atomically create leader information.
 func (s *SprintEventController) CreateLeader() {
-	for {
-		if err := s.kv.Create("/leader", s.config.Leader.IP); err != nil {
-			s.logger.Emit(logging.ERROR, "Failed to set leader information: "+err.Error())
-			time.Sleep(s.config.Persistence.RetryInterval)
-			continue
+	s.taskmanager.RunPolicy(&retry.TaskRetry{
+		MaxRetries: s.config.Persistence.MaxRetries,
+		Backoff:    true,
+	}, func() error {
+		err := s.kv.Create("/leader", s.config.Leader.IP)
+		if err != nil {
+			s.logger.Emit(logging.ERROR, "Failed to set leader: %s", err.Error())
 		}
-		break
-	}
 
+		return err
+	})
 }
 
 // Atomically get leader information.
 func (s *SprintEventController) GetLeader() string {
-	for {
-		leader, err := s.kv.Read("/leader")
+	var leader string
+	s.taskmanager.RunPolicy(&retry.TaskRetry{
+		MaxRetries: s.config.Persistence.MaxRetries,
+		Backoff:    true,
+	}, func() error {
+		l, err := s.kv.Read("/leader")
 		if err != nil {
 			s.logger.Emit(logging.ERROR, "Failed to get the leader: %s", err.Error())
-			time.Sleep(s.config.Persistence.RetryInterval)
-			continue
+			return err
 		}
 
-		return leader
-	}
+		leader = l
+		return nil
+	})
+
+	return leader
 }
 
 func (s *SprintEventController) setFrameworkId() {
-	for {
+	s.taskmanager.RunPolicy(&retry.TaskRetry{
+		MaxRetries: s.config.Persistence.MaxRetries,
+		Backoff:    true,
+	}, func() error {
 		id, err := s.kv.Read("/frameworkId")
-		if err == nil {
-			s.scheduler.FrameworkInfo().Id = &mesos_v1.FrameworkID{Value: &id}
-			return
-		} else {
-			time.Sleep(s.config.Persistence.RetryInterval)
-			continue
-		}
-	}
-}
-
-func (s *SprintEventController) readLeader() string {
-	for {
-		leader, err := s.kv.Read("/leader")
 		if err != nil {
-			s.logger.Emit(logging.ERROR, "Failed to find the leader: %s", err.Error())
-			time.Sleep(s.config.Persistence.RetryInterval)
-			continue
+			s.logger.Emit(logging.ERROR, "Failed to set the framework ID: %s", err.Error())
+			return err
 		}
-		return leader
-	}
+
+		s.scheduler.FrameworkInfo().Id = &mesos_v1.FrameworkID{Value: &id}
+		return nil
+	})
 }
 
 func (s *SprintEventController) deleteLeader() {
-	s.kv.Delete("/leader")
+	s.taskmanager.RunPolicy(&retry.TaskRetry{
+		MaxRetries: s.config.Persistence.MaxRetries,
+		Backoff:    true,
+	}, func() error {
+		err := s.kv.Delete("/leader")
+		if err != nil {
+			s.logger.Emit(logging.ERROR, "Failed to delete leader: %s", err.Error())
+		}
+
+		return err
+	})
+
 }
 
 func (s *SprintEventController) createLeaderLease(idVal string) {
-	for {
+	s.taskmanager.RunPolicy(&retry.TaskRetry{
+		MaxRetries: s.config.Persistence.MaxRetries,
+		Backoff:    true,
+	}, func() error {
 		lease, err := s.kv.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.FrameworkInfo().GetFailoverTimeout()))
 		if err != nil {
 			s.logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
-			time.Sleep(s.config.Persistence.RetryInterval)
-			continue
+			return err
 		}
 
 		s.lock.Lock()
 		s.frameworkLease = lease
 		s.lock.Unlock()
 
-		return
-	}
+		return nil
+	})
 }
+
 func (s *SprintEventController) refreshLeaderLease() {
-	for {
+	s.taskmanager.RunPolicy(&retry.TaskRetry{
+		MaxRetries: s.config.Persistence.MaxRetries,
+		Backoff:    true,
+	}, func() error {
 		s.lock.RLock()
-		if err := s.kv.RefreshLease(s.frameworkLease); err != nil {
+		err := s.kv.RefreshLease(s.frameworkLease)
+		if err != nil {
 			s.logger.Emit(logging.ERROR, "Failed to refresh framework ID lease: %s", err.Error())
-			time.Sleep(s.config.Persistence.RetryInterval)
-			continue
 		}
+
 		s.lock.RUnlock()
 
-		return
-	}
+		return err
+	})
 }
 
 func (s *SprintEventController) getAllTasks() map[string]string {
-	for {
-		tasks, err := s.kv.ReadAll("/tasks")
+	var tasks map[string]string
+	s.taskmanager.RunPolicy(&retry.TaskRetry{
+		MaxRetries: s.config.Persistence.MaxRetries,
+		Backoff:    true,
+	}, func() error {
+		t, err := s.kv.ReadAll("/tasks")
 		if err != nil {
 			s.logger.Emit(logging.ERROR, "Failed to get all task data: %s", err.Error())
-			time.Sleep(s.config.Persistence.RetryInterval)
-			continue
+			return err
 		}
-		return tasks
-	}
+
+		tasks = t
+		return nil
+	})
+
+	return tasks
 }
