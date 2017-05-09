@@ -9,11 +9,13 @@ import (
 type (
 	Retry interface {
 		AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v1.TaskInfo) error
-		CheckPolicy(mesosTask *mesos_v1.TaskInfo) (*TaskRetry, error)
+		CheckPolicy(mesosTask *mesos_v1.TaskInfo) (TaskRetry, error)
 		ClearPolicy(mesosTask *mesos_v1.TaskInfo) error
-		RunPolicy(policy *TaskRetry, f func() error) error
+		RunPolicy(policy TaskRetry, f func() error) error
+		RetryPolicy() TaskRetry
 	}
 	TaskRetry struct {
+		Sync         bool
 		TotalRetries int
 		MaxRetries   int
 		RetryTime    time.Duration
