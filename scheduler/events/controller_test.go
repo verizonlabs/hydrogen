@@ -4,12 +4,12 @@ import (
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
 	mockLogger "mesos-framework-sdk/logging/test"
-	mockEtcd "mesos-framework-sdk/persistence/drivers/etcd/test"
 	mockResourceManager "mesos-framework-sdk/resources/manager/test"
 	sched "mesos-framework-sdk/scheduler/test"
 	"mesos-framework-sdk/utils"
 	"sprint/scheduler"
 	mockTaskManager "sprint/task/manager/test"
+	mockStorage "sprint/task/persistence/test"
 	"testing"
 )
 
@@ -19,7 +19,7 @@ func TestNewSprintEventController(t *testing.T) {
 	sh := sched.MockScheduler{}
 	cfg := &scheduler.Configuration{}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockEtcd.MockEtcd{}
+	kv := mockStorage.MockStorage{}
 	lg := mockLogger.MockLogger{}
 
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
@@ -36,7 +36,7 @@ func TestSprintEventController_Offers(t *testing.T) {
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockEtcd.MockEtcd{}
+	kv := mockStorage.MockStorage{}
 	lg := mockLogger.MockLogger{}
 
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
@@ -77,7 +77,7 @@ func TestSprintEventController_OffersWithQueuedTasks(t *testing.T) {
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockEtcd.MockEtcd{}
+	kv := mockStorage.MockStorage{}
 	lg := mockLogger.MockLogger{}
 
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
@@ -118,7 +118,7 @@ func TestSprintEventController_Name(t *testing.T) {
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockEtcd.MockEtcd{}
+	kv := mockStorage.MockStorage{}
 	lg := mockLogger.MockLogger{}
 
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
@@ -137,7 +137,7 @@ func TestSprintEventController_Update(t *testing.T) {
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockEtcd.MockEtcd{}
+	kv := mockStorage.MockStorage{}
 	lg := mockLogger.MockLogger{}
 
 	states := []*mesos_v1.TaskState{
@@ -177,7 +177,7 @@ func TestSprintEventController_Subscribe(t *testing.T) {
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockEtcd.MockEtcd{}
+	kv := mockStorage.MockStorage{}
 	lg := mockLogger.MockLogger{}
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	ctrl.Subscribe(&mesos_v1_scheduler.Event_Subscribed{FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString("id")}})
@@ -194,7 +194,7 @@ func TestSprintEventController_CreateAndGetLeader(t *testing.T) {
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockEtcd.MockEtcd{}
+	kv := mockStorage.MockStorage{}
 	lg := mockLogger.MockLogger{}
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	ctrl.CreateLeader()
@@ -212,7 +212,7 @@ func TestSprintEventController_Communicate(t *testing.T) {
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockEtcd.MockEtcd{}
+	kv := mockStorage.MockStorage{}
 	lg := mockLogger.MockLogger{}
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	go ctrl.Communicate() // this never gets covered since this test closes too fast
@@ -227,7 +227,7 @@ func TestSprintEventController_Message(t *testing.T) {
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockEtcd.MockEtcd{}
+	kv := mockStorage.MockStorage{}
 	lg := mockLogger.MockLogger{}
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	ctrl.Message(&mesos_v1_scheduler.Event_Message{
@@ -245,7 +245,7 @@ func TestSprintEventController_Failure(t *testing.T) {
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockEtcd.MockEtcd{}
+	kv := mockStorage.MockStorage{}
 	lg := mockLogger.MockLogger{}
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	ctrl.Failure(&mesos_v1_scheduler.Event_Failure{
@@ -261,7 +261,7 @@ func TestSprintEventController_InverseOffer(t *testing.T) {
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockEtcd.MockEtcd{}
+	kv := mockStorage.MockStorage{}
 	lg := mockLogger.MockLogger{}
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	ctrl.InverseOffer(&mesos_v1_scheduler.Event_InverseOffers{
@@ -283,7 +283,7 @@ func TestSprintEventController_RescindInverseOffer(t *testing.T) {
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockEtcd.MockEtcd{}
+	kv := mockStorage.MockStorage{}
 	lg := mockLogger.MockLogger{}
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	ctrl.RescindInverseOffer(&mesos_v1_scheduler.Event_RescindInverseOffer{
@@ -299,7 +299,7 @@ func TestSprintEventController_Error(t *testing.T) {
 		Leader: &scheduler.LeaderConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockEtcd.MockEtcd{}
+	kv := mockStorage.MockStorage{}
 	lg := mockLogger.MockLogger{}
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
 	ctrl.Error(&mesos_v1_scheduler.Event_Error{

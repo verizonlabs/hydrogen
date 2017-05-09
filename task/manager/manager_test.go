@@ -3,12 +3,12 @@ package manager
 import (
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/logging"
-	"mesos-framework-sdk/persistence/drivers/etcd/test"
 	"mesos-framework-sdk/structures"
 	"mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
 	"os"
 	"sprint/scheduler"
+	mockStorage "sprint/task/persistence/test"
 	"strconv"
 	"testing"
 )
@@ -40,7 +40,7 @@ func CreateTestTask(name string) *mesos_v1.TaskInfo {
 
 func TestNewTaskManager(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockKVStore{}
+	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
@@ -56,7 +56,7 @@ func TestNewTaskManager(t *testing.T) {
 
 func TestTaskManager_Cycle(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockKVStore{}
+	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
@@ -83,7 +83,7 @@ func TestTaskManager_Cycle(t *testing.T) {
 
 func TestTaskManager_Length(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockKVStore{}
+	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
@@ -128,7 +128,7 @@ func TestTaskManager_Length(t *testing.T) {
 
 func TestTaskManager_GetById(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockKVStore{}
+	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
@@ -159,7 +159,7 @@ func TestTaskManager_GetById(t *testing.T) {
 
 func TestTaskManager_GetState(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockKVStore{}
+	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
@@ -182,7 +182,7 @@ func TestTaskManager_GetState(t *testing.T) {
 
 func TestTaskManager_HasTask(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockKVStore{}
+	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
@@ -201,7 +201,7 @@ func TestTaskManager_HasTask(t *testing.T) {
 
 func TestTaskManager_Set(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockKVStore{}
+	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
@@ -250,7 +250,7 @@ func TestTaskManager_Set(t *testing.T) {
 
 func TestTaskManager_TotalTasks(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockKVStore{}
+	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
@@ -296,7 +296,7 @@ func TestTaskManager_TotalTasks(t *testing.T) {
 
 func TestTaskManager_AddSameTask(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockKVStore{}
+	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
@@ -315,7 +315,7 @@ func TestTaskManager_AddSameTask(t *testing.T) {
 
 func TestTaskManager_DeleteFail(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockBrokenKVStore{}
+	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
@@ -331,7 +331,7 @@ func TestTaskManager_DeleteFail(t *testing.T) {
 
 func TestTaskManager_GetByIdFail(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockKVStore{}
+	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
@@ -359,7 +359,7 @@ func TestTaskManager_GetByIdFail(t *testing.T) {
 
 func TestTaskManager_HasTaskFail(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockKVStore{}
+	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
@@ -377,11 +377,9 @@ func TestTaskManager_HasTaskFail(t *testing.T) {
 	}
 }
 
-// TODO (tim): This will never pass, logic in manager is to retry forever.
-// Need to fix retry logic in manager
 func TestTaskManager_HasTaskFailWithBrokenStorage(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockBrokenKVStore{}
+	storage := mockStorage.MockBrokenStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
@@ -399,7 +397,7 @@ func TestTaskManager_HasTaskFailWithBrokenStorage(t *testing.T) {
 
 func TestTaskManager_DeleteFailWithBrokenStorage(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockBrokenKVStore{}
+	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
@@ -413,7 +411,7 @@ func TestTaskManager_DeleteFailWithBrokenStorage(t *testing.T) {
 
 func TestTaskManager_SetFailWithBrokenStorage(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockBrokenKVStore{}
+	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
@@ -427,7 +425,7 @@ func TestTaskManager_SetFailWithBrokenStorage(t *testing.T) {
 
 func TestTaskManager_EncodeFailWithBrokenStorage(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockBrokenKVStore{}
+	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
