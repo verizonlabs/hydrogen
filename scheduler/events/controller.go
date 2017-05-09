@@ -196,6 +196,7 @@ func (s *SprintEventController) registerShutdownHandlers() {
 			err := s.refreshLeaderLease()
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to refresh leader lease before exiting: %s", err.Error())
+				os.Exit(6)
 			}
 		}
 
