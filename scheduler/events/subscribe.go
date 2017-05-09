@@ -18,7 +18,7 @@ func (s *SprintEventController) Subscribe(subEvent *mesos_v1_scheduler.Event_Sub
 	s.scheduler.FrameworkInfo().Id = id
 	s.logger.Emit(logging.INFO, "Subscribed with an ID of %s", idVal)
 
-	err := s.createLeaderLease(idVal)
+	err := s.createFrameworkIdLease(idVal)
 	if err != nil {
 		s.logger.Emit(logging.ERROR, "Failed to persist leader information: %s", err.Error())
 		os.Exit(3)

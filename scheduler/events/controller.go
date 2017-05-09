@@ -193,7 +193,7 @@ func (s *SprintEventController) registerShutdownHandlers() {
 		s.lock.RLock()
 		defer s.lock.RUnlock()
 		if s.frameworkLease != 0 {
-			err := s.refreshLeaderLease()
+			err := s.refreshFrameworkIdLease()
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to refresh leader lease before exiting: %s", err.Error())
 				os.Exit(6)

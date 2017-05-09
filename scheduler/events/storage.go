@@ -70,7 +70,7 @@ func (s *SprintEventController) deleteLeader() error {
 	})
 }
 
-func (s *SprintEventController) createLeaderLease(idVal string) error {
+func (s *SprintEventController) createFrameworkIdLease(idVal string) error {
 	policy, _ := s.storage.CheckPolicy(nil)
 	return s.storage.RunPolicy(policy, func() error {
 		lease, err := s.storage.CreateWithLease("/frameworkId", idVal, int64(s.scheduler.FrameworkInfo().GetFailoverTimeout()))
@@ -87,7 +87,7 @@ func (s *SprintEventController) createLeaderLease(idVal string) error {
 	})
 }
 
-func (s *SprintEventController) refreshLeaderLease() error {
+func (s *SprintEventController) refreshFrameworkIdLease() error {
 	policy, _ := s.storage.CheckPolicy(nil)
 	return s.storage.RunPolicy(policy, func() error {
 		s.lock.RLock()
