@@ -39,7 +39,13 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 		// If there's an error, fallback to the regular policy.
 		policy, err := s.taskmanager.CheckPolicy(task)
 		retryFunc := func() {
-			s.taskmanager.Set(manager.UNKNOWN, task)
+			// Check if the task has been deleted
+			// while waiting for a retry.
+			t, err := s.taskmanager.Get(task.Name)
+			if err != nil {
+				return
+			}
+			s.taskmanager.Set(manager.UNKNOWN, t)
 			s.Scheduler().Revive()
 		}
 		if err != nil {
