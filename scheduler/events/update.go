@@ -56,7 +56,11 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 			s.taskmanager.AddPolicy(apiManager.DEFAULT_RETRY_POLICY, task)
 			policy, _ = s.taskmanager.CheckPolicy(task) // update policy reference
 		}
-		s.taskmanager.RunPolicy(policy, retryFunc)
+
+		err = s.taskmanager.RunPolicy(policy, retryFunc)
+		if err != nil {
+			s.logger.Emit(logging.ERROR, "Failed to run policy: %s", err.Error())
+		}
 	case mesos_v1.TaskState_TASK_STAGING:
 		// NOP, keep task set to "launched".
 		s.logger.Emit(logging.INFO, message)
