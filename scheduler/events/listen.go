@@ -34,7 +34,7 @@ func (s *SprintEventController) Listen() {
 			case scheduler.Event_UPDATE:
 				s.Update(t.GetUpdate())
 			case scheduler.Event_HEARTBEAT:
-				s.refreshLeaderLease()
+				s.refreshFrameworkIdLease()
 			case scheduler.Event_UNKNOWN:
 				s.logger.Emit(logging.ALARM, "Unknown event received")
 			}

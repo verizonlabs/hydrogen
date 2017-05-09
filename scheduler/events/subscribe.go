@@ -4,6 +4,7 @@ import (
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/task/manager"
+	"os"
 )
 
 //
@@ -17,7 +18,11 @@ func (s *SprintEventController) Subscribe(subEvent *mesos_v1_scheduler.Event_Sub
 	s.scheduler.FrameworkInfo().Id = id
 	s.logger.Emit(logging.INFO, "Subscribed with an ID of %s", idVal)
 
-	s.createLeaderLease(idVal)
+	err := s.createFrameworkIdLease(idVal)
+	if err != nil {
+		s.logger.Emit(logging.ERROR, "Failed to persist leader information: %s", err.Error())
+		os.Exit(3)
+	}
 
 	// Get all launched non-terminal tasks.
 	launched, err := s.taskmanager.GetState(manager.RUNNING)

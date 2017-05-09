@@ -4,6 +4,7 @@ import (
 	"mesos-framework-sdk/ha"
 	"mesos-framework-sdk/logging"
 	"net"
+	"os"
 	"strconv"
 	"time"
 )
@@ -72,9 +73,18 @@ func (s *SprintEventController) Communicate() {
 func (s *SprintEventController) Election() {
 	for {
 		// This will only set us as the leader if there isn't an already existing leader.
-		s.CreateLeader()
+		err := s.CreateLeader()
+		if err != nil {
+			s.logger.Emit(logging.ERROR, "Failed to persist leader information: %s", err.Error())
+			os.Exit(3)
+		}
 
-		leader := s.GetLeader()
+		leader, err := s.GetLeader()
+		if err != nil {
+			s.logger.Emit(logging.ERROR, "Failed to get leader information: %s", err.Error())
+			os.Exit(5)
+		}
+
 		if leader != s.config.Leader.IP {
 			s.status = ha.Listening
 			s.logger.Emit(logging.INFO, "Connecting to leader to determine when we need to wake up and perform leader election")
@@ -92,7 +102,11 @@ func (s *SprintEventController) Election() {
 			} else {
 				s.status = ha.Election
 				s.logger.Emit(logging.ERROR, "Lost connection to leader")
-				s.deleteLeader()
+				err := s.deleteLeader()
+				if err != nil {
+					s.logger.Emit(logging.ERROR, "Failed to delete leader information: %s", err.Error())
+					os.Exit(4)
+				}
 			}
 		} else {
 			s.status = ha.Leading
