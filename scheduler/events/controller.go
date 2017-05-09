@@ -4,7 +4,6 @@ import (
 	"mesos-framework-sdk/ha"
 	sched "mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
-	"mesos-framework-sdk/persistence/drivers/etcd"
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
 	"mesos-framework-sdk/scheduler/events"
@@ -15,6 +14,7 @@ import (
 	"os/signal"
 	sprintSched "sprint/scheduler"
 	sprintTask "sprint/task/manager"
+	"sprint/task/persistence"
 	"sync"
 	"syscall"
 	"time"
@@ -49,7 +49,7 @@ type (
 		taskmanager     sprintTask.SprintTaskManager
 		resourcemanager manager.ResourceManager
 		events          chan *sched.Event
-		kv              etcd.KeyValueStore
+		storage         persistence.Storage
 		logger          logging.Logger
 		frameworkLease  int64
 		status          ha.Status
@@ -67,7 +67,7 @@ func NewSprintEventController(
 	manager sprintTask.SprintTaskManager,
 	resourceManager manager.ResourceManager,
 	eventChan chan *sched.Event,
-	kv etcd.KeyValueStore,
+	storage persistence.Storage,
 	logger logging.Logger) EventController {
 
 	return &SprintEventController{
@@ -76,7 +76,7 @@ func NewSprintEventController(
 		scheduler:       scheduler,
 		events:          eventChan,
 		resourcemanager: resourceManager,
-		kv:              kv,
+		storage:         storage,
 		logger:          logger,
 		status:          ha.Election,
 		name:            utils.UuidAsString(),
@@ -116,11 +116,18 @@ func (s *SprintEventController) Run() {
 	s.Election()
 
 	// Get the frameworkId from etcd and set it to our frameworkID in our struct.
-	s.setFrameworkId()
+	err := s.setFrameworkId()
+	if err != nil {
+		s.logger.Emit(logging.ERROR, "Failed to get the framework ID from persistent storage: %s", err.Error())
+	}
 
 	// Recover our state (if any) in the event we (or the server) go down.
 	s.logger.Emit(logging.INFO, "Restoring any persisted state from data store")
-	s.restoreTasks()
+	err = s.restoreTasks()
+	if err != nil {
+		s.logger.Emit(logging.INFO, "Failed to restore persisted state: %s", err.Error())
+		os.Exit(2)
+	}
 
 	// Kick off our scheduled reconciling.
 	s.logger.Emit(logging.INFO, "Starting periodic reconciler thread with a %g minute interval", s.config.Scheduler.ReconcileInterval.Minutes())
@@ -128,7 +135,11 @@ func (s *SprintEventController) Run() {
 
 	go func() {
 		for {
-			leader := s.readLeader()
+			leader, err := s.GetLeader()
+			if err != nil {
+				s.logger.Emit(logging.ERROR, "Failed to get leader information: %s", err.Error())
+				os.Exit(5)
+			}
 
 			// We should only ever reach here if we hit a network partition and the standbys lose connection to the leader.
 			// If this happens we need to check if there really is another leader alive that we just can't reach.
@@ -140,7 +151,7 @@ func (s *SprintEventController) Run() {
 				os.Exit(1)
 			}
 
-			_, err := s.scheduler.Subscribe(s.events)
+			_, err = s.scheduler.Subscribe(s.events)
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to subscribe: %s", err.Error())
 				time.Sleep(time.Duration(s.config.Scheduler.SubscribeRetry))
@@ -182,7 +193,11 @@ func (s *SprintEventController) registerShutdownHandlers() {
 		s.lock.RLock()
 		defer s.lock.RUnlock()
 		if s.frameworkLease != 0 {
-			s.refreshLeaderLease()
+			err := s.refreshFrameworkIdLease()
+			if err != nil {
+				s.logger.Emit(logging.ERROR, "Failed to refresh leader lease before exiting: %s", err.Error())
+				os.Exit(6)
+			}
 		}
 
 		os.Exit(0)

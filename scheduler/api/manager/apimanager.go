@@ -13,8 +13,9 @@ import (
 
 var (
 	DEFAULT_RETRY_POLICY = &task.TimeRetry{
-		Time:    "1.5",
-		Backoff: true,
+		Time:       "1.5",
+		Backoff:    true,
+		MaxRetries: 3,
 	}
 )
 
@@ -98,15 +99,19 @@ func (m *Manager) Update(decoded []byte) (*mesos_v1.TaskInfo, error) {
 	}
 
 	if a.Retry != nil {
-		m.taskManager.AddPolicy(a.Retry, mesosTask)
+		err = m.taskManager.AddPolicy(a.Retry, mesosTask)
 	} else {
-		err := m.taskManager.AddPolicy(DEFAULT_RETRY_POLICY, mesosTask)
-		if err != nil {
-			return nil, err
-		}
+		err = m.taskManager.AddPolicy(DEFAULT_RETRY_POLICY, mesosTask)
 	}
 
-	m.taskManager.Set(t.UNKNOWN, mesosTask)
+	if err != nil {
+		return nil, err
+	}
+
+	err = m.taskManager.Set(t.UNKNOWN, mesosTask)
+	if err != nil {
+		return nil, err
+	}
 
 	m.scheduler.Kill(taskToKill.GetTaskId(), taskToKill.GetAgentId())
 	m.scheduler.Revive()
@@ -148,21 +153,33 @@ func (m *Manager) Kill(decoded []byte) error {
 						return err
 					}
 				}
+
 				// Our kill call has worked, delete it from the task queue.
-				m.taskManager.Delete(t)
+				err = m.taskManager.Delete(t)
+				if err != nil {
+					return err
+				}
+
 				m.resourceManager.ClearFilters(t)
+
 				// Response appropriately.
 				return nil
 			}
 		}
+
 		// If we get here, our task isn't in the list of RUNNING tasks.
 		// Delete it from the queue regardless.
 		// We run into this case if a task is flapping or unable to launch
 		// or get an appropriate offer.
-		m.taskManager.Delete(t)
+		err = m.taskManager.Delete(t)
+		if err != nil {
+			return err
+		}
+
 		m.resourceManager.ClearFilters(t)
 		return nil
 	}
+
 	return nil
 }
 

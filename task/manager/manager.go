@@ -7,12 +7,11 @@ import (
 	"errors"
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/logging"
-	"mesos-framework-sdk/persistence/drivers/etcd"
 	"mesos-framework-sdk/structures"
 	"mesos-framework-sdk/task"
 	"mesos-framework-sdk/task/manager"
-	"os"
 	"sprint/scheduler"
+	"sprint/task/persistence"
 	"sprint/task/retry"
 	"time"
 )
@@ -25,16 +24,6 @@ import (
 //Reads are reserved for reconciliation calls.
 //
 
-var IS_TESTING bool
-
-// NOTE (tim): Put this in the utils package or somewhere else?
-func IsTesting() bool {
-	if os.Getenv("TESTING") == "true" {
-		return true
-	}
-	return false
-}
-
 const (
 	TASK_DIRECTORY = "/tasks/"
 )
@@ -46,7 +35,7 @@ type (
 	}
 	SprintTaskHandler struct {
 		tasks   structures.DistributedMap
-		storage etcd.KeyValueStore
+		storage persistence.Storage
 		retries structures.DistributedMap
 		config  *scheduler.Configuration
 		logger  logging.Logger
@@ -55,11 +44,10 @@ type (
 
 func NewTaskManager(
 	cmap structures.DistributedMap,
-	storage etcd.KeyValueStore,
+	storage persistence.Storage,
 	config *scheduler.Configuration,
 	logger logging.Logger) SprintTaskManager {
 
-	IS_TESTING = IsTesting()
 	return &SprintTaskHandler{
 		tasks:   cmap,
 		storage: storage,
@@ -105,8 +93,9 @@ func (s *SprintTaskHandler) AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v
 	return errors.New("Nil mesos task passed in")
 }
 
-func (s *SprintTaskHandler) RunPolicy(policy *retry.TaskRetry, f func()) error {
+func (s *SprintTaskHandler) RunPolicy(policy *retry.TaskRetry, f func() error) error {
 	policy.TotalRetries += 1 // Increment retry counter.
+
 	// Minimum is 1 seconds, max is 60.
 	if policy.RetryTime < 1*time.Second {
 		policy.RetryTime = 1 * time.Second
@@ -122,7 +111,11 @@ func (s *SprintTaskHandler) RunPolicy(policy *retry.TaskRetry, f func()) error {
 	}
 
 	policy.RetryTime = delay // update with new time.
-	time.AfterFunc(delay, f)
+	go func() {
+		time.Sleep(delay)
+		f()
+	}()
+
 	return nil
 }
 
@@ -133,6 +126,7 @@ func (s *SprintTaskHandler) CheckPolicy(mesosTask *mesos_v1.TaskInfo) (*retry.Ta
 			return policy.(*retry.TaskRetry), nil
 		}
 	}
+
 	return nil, errors.New("No policy exists for this task.")
 }
 
@@ -169,19 +163,25 @@ func (m *SprintTaskHandler) Add(t *mesos_v1.TaskInfo) error {
 	if err != nil {
 		return err
 	}
+
 	id := t.TaskId.GetValue()
-
-	for {
-		if err := m.storage.Create(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes())); err != nil {
-			if IS_TESTING {
-				return errors.New("Failed to ADD.")
-			}
-
-			m.logger.Emit(logging.ERROR, "Failed to save task %s with name %s to persistent data store", id, t.GetName())
-			time.Sleep(m.config.Persistence.RetryInterval)
-			continue
+	policy, _ := m.storage.CheckPolicy(nil)
+	err = m.storage.RunPolicy(policy, func() error {
+		err := m.storage.Create(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
+		if err != nil {
+			m.logger.Emit(
+				logging.ERROR,
+				"Failed to save task %s with name %s to persistent data store. Retrying...",
+				id,
+				t.GetName(),
+			)
 		}
-		break
+
+		return err
+	})
+
+	if err != nil {
+		return err
 	}
 
 	m.tasks.Set(t.GetName(), manager.Task{
@@ -192,23 +192,25 @@ func (m *SprintTaskHandler) Add(t *mesos_v1.TaskInfo) error {
 	return nil
 }
 
-func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) {
-	for {
+func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) error {
+	policy, _ := m.storage.CheckPolicy(nil)
+	err := m.storage.RunPolicy(policy, func() error {
 		err := m.storage.Delete(TASK_DIRECTORY + task.GetTaskId().GetValue())
 		if err != nil {
-			if IS_TESTING {
-				return
-			}
-
 			m.logger.Emit(logging.ERROR, err.Error())
-			time.Sleep(m.config.Persistence.RetryInterval)
-			continue
 		}
-		break
+
+		return err
+	})
+
+	if err != nil {
+		return err
 	}
 
 	m.tasks.Delete(task.GetName())
 	m.ClearPolicy(task)
+
+	return nil
 }
 
 func (m *SprintTaskHandler) Get(name *string) (*mesos_v1.TaskInfo, error) {
@@ -227,9 +229,9 @@ func (m *SprintTaskHandler) GetById(id *mesos_v1.TaskID) (*mesos_v1.TaskInfo, er
 	}
 
 	for v := range m.tasks.Iterate() {
-		task := v.Value.(manager.Task)
-		if task.Info.GetTaskId().GetValue() == id.GetValue() {
-			return task.Info, nil
+		t := v.Value.(manager.Task)
+		if t.Info.GetTaskId().GetValue() == id.GetValue() {
+			return t.Info, nil
 		}
 	}
 
@@ -254,7 +256,7 @@ func (m *SprintTaskHandler) Tasks() structures.DistributedMap {
 }
 
 // Update a task with a certain state.
-func (m *SprintTaskHandler) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) {
+func (m *SprintTaskHandler) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) error {
 	// Write forward.
 	encoded, err := m.encode(t, state)
 	if err != nil {
@@ -263,32 +265,39 @@ func (m *SprintTaskHandler) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) 
 
 	id := t.TaskId.GetValue()
 
-	for {
-		if err := m.storage.Update(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes())); err != nil {
-			if IS_TESTING {
-				return
-			}
-			m.logger.Emit(logging.ERROR, "Failed to update task %s with name %s to persistent data store", id, t.GetName())
-			// NOTE(tim): This will hang everything if we retry forever.
-			time.Sleep(m.config.Persistence.RetryInterval)
-			continue
+	policy, _ := m.storage.CheckPolicy(nil)
+	err = m.storage.RunPolicy(policy, func() error {
+		err := m.storage.Update(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
+		if err != nil {
+			m.logger.Emit(
+				logging.ERROR, "Failed to update task %s with name %s to persistent data store. Retrying...",
+				id,
+				t.GetName(),
+			)
 		}
-		break
+
+		return err
+	})
+
+	if err != nil {
+		return err
 	}
 
 	m.tasks.Set(t.GetName(), manager.Task{
 		Info:  t,
 		State: state,
 	})
+
+	return nil
 }
 
 // Get's all tasks within a certain state.
 func (m *SprintTaskHandler) GetState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
 	tasks := []*mesos_v1.TaskInfo{}
 	for v := range m.tasks.Iterate() {
-		task := v.Value.(manager.Task)
-		if task.State == state {
-			tasks = append(tasks, task.Info)
+		t := v.Value.(manager.Task)
+		if t.State == state {
+			tasks = append(tasks, t.Info)
 		}
 	}
 

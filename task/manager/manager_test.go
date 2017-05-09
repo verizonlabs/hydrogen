@@ -3,15 +3,14 @@ package manager
 import (
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/logging"
-	"mesos-framework-sdk/persistence/drivers/etcd/test"
 	"mesos-framework-sdk/structures"
 	"mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
 	"os"
 	"sprint/scheduler"
+	mockStorage "sprint/task/persistence/test"
 	"strconv"
 	"testing"
-	"time"
 )
 
 func TestMain(m *testing.M) {
@@ -41,8 +40,12 @@ func CreateTestTask(name string) *mesos_v1.TaskInfo {
 
 func TestNewTaskManager(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockKVStore{}
-	config := &scheduler.Configuration{}
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
 	logger := logging.NewDefaultLogger()
 
 	taskManager := NewTaskManager(cmap, storage, config, logger)
@@ -53,8 +56,12 @@ func TestNewTaskManager(t *testing.T) {
 
 func TestTaskManager_Cycle(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockKVStore{}
-	config := &scheduler.Configuration{}
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
 	logger := logging.NewDefaultLogger()
 	testTask := CreateTestTask("testTask")
 
@@ -76,8 +83,12 @@ func TestTaskManager_Cycle(t *testing.T) {
 
 func TestTaskManager_Length(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockKVStore{}
-	config := &scheduler.Configuration{}
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
 	logger := logging.NewDefaultLogger()
 	testTask := CreateTestTask("testTask")
 	testTask1 := CreateTestTask("testTask1")
@@ -117,8 +128,12 @@ func TestTaskManager_Length(t *testing.T) {
 
 func TestTaskManager_GetById(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockKVStore{}
-	config := &scheduler.Configuration{}
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	testTask := CreateTestTask("testTask")
@@ -144,8 +159,12 @@ func TestTaskManager_GetById(t *testing.T) {
 
 func TestTaskManager_GetState(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockKVStore{}
-	config := &scheduler.Configuration{}
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	testTask := CreateTestTask("testTask")
@@ -163,8 +182,12 @@ func TestTaskManager_GetState(t *testing.T) {
 
 func TestTaskManager_HasTask(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockKVStore{}
-	config := &scheduler.Configuration{}
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	testTask := CreateTestTask("testTask")
@@ -178,8 +201,12 @@ func TestTaskManager_HasTask(t *testing.T) {
 
 func TestTaskManager_Set(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockKVStore{}
-	config := &scheduler.Configuration{}
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	testTask := CreateTestTask("testTask")
@@ -223,8 +250,12 @@ func TestTaskManager_Set(t *testing.T) {
 
 func TestTaskManager_TotalTasks(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockKVStore{}
-	config := &scheduler.Configuration{}
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	testTask := CreateTestTask("testTask")
@@ -265,8 +296,12 @@ func TestTaskManager_TotalTasks(t *testing.T) {
 
 func TestTaskManager_AddSameTask(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockKVStore{}
-	config := &scheduler.Configuration{}
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	testTask := CreateTestTask("testTask")
@@ -280,8 +315,12 @@ func TestTaskManager_AddSameTask(t *testing.T) {
 
 func TestTaskManager_DeleteFail(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockBrokenKVStore{}
-	config := &scheduler.Configuration{}
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	testTask := CreateTestTask("testTask")
@@ -292,8 +331,12 @@ func TestTaskManager_DeleteFail(t *testing.T) {
 
 func TestTaskManager_GetByIdFail(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockKVStore{}
-	config := &scheduler.Configuration{}
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	testTask := CreateTestTask("testTask")
@@ -316,8 +359,12 @@ func TestTaskManager_GetByIdFail(t *testing.T) {
 
 func TestTaskManager_HasTaskFail(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockKVStore{}
-	config := &scheduler.Configuration{}
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	testTask := CreateTestTask("testTask")
@@ -330,14 +377,12 @@ func TestTaskManager_HasTaskFail(t *testing.T) {
 	}
 }
 
-// TODO (tim): This will never pass, logic in manager is to retry forever.
-// Need to fix retry logic in manager
 func TestTaskManager_HasTaskFailWithBrokenStorage(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockBrokenKVStore{}
+	storage := mockStorage.MockBrokenStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
-			RetryInterval: 1 * time.Second,
+			MaxRetries: 0,
 		},
 	}
 	logger := logging.NewDefaultLogger()
@@ -352,10 +397,10 @@ func TestTaskManager_HasTaskFailWithBrokenStorage(t *testing.T) {
 
 func TestTaskManager_DeleteFailWithBrokenStorage(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockBrokenKVStore{}
+	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
-			RetryInterval: 1 * time.Second,
+			MaxRetries: 0,
 		},
 	}
 	logger := logging.NewDefaultLogger()
@@ -366,10 +411,10 @@ func TestTaskManager_DeleteFailWithBrokenStorage(t *testing.T) {
 
 func TestTaskManager_SetFailWithBrokenStorage(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockBrokenKVStore{}
+	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
-			RetryInterval: 1 * time.Second,
+			MaxRetries: 0,
 		},
 	}
 	logger := logging.NewDefaultLogger()
@@ -380,10 +425,10 @@ func TestTaskManager_SetFailWithBrokenStorage(t *testing.T) {
 
 func TestTaskManager_EncodeFailWithBrokenStorage(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
-	storage := &test.MockBrokenKVStore{}
+	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
-			RetryInterval: 1 * time.Second,
+			MaxRetries: 0,
 		},
 	}
 	logger := logging.NewDefaultLogger()
