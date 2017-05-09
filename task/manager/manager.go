@@ -25,16 +25,6 @@ import (
 //Reads are reserved for reconciliation calls.
 //
 
-var IS_TESTING bool
-
-// NOTE (tim): Put this in the utils package or somewhere else?
-func IsTesting() bool {
-	if os.Getenv("TESTING") == "true" {
-		return true
-	}
-	return false
-}
-
 const (
 	TASK_DIRECTORY = "/tasks/"
 )
@@ -60,7 +50,6 @@ func NewTaskManager(
 	config *scheduler.Configuration,
 	logger logging.Logger) SprintTaskManager {
 
-	IS_TESTING = IsTesting()
 	return &SprintTaskHandler{
 		tasks:   cmap,
 		storage: storage,
