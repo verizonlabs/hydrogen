@@ -15,13 +15,13 @@ type MockTaskManager struct{}
 func (m MockTaskManager) AddPolicy(*task.TimeRetry, *mesos_v1.TaskInfo) error {
 	return nil
 }
-func (m MockTaskManager) CheckPolicy(*mesos_v1.TaskInfo) (*retry.TaskRetry, error) {
-	return &retry.TaskRetry{}, nil
+func (m MockTaskManager) CheckPolicy(*mesos_v1.TaskInfo) (retry.TaskRetry, error) {
+	return retry.TaskRetry{}, nil
 }
 func (m MockTaskManager) ClearPolicy(*mesos_v1.TaskInfo) error {
 	return nil
 }
-func (m MockTaskManager) RunPolicy(*retry.TaskRetry, func() error) error {
+func (m MockTaskManager) RunPolicy(retry.TaskRetry, func() error) error {
 	return nil
 }
 
@@ -63,6 +63,10 @@ func (m MockTaskManager) Tasks() structures.DistributedMap {
 	return &test.MockDistributedMap{}
 }
 
+func (m MockTaskManager) RetryPolicy() retry.TaskRetry {
+	return retry.TaskRetry{}
+}
+
 //
 // Mock Broken Task Manager
 //
@@ -71,13 +75,13 @@ type MockBrokenTaskManager struct{}
 func (m MockBrokenTaskManager) AddPolicy(*task.TimeRetry, *mesos_v1.TaskInfo) error {
 	return nil
 }
-func (m MockBrokenTaskManager) CheckPolicy(*mesos_v1.TaskInfo) (*retry.TaskRetry, error) {
-	return &retry.TaskRetry{}, nil
+func (m MockBrokenTaskManager) CheckPolicy(*mesos_v1.TaskInfo) (retry.TaskRetry, error) {
+	return retry.TaskRetry{}, nil
 }
 func (m MockBrokenTaskManager) ClearPolicy(*mesos_v1.TaskInfo) error {
 	return nil
 }
-func (m MockBrokenTaskManager) RunPolicy(*retry.TaskRetry, func() error) error {
+func (m MockBrokenTaskManager) RunPolicy(retry.TaskRetry, func() error) error {
 	return nil
 }
 
@@ -117,18 +121,22 @@ func (m MockBrokenTaskManager) Tasks() structures.DistributedMap {
 	return &test.MockBrokenDistributedMap{}
 }
 
+func (m MockBrokenTaskManager) RetryPolicy() retry.TaskRetry {
+	return retry.TaskRetry{}
+}
+
 type MockTaskManagerQueued struct{}
 
 func (m MockTaskManagerQueued) AddPolicy(*task.TimeRetry, *mesos_v1.TaskInfo) error {
 	return nil
 }
-func (m MockTaskManagerQueued) CheckPolicy(*mesos_v1.TaskInfo) (*retry.TaskRetry, error) {
-	return &retry.TaskRetry{}, nil
+func (m MockTaskManagerQueued) CheckPolicy(*mesos_v1.TaskInfo) (retry.TaskRetry, error) {
+	return retry.TaskRetry{}, nil
 }
 func (m MockTaskManagerQueued) ClearPolicy(*mesos_v1.TaskInfo) error {
 	return nil
 }
-func (m MockTaskManagerQueued) RunPolicy(*retry.TaskRetry, func() error) error {
+func (m MockTaskManagerQueued) RunPolicy(retry.TaskRetry, func() error) error {
 	return nil
 }
 
@@ -172,4 +180,8 @@ func (m MockTaskManagerQueued) TotalTasks() int {
 
 func (m MockTaskManagerQueued) Tasks() structures.DistributedMap {
 	return &test.MockDistributedMap{}
+}
+
+func (m MockTaskManagerQueued) RetryPolicy() retry.TaskRetry {
+	return retry.TaskRetry{}
 }
