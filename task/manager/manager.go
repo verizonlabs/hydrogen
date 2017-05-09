@@ -7,12 +7,11 @@ import (
 	"errors"
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/logging"
-	"mesos-framework-sdk/persistence/drivers/etcd"
 	"mesos-framework-sdk/structures"
 	"mesos-framework-sdk/task"
 	"mesos-framework-sdk/task/manager"
-	"os"
 	"sprint/scheduler"
+	"sprint/task/persistence"
 	"sprint/task/retry"
 	"time"
 )
@@ -35,18 +34,17 @@ type (
 		retry.Retry
 	}
 	SprintTaskHandler struct {
-		tasks       structures.DistributedMap
-		storage     etcd.KeyValueStore
-		retries     structures.DistributedMap
-		config      *scheduler.Configuration
-		logger      logging.Logger
-		retryPolicy retry.TaskRetry
+		tasks   structures.DistributedMap
+		storage persistence.Storage
+		retries structures.DistributedMap
+		config  *scheduler.Configuration
+		logger  logging.Logger
 	}
 )
 
 func NewTaskManager(
 	cmap structures.DistributedMap,
-	storage etcd.KeyValueStore,
+	storage persistence.Storage,
 	config *scheduler.Configuration,
 	logger logging.Logger) SprintTaskManager {
 
@@ -56,11 +54,6 @@ func NewTaskManager(
 		retries: structures.NewConcurrentMap(),
 		config:  config,
 		logger:  logger,
-		retryPolicy: retry.TaskRetry{
-			Sync:       true,
-			MaxRetries: config.Persistence.MaxRetries,
-			Backoff:    true,
-		},
 	}
 }
 
@@ -91,7 +84,6 @@ func (s *SprintTaskHandler) AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v
 
 		s.retries.Set(mesosTask.GetName(), &retry.TaskRetry{
 			TotalRetries: 0,
-			MaxRetries:   policy.MaxRetries,
 			RetryTime:    t,
 			Backoff:      policy.Backoff,
 			Name:         mesosTask.GetName(),
@@ -101,11 +93,7 @@ func (s *SprintTaskHandler) AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v
 	return errors.New("Nil mesos task passed in")
 }
 
-func (s *SprintTaskHandler) RunPolicy(policy retry.TaskRetry, f func() error) error {
-	if policy.TotalRetries == policy.MaxRetries {
-		return errors.New("Retry limit reached")
-	}
-
+func (s *SprintTaskHandler) RunPolicy(policy *retry.TaskRetry, f func() error) error {
 	policy.TotalRetries += 1 // Increment retry counter.
 
 	// Minimum is 1 seconds, max is 60.
@@ -123,31 +111,23 @@ func (s *SprintTaskHandler) RunPolicy(policy retry.TaskRetry, f func() error) er
 	}
 
 	policy.RetryTime = delay // update with new time.
-	if policy.Sync {
-		err := f()
-		if err != nil {
-			time.Sleep(delay)
-			return s.RunPolicy(policy, f)
-		}
-	} else {
-		go func() {
-			time.Sleep(delay)
-			f()
-		}()
-	}
+	go func() {
+		time.Sleep(delay)
+		f()
+	}()
 
 	return nil
 }
 
-func (s *SprintTaskHandler) CheckPolicy(mesosTask *mesos_v1.TaskInfo) (retry.TaskRetry, error) {
+func (s *SprintTaskHandler) CheckPolicy(mesosTask *mesos_v1.TaskInfo) (*retry.TaskRetry, error) {
 	if mesosTask != nil {
 		policy := s.retries.Get(mesosTask.GetName())
 		if policy != nil {
-			return policy.(retry.TaskRetry), nil
+			return policy.(*retry.TaskRetry), nil
 		}
 	}
 
-	return retry.TaskRetry{}, errors.New("No policy exists for this task.")
+	return nil, errors.New("No policy exists for this task.")
 }
 
 func (s *SprintTaskHandler) ClearPolicy(mesosTask *mesos_v1.TaskInfo) error {
@@ -185,7 +165,8 @@ func (m *SprintTaskHandler) Add(t *mesos_v1.TaskInfo) error {
 	}
 
 	id := t.TaskId.GetValue()
-	err = m.RunPolicy(m.retryPolicy, func() error {
+	policy, _ := m.storage.CheckPolicy(nil)
+	err = m.storage.RunPolicy(policy, func() error {
 		err := m.storage.Create(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
 		if err != nil {
 			m.logger.Emit(
@@ -212,7 +193,8 @@ func (m *SprintTaskHandler) Add(t *mesos_v1.TaskInfo) error {
 }
 
 func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) error {
-	err := m.RunPolicy(m.retryPolicy, func() error {
+	policy, _ := m.storage.CheckPolicy(nil)
+	err := m.storage.RunPolicy(policy, func() error {
 		err := m.storage.Delete(TASK_DIRECTORY + task.GetTaskId().GetValue())
 		if err != nil {
 			m.logger.Emit(logging.ERROR, err.Error())
@@ -283,7 +265,8 @@ func (m *SprintTaskHandler) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) 
 
 	id := t.TaskId.GetValue()
 
-	err = m.RunPolicy(m.retryPolicy, func() error {
+	policy, _ := m.storage.CheckPolicy(nil)
+	err = m.storage.RunPolicy(policy, func() error {
 		err := m.storage.Update(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
 		if err != nil {
 			m.logger.Emit(
@@ -323,10 +306,6 @@ func (m *SprintTaskHandler) GetState(state mesos_v1.TaskState) ([]*mesos_v1.Task
 	}
 
 	return tasks, nil
-}
-
-func (m *SprintTaskHandler) RetryPolicy() retry.TaskRetry {
-	return m.retryPolicy
 }
 
 //

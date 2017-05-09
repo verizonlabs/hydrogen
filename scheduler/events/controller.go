@@ -4,7 +4,6 @@ import (
 	"mesos-framework-sdk/ha"
 	sched "mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
-	"mesos-framework-sdk/persistence/drivers/etcd"
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
 	"mesos-framework-sdk/scheduler/events"
@@ -15,6 +14,7 @@ import (
 	"os/signal"
 	sprintSched "sprint/scheduler"
 	sprintTask "sprint/task/manager"
+	"sprint/task/persistence"
 	"sync"
 	"syscall"
 	"time"
@@ -49,7 +49,7 @@ type (
 		taskmanager     sprintTask.SprintTaskManager
 		resourcemanager manager.ResourceManager
 		events          chan *sched.Event
-		kv              etcd.KeyValueStore
+		storage         persistence.Storage
 		logger          logging.Logger
 		frameworkLease  int64
 		status          ha.Status
@@ -67,7 +67,7 @@ func NewSprintEventController(
 	manager sprintTask.SprintTaskManager,
 	resourceManager manager.ResourceManager,
 	eventChan chan *sched.Event,
-	kv etcd.KeyValueStore,
+	storage persistence.Storage,
 	logger logging.Logger) EventController {
 
 	return &SprintEventController{
@@ -76,7 +76,7 @@ func NewSprintEventController(
 		scheduler:       scheduler,
 		events:          eventChan,
 		resourcemanager: resourceManager,
-		kv:              kv,
+		storage:         storage,
 		logger:          logger,
 		status:          ha.Election,
 		name:            utils.UuidAsString(),

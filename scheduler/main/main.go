@@ -18,6 +18,7 @@ import (
 	apiManager "sprint/scheduler/api/manager"
 	"sprint/scheduler/events"
 	sprintTaskManager "sprint/task/manager"
+	"sprint/task/persistence"
 	"strings"
 )
 
@@ -61,18 +62,18 @@ func main() {
 	// Used to listen for events coming from mesos master to our scheduler.
 	eventChan := make(chan *mesos_v1_scheduler.Event)
 
-	// Storage client
-	kv := etcd.NewClient(
+	// Storage interface that holds client and retry policy manager.
+	p := persistence.NewPersistence(etcd.NewClient(
 		strings.Split(config.Persistence.Endpoints, ","),
 		config.Persistence.Timeout,
 		config.Persistence.KeepaliveTime,
 		config.Persistence.KeepaliveTimeout,
-	)
+	), config)
 
 	// Wire up dependencies for the event controller
 	t := sprintTaskManager.NewTaskManager(
 		structures.NewConcurrentMap(DEFAULT_MAP_SIZE),
-		kv,
+		p,
 		config,
 		logger,
 	) // Manages our tasks
@@ -83,7 +84,7 @@ func main() {
 	m := apiManager.NewApiManager(r, t, s)                        // Middleware for our API.
 
 	// Event controller manages scheduler events and how they are handled.
-	e := events.NewSprintEventController(config, s, t, r, eventChan, kv, logger)
+	e := events.NewSprintEventController(config, s, t, r, eventChan, p, logger)
 
 	logger.Emit(logging.INFO, "Starting API server")
 
