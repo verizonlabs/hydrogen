@@ -161,7 +161,7 @@ func (s *SprintEventController) Run() {
 
 	select {
 	case e := <-s.events:
-		s.Subscribe(e.GetSubscribed())
+		s.Subscribed(e.GetSubscribed())
 	}
 	s.Listen()
 }
