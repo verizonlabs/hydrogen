@@ -180,7 +180,7 @@ func TestSprintEventController_Subscribe(t *testing.T) {
 	kv := mockStorage.MockStorage{}
 	lg := mockLogger.MockLogger{}
 	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
-	ctrl.Subscribe(&mesos_v1_scheduler.Event_Subscribed{FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString("id")}})
+	ctrl.Subscribed(&mesos_v1_scheduler.Event_Subscribed{FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString("id")}})
 }
 
 func TestSprintEventController_CreateAndGetLeader(t *testing.T) {

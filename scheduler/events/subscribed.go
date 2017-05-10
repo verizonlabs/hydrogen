@@ -12,7 +12,7 @@ import (
 // We handle our subscription by writing the framework ID to storage.
 // Then we gather all of our launched non-terminal tasks and reconcile them explicitly.
 //
-func (s *SprintEventController) Subscribe(subEvent *mesos_v1_scheduler.Event_Subscribed) {
+func (s *SprintEventController) Subscribed(subEvent *mesos_v1_scheduler.Event_Subscribed) {
 	id := subEvent.GetFrameworkId()
 	idVal := id.GetValue()
 	s.scheduler.FrameworkInfo().Id = id
