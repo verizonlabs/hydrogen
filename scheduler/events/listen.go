@@ -16,7 +16,7 @@ func (s *SprintEventController) Listen() {
 		case t := <-s.events:
 			switch t.GetType() {
 			case scheduler.Event_SUBSCRIBED:
-				s.Subscribe(t.GetSubscribed())
+				s.Subscribed(t.GetSubscribed())
 			case scheduler.Event_ERROR:
 				s.Error(t.GetError())
 			case scheduler.Event_FAILURE:
