@@ -6,7 +6,7 @@ import (
 	"mesos-framework-sdk/structures"
 	"mesos-framework-sdk/structures/test"
 	"mesos-framework-sdk/task"
-	"mesos-framework-sdk/utils"
+	"mesos-framework-sdk/task/manager"
 	"sprint/task/retry"
 )
 
@@ -49,10 +49,8 @@ func (m MockTaskManager) Set(mesos_v1.TaskState, *mesos_v1.TaskInfo) error {
 	return nil
 }
 
-func (m MockTaskManager) GetState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
-	return []*mesos_v1.TaskInfo{
-		{},
-	}, nil
+func (m MockTaskManager) State(name *string) (*mesos_v1.TaskState, error) {
+	return new(mesos_v1.TaskState), nil
 }
 
 func (m MockTaskManager) TotalTasks() int {
@@ -61,6 +59,17 @@ func (m MockTaskManager) TotalTasks() int {
 
 func (m MockTaskManager) Tasks() structures.DistributedMap {
 	return &test.MockDistributedMap{}
+}
+
+func (m MockTaskManager) All() ([]manager.Task, error) {
+	return []manager.Task{{
+		&mesos_v1.TaskInfo{},
+		mesos_v1.TaskState_TASK_RUNNING,
+	}}, nil
+}
+
+func (m MockTaskManager) AllByState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
+	return []*mesos_v1.TaskInfo{{}}, nil
 }
 
 //
@@ -105,7 +114,7 @@ func (m MockBrokenTaskManager) Set(mesos_v1.TaskState, *mesos_v1.TaskInfo) error
 	return errors.New("Broken.")
 }
 
-func (m MockBrokenTaskManager) GetState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
+func (m MockBrokenTaskManager) State(name *string) (*mesos_v1.TaskState, error) {
 	return nil, errors.New("Broken.")
 }
 
@@ -115,6 +124,14 @@ func (m MockBrokenTaskManager) TotalTasks() int {
 
 func (m MockBrokenTaskManager) Tasks() structures.DistributedMap {
 	return &test.MockBrokenDistributedMap{}
+}
+
+func (m MockBrokenTaskManager) All() ([]manager.Task, error) {
+	return nil, errors.New("Broken.")
+}
+
+func (m MockBrokenTaskManager) AllByState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
+	return nil, errors.New("Broken.")
 }
 
 type MockTaskManagerQueued struct{}
@@ -156,14 +173,12 @@ func (m MockTaskManagerQueued) Set(mesos_v1.TaskState, *mesos_v1.TaskInfo) error
 	return nil
 }
 
-func (m MockTaskManagerQueued) GetState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
-	return []*mesos_v1.TaskInfo{
-		{
-			Name:    utils.ProtoString("Name"),
-			TaskId:  &mesos_v1.TaskID{Value: utils.ProtoString("1")},
-			AgentId: &mesos_v1.AgentID{Value: utils.ProtoString("agent")},
-		},
-	}, nil
+func (m MockTaskManagerQueued) State(name *string) (*mesos_v1.TaskState, error) {
+	return new(mesos_v1.TaskState), nil
+}
+
+func (m MockTaskManagerQueued) AllByState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
+	return []*mesos_v1.TaskInfo{{}}, nil
 }
 
 func (m MockTaskManagerQueued) TotalTasks() int {
@@ -172,4 +187,11 @@ func (m MockTaskManagerQueued) TotalTasks() int {
 
 func (m MockTaskManagerQueued) Tasks() structures.DistributedMap {
 	return &test.MockDistributedMap{}
+}
+
+func (m MockTaskManagerQueued) All() ([]manager.Task, error) {
+	return []manager.Task{{
+		&mesos_v1.TaskInfo{},
+		mesos_v1.TaskState_TASK_RUNNING,
+	}}, nil
 }
