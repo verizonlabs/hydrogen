@@ -17,7 +17,7 @@ import (
 //
 func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offers) {
 	// Check if we have any in the task manager we want to launch
-	queued, err := s.taskmanager.GetState(manager.UNKNOWN)
+	queued, err := s.taskmanager.GetAllState(manager.UNKNOWN)
 
 	if err != nil {
 		s.logger.Emit(logging.INFO, "No tasks to launch.")

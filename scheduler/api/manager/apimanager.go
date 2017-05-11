@@ -134,7 +134,7 @@ func (m *Manager) Kill(decoded []byte) error {
 			return err
 		}
 		// Get all tasks in RUNNING state.
-		running, _ := m.taskManager.GetState(mesos_v1.TaskState_TASK_RUNNING)
+		running, _ := m.taskManager.GetAllState(mesos_v1.TaskState_TASK_RUNNING)
 		// If we get an error, it means no tasks are currently in the running state.
 		// We safely ignore this- the range over the empty list will be skipped regardless.
 
@@ -188,7 +188,7 @@ func (m *Manager) Status(name string) (mesos_v1.TaskState, error) {
 	if err != nil {
 		return t.UNKNOWN, err
 	}
-	queued, err := m.taskManager.GetState(t.STAGING)
+	queued, err := m.taskManager.GetAllState(t.STAGING)
 	if err != nil {
 		return t.UNKNOWN, err
 	}

@@ -25,7 +25,7 @@ func (s *SprintEventController) Subscribed(subEvent *mesos_v1_scheduler.Event_Su
 	}
 
 	// Get all launched non-terminal tasks.
-	launched, err := s.taskmanager.GetState(manager.RUNNING)
+	launched, err := s.taskmanager.GetAllState(manager.RUNNING)
 	if err != nil {
 		s.logger.Emit(logging.INFO, "Not reconciling: %s", err.Error())
 		return

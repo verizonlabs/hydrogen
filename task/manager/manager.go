@@ -292,7 +292,7 @@ func (m *SprintTaskHandler) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) 
 }
 
 // Get's all tasks within a certain state.
-func (m *SprintTaskHandler) GetState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
+func (m *SprintTaskHandler) GetAllState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
 	tasks := []*mesos_v1.TaskInfo{}
 	for v := range m.tasks.Iterate() {
 		t := v.Value.(manager.Task)
