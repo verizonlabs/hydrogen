@@ -291,6 +291,16 @@ func (m *SprintTaskHandler) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) 
 	return nil
 }
 
+func (m *SprintTaskHandler) GetState(name *string) (*mesos_v1.TaskState, error) {
+	ret := m.tasks.Get(*name)
+	if ret != nil {
+		state := ret.(manager.Task).State
+		return &state, nil
+	}
+
+	return nil, errors.New("Task " + *name + " does not exist")
+}
+
 // Get's all tasks within a certain state.
 func (m *SprintTaskHandler) GetAllState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
 	tasks := []*mesos_v1.TaskInfo{}

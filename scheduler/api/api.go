@@ -222,7 +222,7 @@ func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		_, err := a.manager.Status(name)
+		state, err := a.manager.Status(name)
 		if err != nil {
 			json.NewEncoder(w).Encode(Response{
 				Status:  FAILED,
@@ -231,7 +231,7 @@ func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		json.NewEncoder(w).Encode(Response{Status: RUNNING, TaskName: name})
+		json.NewEncoder(w).Encode(Response{Status: state.String(), TaskName: name})
 		return
 	})
 }

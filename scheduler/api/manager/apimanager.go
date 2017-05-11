@@ -184,20 +184,10 @@ func (m *Manager) Kill(decoded []byte) error {
 }
 
 func (m *Manager) Status(name string) (mesos_v1.TaskState, error) {
-	_, err := m.taskManager.Get(&name)
-	if err != nil {
-		return t.UNKNOWN, err
-	}
-	queued, err := m.taskManager.GetAllState(t.STAGING)
+	state, err := m.taskManager.GetState(&name)
 	if err != nil {
 		return t.UNKNOWN, err
 	}
 
-	for _, tsk := range queued {
-		if tsk.GetName() == name {
-			return t.STAGING, nil
-		}
-	}
-	// TODO (tim): What about finished? Killed?
-	return t.RUNNING, nil
+	return *state, nil
 }
