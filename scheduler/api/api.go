@@ -246,11 +246,14 @@ func (a *ApiServer) tasks(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		data := []Response{}
 		for _, t := range tasks {
-			json.NewEncoder(w).Encode(Response{
+			data = append(data, Response{
 				Status:   t.State.String(),
 				TaskName: t.Info.GetName(),
 			})
 		}
+
+		json.NewEncoder(w).Encode(data)
 	})
 }
