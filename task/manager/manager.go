@@ -291,7 +291,7 @@ func (m *SprintTaskHandler) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) 
 	return nil
 }
 
-func (m *SprintTaskHandler) GetState(name *string) (*mesos_v1.TaskState, error) {
+func (m *SprintTaskHandler) State(name *string) (*mesos_v1.TaskState, error) {
 	ret := m.tasks.Get(*name)
 	if ret != nil {
 		state := ret.(manager.Task).State
@@ -302,7 +302,7 @@ func (m *SprintTaskHandler) GetState(name *string) (*mesos_v1.TaskState, error) 
 }
 
 // Get's all tasks within a certain state.
-func (m *SprintTaskHandler) GetAllState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
+func (m *SprintTaskHandler) AllByState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
 	tasks := []*mesos_v1.TaskInfo{}
 	for v := range m.tasks.Iterate() {
 		t := v.Value.(manager.Task)
@@ -313,6 +313,19 @@ func (m *SprintTaskHandler) GetAllState(state mesos_v1.TaskState) ([]*mesos_v1.T
 
 	if len(tasks) == 0 {
 		return nil, errors.New("No tasks found with state of " + state.String())
+	}
+
+	return tasks, nil
+}
+
+func (m *SprintTaskHandler) All() ([]manager.Task, error) {
+	if m.tasks.Length() == 0 {
+		return nil, errors.New("Task manager is empty.")
+	}
+
+	tasks := []manager.Task{}
+	for v := range m.tasks.Iterate() {
+		tasks = append(tasks, v.Value.(manager.Task))
 	}
 
 	return tasks, nil

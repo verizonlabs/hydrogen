@@ -27,6 +27,7 @@ type (
 		Kill([]byte) error
 		Update([]byte) (*mesos_v1.TaskInfo, error)
 		Status(string) (mesos_v1.TaskState, error)
+		AllTasks() ([]t.Task, error)
 	}
 
 	Manager struct {
@@ -134,7 +135,7 @@ func (m *Manager) Kill(decoded []byte) error {
 			return err
 		}
 		// Get all tasks in RUNNING state.
-		running, _ := m.taskManager.GetAllState(mesos_v1.TaskState_TASK_RUNNING)
+		running, _ := m.taskManager.AllByState(mesos_v1.TaskState_TASK_RUNNING)
 		// If we get an error, it means no tasks are currently in the running state.
 		// We safely ignore this- the range over the empty list will be skipped regardless.
 
@@ -184,10 +185,19 @@ func (m *Manager) Kill(decoded []byte) error {
 }
 
 func (m *Manager) Status(name string) (mesos_v1.TaskState, error) {
-	state, err := m.taskManager.GetState(&name)
+	state, err := m.taskManager.State(&name)
 	if err != nil {
 		return t.UNKNOWN, err
 	}
 
 	return *state, nil
+}
+
+func (m *Manager) AllTasks() ([]t.Task, error) {
+	tasks, err := m.taskManager.All()
+	if err != nil {
+		return nil, err
+	}
+
+	return tasks, nil
 }
