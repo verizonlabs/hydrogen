@@ -128,56 +128,33 @@ func (m *Manager) Kill(decoded []byte) error {
 	}
 
 	// Make sure we have a name to look up
-	if a.Name != nil {
-		// Look up task in task manager
-		t, err := m.taskManager.Get(a.Name)
-		if err != nil {
-			return err
-		}
-		// Get all tasks in RUNNING state.
-		running, _ := m.taskManager.AllByState(mesos_v1.TaskState_TASK_RUNNING)
-		// If we get an error, it means no tasks are currently in the running state.
-		// We safely ignore this- the range over the empty list will be skipped regardless.
+	if a.Name == nil {
+		return nil
+	}
 
-		// Check if our task is in the list of RUNNING tasks.
-		for _, tsk := range running {
-			// If it is, then send the kill signal.
-			if tsk.GetName() == t.GetName() {
-				// First Kill call to the mesos-master.
-				_, err := m.scheduler.Kill(t.GetTaskId(), t.GetAgentId())
-				if err != nil {
-					// If it fails, try to kill it again.
-					_, err := m.scheduler.Kill(t.GetTaskId(), t.GetAgentId())
-					if err != nil {
-						// We've tried twice and still failed.
-						// Send back an error message.
-						return err
-					}
-				}
+	// Look up task in task manager
+	tsk, err := m.taskManager.Get(a.Name)
+	if err != nil {
+		return err
+	}
 
-				// Our kill call has worked, delete it from the task queue.
-				err = m.taskManager.Delete(t)
-				if err != nil {
-					return err
-				}
+	state, err := m.taskManager.State(tsk.Name)
+	if err != nil {
+		return err
+	}
 
-				m.resourceManager.ClearFilters(t)
+	err = m.taskManager.Delete(tsk)
+	if err != nil {
+		return err
+	}
 
-				// Response appropriately.
-				return nil
-			}
-		}
-
-		// If we get here, our task isn't in the list of RUNNING tasks.
-		// Delete it from the queue regardless.
-		// We run into this case if a task is flapping or unable to launch
-		// or get an appropriate offer.
-		err = m.taskManager.Delete(t)
+	m.resourceManager.ClearFilters(tsk)
+	if *state == t.STAGING || *state == t.RUNNING || *state == t.STARTING {
+		_, err := m.scheduler.Kill(tsk.GetTaskId(), tsk.GetAgentId())
 		if err != nil {
 			return err
 		}
 
-		m.resourceManager.ClearFilters(t)
 		return nil
 	}
 
