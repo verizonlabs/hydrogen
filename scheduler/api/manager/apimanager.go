@@ -139,9 +139,9 @@ func (m *Manager) Kill(decoded []byte) error {
 		// We safely ignore this- the range over the empty list will be skipped regardless.
 
 		// Check if our task is in the list of RUNNING tasks.
-		for _, task := range running {
+		for _, tsk := range running {
 			// If it is, then send the kill signal.
-			if task.GetName() == t.GetName() {
+			if tsk.GetName() == t.GetName() {
 				// First Kill call to the mesos-master.
 				_, err := m.scheduler.Kill(t.GetTaskId(), t.GetAgentId())
 				if err != nil {
@@ -193,8 +193,8 @@ func (m *Manager) Status(name string) (mesos_v1.TaskState, error) {
 		return t.UNKNOWN, err
 	}
 
-	for _, task := range queued {
-		if task.GetName() == name {
+	for _, tsk := range queued {
+		if tsk.GetName() == name {
 			return t.STAGING, nil
 		}
 	}
