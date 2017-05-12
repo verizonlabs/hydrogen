@@ -17,6 +17,7 @@ const (
 	baseUrl        = "/v1/api"
 	deployEndpoint = "/deploy"
 	statusEndpoint = "/status"
+	tasksEndpoint  = "/tasks"
 	killEndpoint   = "/kill"
 	updateEndpoint = "/update"
 
@@ -74,6 +75,7 @@ func (a *ApiServer) setDefaultHandlers() {
 	a.handle[baseUrl+statusEndpoint] = a.state
 	a.handle[baseUrl+killEndpoint] = a.kill
 	a.handle[baseUrl+updateEndpoint] = a.update
+	a.handle[baseUrl+tasksEndpoint] = a.tasks
 }
 
 func (a *ApiServer) setHandlers(handles map[string]http.HandlerFunc) {
@@ -153,7 +155,6 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 			Status:   QUEUED,
 			TaskName: task.GetName(),
 		})
-		return
 	})
 }
 
@@ -207,7 +208,6 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 			Status:  KILLED,
 			Message: "Successfully killed task.",
 		})
-		return
 	})
 }
 
@@ -222,7 +222,7 @@ func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 			})
 			return
 		}
-		_, err := a.manager.Status(name)
+		state, err := a.manager.Status(name)
 		if err != nil {
 			json.NewEncoder(w).Encode(Response{
 				Status:  FAILED,
@@ -231,7 +231,29 @@ func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		json.NewEncoder(w).Encode(Response{Status: RUNNING, TaskName: name})
-		return
+		json.NewEncoder(w).Encode(Response{Status: state.String(), TaskName: name})
+	})
+}
+
+func (a *ApiServer) tasks(w http.ResponseWriter, r *http.Request) {
+	a.methodFilter(w, r, []string{"GET"}, func() {
+		tasks, err := a.manager.AllTasks()
+		if err != nil {
+			json.NewEncoder(w).Encode(Response{
+				Status:  FAILED,
+				Message: err.Error(),
+			})
+			return
+		}
+
+		data := []Response{}
+		for _, t := range tasks {
+			data = append(data, Response{
+				Status:   t.State.String(),
+				TaskName: t.Info.GetName(),
+			})
+		}
+
+		json.NewEncoder(w).Encode(data)
 	})
 }

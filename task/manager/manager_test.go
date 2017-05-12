@@ -157,7 +157,7 @@ func TestTaskManager_GetById(t *testing.T) {
 	}
 }
 
-func TestTaskManager_GetState(t *testing.T) {
+func TestTaskManager_State(t *testing.T) {
 	cmap := structures.NewConcurrentMap()
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
@@ -171,12 +171,9 @@ func TestTaskManager_GetState(t *testing.T) {
 
 	taskManager.Add(testTask)
 
-	tasks, err := taskManager.GetState(mesos_v1.TaskState_TASK_UNKNOWN)
+	_, err := taskManager.State(testTask.Name)
 	if err != nil {
 		t.FailNow()
-	}
-	if len(tasks) <= 0 || len(tasks) > 1 {
-		t.Logf("Tasks returned was %v, expecting 1", len(tasks))
 	}
 }
 
@@ -214,36 +211,26 @@ func TestTaskManager_Set(t *testing.T) {
 	taskManager.Add(testTask)
 
 	taskManager.Set(mesos_v1.TaskState_TASK_STAGING, testTask)
-	tasks, err := taskManager.GetState(mesos_v1.TaskState_TASK_STAGING)
+	_, err := taskManager.State(testTask.Name)
 	if err != nil {
 		t.Log("Failed with err on getstate, finished.")
 		t.FailNow()
 	}
-	if len(tasks) <= 0 || len(tasks) > 1 {
-		t.Logf("Tasks returned was %v, expecting 1", len(tasks))
-	}
 
 	// KILLED and FINISHED delete the task from the task manager.
 	taskManager.Set(mesos_v1.TaskState_TASK_FINISHED, testTask)
-	tasks, err = taskManager.GetState(mesos_v1.TaskState_TASK_FINISHED)
+	_, err = taskManager.State(testTask.Name)
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()
-	}
-	if len(tasks) != 1 {
-		t.Logf("Tasks returned was %v, expecting 1", len(tasks))
 	}
 
 	taskManager.Add(testTask)
 
 	taskManager.Set(mesos_v1.TaskState_TASK_KILLED, testTask)
 
-	tasks, err = taskManager.GetState(mesos_v1.TaskState_TASK_KILLED)
+	_, err = taskManager.State(testTask.Name)
 	if err != nil {
-		t.FailNow()
-	}
-	if len(tasks) != 1 {
-		t.Logf("Tasks returned was %v, expecting 1", len(tasks))
 		t.FailNow()
 	}
 }

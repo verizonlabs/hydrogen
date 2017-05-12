@@ -3,6 +3,7 @@ package test
 import (
 	"errors"
 	"mesos-framework-sdk/include/mesos_v1"
+	"mesos-framework-sdk/task/manager"
 )
 
 type (
@@ -16,6 +17,12 @@ func (m MockApiManager) Update([]byte) (*mesos_v1.TaskInfo, error) { return &mes
 func (m MockApiManager) Status(string) (mesos_v1.TaskState, error) {
 	return mesos_v1.TaskState_TASK_RUNNING, nil
 }
+func (m MockApiManager) AllTasks() ([]manager.Task, error) {
+	return []manager.Task{{
+		&mesos_v1.TaskInfo{},
+		mesos_v1.TaskState_TASK_RUNNING,
+	}}, nil
+}
 
 func (m MockBrokenApiManager) Deploy([]byte) (*mesos_v1.TaskInfo, error) {
 	return nil, errors.New("Broken")
@@ -26,4 +33,7 @@ func (m MockBrokenApiManager) Update([]byte) (*mesos_v1.TaskInfo, error) {
 }
 func (m MockBrokenApiManager) Status(string) (mesos_v1.TaskState, error) {
 	return mesos_v1.TaskState_TASK_UNKNOWN, errors.New("Broken")
+}
+func (m MockBrokenApiManager) AllTasks() ([]manager.Task, error) {
+	return nil, errors.New("Broken")
 }

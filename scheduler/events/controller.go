@@ -172,7 +172,7 @@ func (s *SprintEventController) periodicReconcile() {
 	for {
 		select {
 		case <-ticker.C:
-			recon, err := s.TaskManager().GetState(sdkTaskManager.RUNNING)
+			recon, err := s.TaskManager().AllByState(sdkTaskManager.RUNNING)
 			if err != nil {
 				// log here.
 				continue
