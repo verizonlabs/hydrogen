@@ -22,7 +22,7 @@ var (
 //api manager will hold refs to task/resource manager.
 
 type (
-	ApiManager interface {
+	ApiParser interface {
 		Deploy([]byte) (*mesos_v1.TaskInfo, error)
 		Kill([]byte) error
 		Update([]byte) (*mesos_v1.TaskInfo, error)
@@ -30,39 +30,39 @@ type (
 		AllTasks() ([]t.Task, error)
 	}
 
-	Manager struct {
+	Parser struct {
 		resourceManager r.ResourceManager
 		taskManager     manager.SprintTaskManager
 		scheduler       scheduler.Scheduler
 	}
 )
 
-func NewApiManager(r r.ResourceManager, t manager.SprintTaskManager, s scheduler.Scheduler) *Manager {
-	return &Manager{
+func NewApiParser(r r.ResourceManager, t manager.SprintTaskManager, s scheduler.Scheduler) *Parser {
+	return &Parser{
 		resourceManager: r,
 		taskManager:     t,
 		scheduler:       s,
 	}
 }
 
-func (m *Manager) Deploy(decoded []byte) (*mesos_v1.TaskInfo, error) {
-	var a task.ApplicationJSON
-	err := json.Unmarshal(decoded, &a)
+func (m *Parser) Deploy(decoded []byte) (*mesos_v1.TaskInfo, error) {
+	var appJson task.ApplicationJSON
+	err := json.Unmarshal(decoded, &appJson)
 
-	mesosTask, err := builder.Application(&a)
+	mesosTask, err := builder.Application(&appJson)
 	if err != nil {
 		return nil, err
 	}
 
 	// If we have any filters, let the resource manager know.
-	if len(a.Filters) > 0 {
-		if err := m.resourceManager.AddFilter(mesosTask, a.Filters); err != nil {
+	if len(appJson.Filters) > 0 {
+		if err := m.resourceManager.AddFilter(mesosTask, appJson.Filters); err != nil {
 			return nil, err
 		}
 	}
 
-	if a.Retry != nil {
-		err := m.taskManager.AddPolicy(a.Retry, mesosTask)
+	if appJson.Retry != nil {
+		err := m.taskManager.AddPolicy(appJson.Retry, mesosTask)
 		if err != nil {
 			return nil, err
 		}
@@ -81,26 +81,26 @@ func (m *Manager) Deploy(decoded []byte) (*mesos_v1.TaskInfo, error) {
 	return mesosTask, nil
 }
 
-func (m *Manager) Update(decoded []byte) (*mesos_v1.TaskInfo, error) {
-	var a task.ApplicationJSON
-	err := json.Unmarshal(decoded, &a)
+func (m *Parser) Update(decoded []byte) (*mesos_v1.TaskInfo, error) {
+	var appJson task.ApplicationJSON
+	err := json.Unmarshal(decoded, &appJson)
 	if err != nil {
 		return nil, err
 	}
 
 	// Check if this task already exists
-	taskToKill, err := m.taskManager.Get(&a.Name)
+	taskToKill, err := m.taskManager.Get(&appJson.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	mesosTask, err := builder.Application(&a)
+	mesosTask, err := builder.Application(&appJson)
 	if err != nil {
 		return nil, err
 	}
 
-	if a.Retry != nil {
-		err = m.taskManager.AddPolicy(a.Retry, mesosTask)
+	if appJson.Retry != nil {
+		err = m.taskManager.AddPolicy(appJson.Retry, mesosTask)
 	} else {
 		err = m.taskManager.AddPolicy(DEFAULT_RETRY_POLICY, mesosTask)
 	}
@@ -120,20 +120,20 @@ func (m *Manager) Update(decoded []byte) (*mesos_v1.TaskInfo, error) {
 	return mesosTask, nil
 }
 
-func (m *Manager) Kill(decoded []byte) error {
-	var a task.KillJson
-	err := json.Unmarshal(decoded, &a)
+func (m *Parser) Kill(decoded []byte) error {
+	var appJson task.KillJson
+	err := json.Unmarshal(decoded, &appJson)
 	if err != nil {
 		return err
 	}
 
 	// Make sure we have a name to look up
-	if a.Name == nil {
+	if appJson.Name == nil {
 		return nil
 	}
 
 	// Look up task in task manager
-	tsk, err := m.taskManager.Get(a.Name)
+	tsk, err := m.taskManager.Get(appJson.Name)
 	if err != nil {
 		return err
 	}
@@ -161,7 +161,7 @@ func (m *Manager) Kill(decoded []byte) error {
 	return nil
 }
 
-func (m *Manager) Status(name string) (mesos_v1.TaskState, error) {
+func (m *Parser) Status(name string) (mesos_v1.TaskState, error) {
 	state, err := m.taskManager.State(&name)
 	if err != nil {
 		return t.UNKNOWN, err
@@ -170,7 +170,7 @@ func (m *Manager) Status(name string) (mesos_v1.TaskState, error) {
 	return *state, nil
 }
 
-func (m *Manager) AllTasks() ([]t.Task, error) {
+func (m *Parser) AllTasks() ([]t.Task, error) {
 	tasks, err := m.taskManager.All()
 	if err != nil {
 		return nil, err
