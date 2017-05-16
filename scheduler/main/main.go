@@ -81,7 +81,7 @@ func main() {
 	r := manager.NewDefaultResourceManager()                      // Manages resources from the cluster
 	c := client.NewClient(config.Scheduler.MesosEndpoint, logger) // Manages HTTP calls
 	s := sched.NewDefaultScheduler(c, frameworkInfo, logger)      // Manages how to route and schedule tasks.
-	m := apiManager.NewApiManager(r, t, s)                        // Middleware for our API.
+	m := apiManager.NewApiParser(r, t, s)                         // Middleware for our API.
 
 	// Event controller manages scheduler events and how they are handled.
 	e := events.NewSprintEventController(config, s, t, r, eventChan, p, logger)

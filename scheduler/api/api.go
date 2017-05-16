@@ -42,14 +42,14 @@ type ApiServer struct {
 	mux     *http.ServeMux
 	handle  map[string]http.HandlerFunc
 	sched   scheduler.Scheduler
-	manager apiManager.ApiManager
+	manager apiManager.ApiParser
 	version string
 	logger  logging.Logger
 }
 
 func NewApiServer(
 	cfg server.Configuration,
-	mgr apiManager.ApiManager,
+	mgr apiManager.ApiParser,
 	mux *http.ServeMux,
 	version string,
 	lgr logging.Logger) *ApiServer {

@@ -24,6 +24,10 @@ func (s *SprintEventController) Subscribed(subEvent *mesos_v1_scheduler.Event_Su
 		os.Exit(3)
 	}
 
+	s.scheduler.Revive() // Reset to revive offers regardless if there are tasks or not.
+	// We do this to force a check for any tasks that we might have missed during downtime.
+	// Reconcile after we subscribe in case we resubscribed due to a failure.
+
 	// Get all launched non-terminal tasks.
 	launched, err := s.taskmanager.AllByState(manager.RUNNING)
 	if err != nil {
@@ -31,6 +35,5 @@ func (s *SprintEventController) Subscribed(subEvent *mesos_v1_scheduler.Event_Su
 		return
 	}
 
-	// Reconcile after we subscribe in case we resubscribed due to a failure.
 	s.scheduler.Reconcile(launched)
 }
