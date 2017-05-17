@@ -2,6 +2,7 @@ package manager
 
 import (
 	"encoding/json"
+	"errors"
 	"mesos-framework-sdk/include/mesos_v1"
 	r "mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
@@ -52,6 +53,12 @@ func (m *Parser) Deploy(decoded []byte) (*mesos_v1.TaskInfo, error) {
 	mesosTask, err := builder.Application(&appJson)
 	if err != nil {
 		return nil, err
+	}
+
+	// Check if a task with this name already exists.
+	exists, err := m.taskManager.Get(mesosTask.Name)
+	if exists != nil {
+		return nil, errors.New("Duplicate task name.")
 	}
 
 	// If we have any filters, let the resource manager know.
