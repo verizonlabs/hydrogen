@@ -15,6 +15,9 @@ func TestApplication(t *testing.T) {
 		Resources: &task.ResourceJSON{
 			Cpu: 0.5,
 			Mem: 128.0,
+			Disk: task.Disk{
+				Size: 1024.0,
+			},
 		},
 		Command: &task.CommandJSON{
 			Cmd: utils.ProtoString("/bin/sleep 1"),
@@ -136,6 +139,9 @@ func TestApplicationWithDockerContainer(t *testing.T) {
 		Resources: &task.ResourceJSON{
 			Cpu: 0.5,
 			Mem: 128.0,
+			Disk: task.Disk{
+				Size: 1024.0,
+			},
 		},
 		Command: &task.CommandJSON{
 			Cmd: utils.ProtoString("/bin/sleep 1"),
