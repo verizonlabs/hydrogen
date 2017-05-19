@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"mesos-framework-sdk/include/mesos_v1"
 	mockLogger "mesos-framework-sdk/logging/test"
 	mockResourceManager "mesos-framework-sdk/resources/manager/test"
 	mockScheduler "mesos-framework-sdk/scheduler/test"
@@ -402,7 +403,7 @@ func TestApiState(t *testing.T) {
 		t.FailNow()
 	}
 
-	if m.Status != RUNNING {
+	if m.Status != mesos_v1.TaskState_TASK_RUNNING.String() {
 		t.Logf("Task should of been in state RUNNING but wasn't:  %v", m.Message)
 		t.FailNow()
 	}
