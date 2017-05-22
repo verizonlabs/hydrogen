@@ -39,13 +39,14 @@ const (
 )
 
 type (
-	// Interface to provide pluggable controllers that the scheduler can interface with.
+	// Provides pluggable controllers that the scheduler can interface with.
+	// Also used extensively for testing with mocks.
 	EventController interface {
 		events.SchedulerEvent
 		ha.Node
 	}
 
-	// Main controller that coordinates the calls from the scheduler with the events received from Mesos.
+	// Primary controller that coordinates the calls from the scheduler with the events received from Mesos.
 	// The controller is what is "run" to kick off our scheduler and subscribe to Mesos.
 	// Additionally, our framework's high availability is coordinated by this controller.
 	SprintEventController struct {
