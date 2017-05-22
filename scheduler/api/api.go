@@ -31,12 +31,15 @@ const (
 	UPDATE   = "Updated"
 )
 
+// Common format for API responses.
 type Response struct {
 	Status   string
 	TaskName string
 	Message  string
 }
 
+// API server used for scheduling/updating/killing tasks.
+// Provides an interface for users to interact with the core scheduler.
 type ApiServer struct {
 	cfg     server.Configuration
 	mux     *http.ServeMux
