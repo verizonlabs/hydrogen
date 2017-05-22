@@ -44,6 +44,8 @@ func (s *SprintEventController) GetLeader() (string, error) {
 	return leader, nil
 }
 
+// Set our framework ID in memory from what's currently persisted.
+// The framework ID is needed by the scheduler for almost any call to Mesos.
 func (s *SprintEventController) setFrameworkId() error {
 	policy, _ := s.storage.CheckPolicy(nil)
 	return s.storage.RunPolicy(policy, func() error {
@@ -58,6 +60,7 @@ func (s *SprintEventController) setFrameworkId() error {
 	})
 }
 
+// Deletes the current leader information.
 func (s *SprintEventController) deleteLeader() error {
 	policy, _ := s.storage.CheckPolicy(nil)
 	return s.storage.RunPolicy(policy, func() error {
@@ -70,6 +73,7 @@ func (s *SprintEventController) deleteLeader() error {
 	})
 }
 
+// Create and persist our framework ID with an attached lifetime.
 func (s *SprintEventController) createFrameworkIdLease(idVal string) error {
 	policy, _ := s.storage.CheckPolicy(nil)
 	return s.storage.RunPolicy(policy, func() error {
@@ -87,6 +91,7 @@ func (s *SprintEventController) createFrameworkIdLease(idVal string) error {
 	})
 }
 
+// Refreshes the lifetime of our persisted framework ID.
 func (s *SprintEventController) refreshFrameworkIdLease() error {
 	policy, _ := s.storage.CheckPolicy(nil)
 	return s.storage.RunPolicy(policy, func() error {
@@ -102,6 +107,7 @@ func (s *SprintEventController) refreshFrameworkIdLease() error {
 	})
 }
 
+// Atomically retrieves all persisted tasks.
 func (s *SprintEventController) getAllTasks() (map[string]string, error) {
 	var tasks map[string]string
 	policy, _ := s.storage.CheckPolicy(nil)
