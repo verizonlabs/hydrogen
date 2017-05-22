@@ -10,16 +10,20 @@ import (
 	"time"
 )
 
+// Provides pluggable storage types that can be used to persist state.
+// Also used extensively for testing with mocks.
 type Storage interface {
 	retry.Retry
 	etcd.KeyValueStore
 }
 
+// Primary persistence engine that's used to store task state, high availability metadata, and more.
 type Persistence struct {
 	etcd.KeyValueStore
 	policy retry.TaskRetry
 }
 
+// Returns the main persistence engine that's used across the framework.
 func NewPersistence(kv etcd.KeyValueStore, config *scheduler.Configuration) Storage {
 	return &Persistence{
 		KeyValueStore: kv,
@@ -37,6 +41,8 @@ func (p Persistence) AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v1.TaskI
 	return nil
 }
 
+// Returns the current policy that's used by the persistence engine.
+// There is only ever one policy used at a given time.
 func (p Persistence) CheckPolicy(mesosTask *mesos_v1.TaskInfo) (*retry.TaskRetry, error) {
 	return &p.policy, nil
 }
@@ -47,6 +53,7 @@ func (p Persistence) ClearPolicy(mesosTask *mesos_v1.TaskInfo) error {
 	return nil
 }
 
+// Runs the supplied policy for storage operations.
 func (p Persistence) RunPolicy(policy *retry.TaskRetry, f func() error) error {
 	if policy.TotalRetries == policy.MaxRetries {
 		return errors.New("Retry limit reached")
