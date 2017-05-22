@@ -47,6 +47,7 @@ type ApiServer struct {
 	logger  logging.Logger
 }
 
+// Returns a new API server injected with the necessary components.
 func NewApiServer(
 	cfg server.Configuration,
 	mgr apiManager.ApiParser,
@@ -64,12 +65,12 @@ func NewApiServer(
 	}
 }
 
-//Getter to return our map of handles
+// Getter to return our map of handles.
 func (a *ApiServer) Handle() map[string]http.HandlerFunc {
 	return a.handle
 }
 
-//Set our default API handler routes here.
+// Set our default API handler routes here.
 func (a *ApiServer) setDefaultHandlers() {
 	a.handle[baseUrl+deployEndpoint] = a.deploy
 	a.handle[baseUrl+statusEndpoint] = a.state
@@ -78,13 +79,14 @@ func (a *ApiServer) setDefaultHandlers() {
 	a.handle[baseUrl+tasksEndpoint] = a.tasks
 }
 
+// Sets the optional custom HTTP handlers to be used in the API server.
 func (a *ApiServer) setHandlers(handles map[string]http.HandlerFunc) {
 	for route, handle := range handles {
 		a.handle[route] = handle
 	}
 }
 
-// RunAPI takes the scheduler controller and sets up the configuration for the API.
+// RunAPI sets up the various HTTP handlers, optionally configures TLS, and runs the server.
 func (a *ApiServer) RunAPI(handlers map[string]http.HandlerFunc) {
 	if handlers != nil || len(handlers) != 0 {
 		a.logger.Emit(logging.INFO, "Setting custom handlers.")
@@ -114,6 +116,7 @@ func (a *ApiServer) RunAPI(handlers map[string]http.HandlerFunc) {
 	}
 }
 
+// HTTP method guard to only allow specific methods on various endpoints.
 func (a *ApiServer) methodFilter(w http.ResponseWriter, r *http.Request, methods []string, ops func()) {
 	for _, method := range methods {
 		if method == r.Method {
@@ -128,7 +131,7 @@ func (a *ApiServer) methodFilter(w http.ResponseWriter, r *http.Request, methods
 	})
 }
 
-// Deploys a given application from parsed JSON
+// Deploy handler launches a given application from parsed JSON.
 func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 	a.methodFilter(w, r, []string{"POST"}, func() {
 		dec, err := ioutil.ReadAll(r.Body)
@@ -158,6 +161,7 @@ func (a *ApiServer) deploy(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Update handler allows for updates to an existing/running task.
 func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 	a.methodFilter(w, r, []string{"PUT"}, func() {
 		dec, err := ioutil.ReadAll(r.Body)
@@ -187,6 +191,7 @@ func (a *ApiServer) update(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Kill handler allows users to stop their running task.
 func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 	a.methodFilter(w, r, []string{"DELETE"}, func() {
 		dec, err := ioutil.ReadAll(r.Body)
@@ -211,7 +216,7 @@ func (a *ApiServer) kill(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Status endpoint lets the end-user know about the TASK_STATUS of their task.
+// State handler provides the given task's current execution status.
 func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 	a.methodFilter(w, r, []string{"GET"}, func() {
 		name := r.URL.Query().Get("name")
@@ -235,6 +240,7 @@ func (a *ApiServer) state(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Tasks handler provides a list of all tasks known to the scheduler.
 func (a *ApiServer) tasks(w http.ResponseWriter, r *http.Request) {
 	a.methodFilter(w, r, []string{"GET"}, func() {
 		tasks, err := a.manager.AllTasks()
