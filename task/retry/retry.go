@@ -7,12 +7,17 @@ import (
 )
 
 type (
+
+	// Provides pluggable retry mechanisms.
+	// Also used extensively for testing with mocks.
 	Retry interface {
 		AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v1.TaskInfo) error
 		CheckPolicy(mesosTask *mesos_v1.TaskInfo) (*TaskRetry, error)
 		ClearPolicy(mesosTask *mesos_v1.TaskInfo) error
 		RunPolicy(policy *TaskRetry, f func() error) error
 	}
+
+	// Primary retry mechanism used with policies in the task manager and persistence engine.
 	TaskRetry struct {
 		TotalRetries int
 		MaxRetries   int
