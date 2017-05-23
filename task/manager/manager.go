@@ -29,10 +29,16 @@ const (
 )
 
 type (
+	// Provides pluggable task managers that the framework can work with.
+	// Also used extensively for testing with mocks.
 	SprintTaskManager interface {
 		manager.TaskManager
 		retry.Retry
 	}
+
+	// Our primary task handler that implements the above interface.
+	// The task handler manages all tasks that are submitted, updated, or deleted.
+	// Offers from Mesos are matched up with user-submitted tasks, and those tasks are updated via event callbacks.
 	SprintTaskHandler struct {
 		tasks   structures.DistributedMap
 		storage persistence.Storage
@@ -42,6 +48,7 @@ type (
 	}
 )
 
+// Returns the core task manager that's used by the scheduler.
 func NewTaskManager(
 	cmap structures.DistributedMap,
 	storage persistence.Storage,
@@ -57,6 +64,7 @@ func NewTaskManager(
 	}
 }
 
+// Encodes task data to a small, efficient payload that can be transmitted across the wire.
 func (m *SprintTaskHandler) encode(task *mesos_v1.TaskInfo, state mesos_v1.TaskState) (bytes.Buffer, error) {
 	var b bytes.Buffer
 	e := gob.NewEncoder(&b)
@@ -93,6 +101,7 @@ func (s *SprintTaskHandler) AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v
 	return errors.New("Nil mesos task passed in")
 }
 
+// Runs the specified policy with a configurable backoff.
 func (s *SprintTaskHandler) RunPolicy(policy *retry.TaskRetry, f func() error) error {
 	policy.TotalRetries += 1 // Increment retry counter.
 
@@ -119,6 +128,7 @@ func (s *SprintTaskHandler) RunPolicy(policy *retry.TaskRetry, f func() error) e
 	return nil
 }
 
+// Checks whether a policy exists for a given task.
 func (s *SprintTaskHandler) CheckPolicy(mesosTask *mesos_v1.TaskInfo) (*retry.TaskRetry, error) {
 	if mesosTask != nil {
 		policy := s.retries.Get(mesosTask.GetName())
@@ -130,6 +140,7 @@ func (s *SprintTaskHandler) CheckPolicy(mesosTask *mesos_v1.TaskInfo) (*retry.Ta
 	return nil, errors.New("No policy exists for this task.")
 }
 
+// Removes an existing policy associated with the given task.
 func (s *SprintTaskHandler) ClearPolicy(mesosTask *mesos_v1.TaskInfo) error {
 	if mesosTask != nil {
 		s.retries.Delete(mesosTask.GetTaskId().GetValue())
@@ -145,6 +156,9 @@ func (s *SprintTaskHandler) ClearPolicy(mesosTask *mesos_v1.TaskInfo) error {
 //
 // Task Manager Methods
 //
+
+// Adds and persists a new task into the task manager.
+// Duplicate task names are not allowed by Mesos, thus they are not allowed here.
 func (m *SprintTaskHandler) Add(t *mesos_v1.TaskInfo) error {
 	defer func() {
 		if r := recover(); r != nil {
@@ -192,6 +206,7 @@ func (m *SprintTaskHandler) Add(t *mesos_v1.TaskInfo) error {
 	return nil
 }
 
+// Deletes a task from memory and etcd, and clears any associated policy.
 func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) error {
 	policy, _ := m.storage.CheckPolicy(nil)
 	err := m.storage.RunPolicy(policy, func() error {
@@ -213,6 +228,7 @@ func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) error {
 	return nil
 }
 
+// Gets a task by its name.
 func (m *SprintTaskHandler) Get(name *string) (*mesos_v1.TaskInfo, error) {
 	ret := m.tasks.Get(*name)
 	if ret != nil {
@@ -222,7 +238,7 @@ func (m *SprintTaskHandler) Get(name *string) (*mesos_v1.TaskInfo, error) {
 	return nil, errors.New("Could not find task.")
 }
 
-// Check to see if any tasks we have match the id passed in.
+// Gets a task by its ID.
 func (m *SprintTaskHandler) GetById(id *mesos_v1.TaskID) (*mesos_v1.TaskInfo, error) {
 	if m.tasks.Length() == 0 {
 		return nil, errors.New("Task manager is empty.")
@@ -238,6 +254,7 @@ func (m *SprintTaskHandler) GetById(id *mesos_v1.TaskID) (*mesos_v1.TaskInfo, er
 	return nil, errors.New("Could not find task by id: " + id.GetValue())
 }
 
+// Indicates whether or not the task manager holds the specified task.
 func (m *SprintTaskHandler) HasTask(task *mesos_v1.TaskInfo) bool {
 	ret := m.tasks.Get(task.GetName())
 	if ret == nil {
@@ -247,15 +264,17 @@ func (m *SprintTaskHandler) HasTask(task *mesos_v1.TaskInfo) bool {
 	return true
 }
 
+// Returns the total number of tasks that the task manager holds.
 func (m *SprintTaskHandler) TotalTasks() int {
 	return m.tasks.Length()
 }
 
+// Returns the internal structure used to hold task data.
 func (m *SprintTaskHandler) Tasks() structures.DistributedMap {
 	return m.tasks
 }
 
-// Update a task with a certain state.
+// Update the given task with the given state.
 func (m *SprintTaskHandler) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) error {
 	// Write forward.
 	encoded, err := m.encode(t, state)
@@ -291,6 +310,7 @@ func (m *SprintTaskHandler) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) 
 	return nil
 }
 
+// Gets the task's state based on the supplied task name.
 func (m *SprintTaskHandler) State(name *string) (*mesos_v1.TaskState, error) {
 	ret := m.tasks.Get(*name)
 	if ret != nil {
@@ -301,7 +321,7 @@ func (m *SprintTaskHandler) State(name *string) (*mesos_v1.TaskState, error) {
 	return nil, errors.New("Task " + *name + " does not exist")
 }
 
-// Get's all tasks within a certain state.
+// Gets all tasks that match the given state.
 func (m *SprintTaskHandler) AllByState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
 	tasks := []*mesos_v1.TaskInfo{}
 	for v := range m.tasks.Iterate() {
@@ -318,6 +338,7 @@ func (m *SprintTaskHandler) AllByState(state mesos_v1.TaskState) ([]*mesos_v1.Ta
 	return tasks, nil
 }
 
+// Gets all tasks that are known to the task manager.
 func (m *SprintTaskHandler) All() ([]manager.Task, error) {
 	if m.tasks.Length() == 0 {
 		return nil, errors.New("Task manager is empty.")
