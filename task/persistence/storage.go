@@ -3,7 +3,7 @@ package persistence
 import (
 	"errors"
 	"mesos-framework-sdk/include/mesos_v1"
-	"mesos-framework-sdk/persistence/drivers/etcd"
+	"mesos-framework-sdk/persistence"
 	"mesos-framework-sdk/task"
 	"sprint/scheduler"
 	"sprint/task/retry"
@@ -14,17 +14,16 @@ import (
 // Also used extensively for testing with mocks.
 type Storage interface {
 	retry.Retry
-	etcd.KeyValueStore
+	persistence.KeyValueStore
 }
 
 // Primary persistence engine that's used to store task state, high availability metadata, and more.
 type Persistence struct {
-	etcd.KeyValueStore
+	persistence.KeyValueStore
 	policy retry.TaskRetry
 }
-
 // Returns the main persistence engine that's used across the framework.
-func NewPersistence(kv etcd.KeyValueStore, config *scheduler.Configuration) Storage {
+func NewPersistence(kv persistence.KeyValueStore, config *scheduler.Configuration) Storage {
 	return &Persistence{
 		KeyValueStore: kv,
 		policy: retry.TaskRetry{
