@@ -50,7 +50,7 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 	case mesos_v1.TaskState_TASK_FINISHED:
 		s.logger.Emit(
 			logging.INFO,
-			"Task %s on agent %s finished: %s",
+			"Task %s finished on agent %s: %s",
 			taskIdVal,
 			agentIdVal,
 			message,
