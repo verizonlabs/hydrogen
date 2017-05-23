@@ -40,6 +40,8 @@ const (
 
 type (
 	// Provides pluggable controllers that the scheduler can interface with.
+	// An event controller is the control plane for a scheduler.
+	// Events received from Mesos are routed by the controller.
 	// Also used extensively for testing with mocks.
 	EventController interface {
 		events.SchedulerEvent
@@ -92,7 +94,7 @@ func (s *SprintEventController) Scheduler() scheduler.Scheduler {
 	return s.scheduler
 }
 
-// Returns the task manager that coordinates state.
+// Returns the task manager which handles task state and persistent storage.
 func (s *SprintEventController) TaskManager() sprintTask.SprintTaskManager {
 	return s.taskmanager
 }
