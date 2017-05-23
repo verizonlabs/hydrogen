@@ -3,7 +3,7 @@ package persistence
 import (
 	"errors"
 	"mesos-framework-sdk/include/mesos_v1"
-	"mesos-framework-sdk/persistence/drivers/etcd"
+	"mesos-framework-sdk/persistence"
 	"mesos-framework-sdk/task"
 	"sprint/scheduler"
 	"sprint/task/retry"
@@ -12,15 +12,15 @@ import (
 
 type Storage interface {
 	retry.Retry
-	etcd.KeyValueStore
+	persistence.KeyValueStore
 }
 
 type Persistence struct {
-	etcd.KeyValueStore
+	persistence.KeyValueStore
 	policy retry.TaskRetry
 }
 
-func NewPersistence(kv etcd.KeyValueStore, config *scheduler.Configuration) Storage {
+func NewPersistence(kv persistence.KeyValueStore, config *scheduler.Configuration) Storage {
 	return &Persistence{
 		KeyValueStore: kv,
 		policy: retry.TaskRetry{
