@@ -81,10 +81,9 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 	case mesos_v1.TaskState_TASK_RUNNING:
 		s.logger.Emit(
 			logging.INFO,
-			"Task %s on agent %s is running: %s",
+			"Task %s is running on agent %s",
 			taskIdVal,
 			agentIdVal,
-			message,
 		)
 	case mesos_v1.TaskState_TASK_STARTING:
 		// Task is still starting up. NOOP
