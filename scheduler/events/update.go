@@ -34,38 +34,14 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 	switch state {
 	case mesos_v1.TaskState_TASK_FAILED:
 		s.logger.Emit(logging.ERROR, message)
-
-		// If there's an error, fallback to the regular policy.
-		policy, err := s.taskmanager.CheckPolicy(task)
-		retryFunc := func() error {
-			// Check if the task has been deleted
-			// while waiting for a retry.
-			t, err := s.taskmanager.Get(task.Name)
-			if err != nil {
-				return err
-			}
-			s.taskmanager.Set(manager.UNKNOWN, t)
-			s.Scheduler().Revive()
-
-			return nil
-		}
-		if err != nil {
-			s.logger.Emit(logging.INFO, err.Error())
-			// set default policy, we should never get here, this would mean an error in serialization or our api.
-			s.taskmanager.AddPolicy(apiManager.DEFAULT_RETRY_POLICY, task)
-			policy, _ = s.taskmanager.CheckPolicy(task) // update policy reference
-		}
-
-		err = s.taskmanager.RunPolicy(policy, retryFunc)
-		if err != nil {
-			s.logger.Emit(logging.ERROR, "Failed to run policy: %s", err.Error())
-		}
+		s.reschedule(task)
 	case mesos_v1.TaskState_TASK_STAGING:
 		// NOP, keep task set to "launched".
 		s.logger.Emit(logging.INFO, message)
 	case mesos_v1.TaskState_TASK_DROPPED:
 		// Transient error, we should retry launching. Taskinfo is fine.
 		s.logger.Emit(logging.INFO, message)
+		s.reschedule(task)
 	case mesos_v1.TaskState_TASK_ERROR:
 		// TODO (tim): Error with the taskinfo sent to the agent. Give verbose reasoning back.
 		s.logger.Emit(logging.ERROR, message)
@@ -92,6 +68,7 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 	case mesos_v1.TaskState_TASK_LOST:
 		// Task is unknown to the master and lost. Should reschedule.
 		s.logger.Emit(logging.ALARM, "Task %s was lost", taskId.GetValue())
+		s.reschedule(task)
 	case mesos_v1.TaskState_TASK_RUNNING:
 		s.logger.Emit(logging.INFO, message)
 	case mesos_v1.TaskState_TASK_STARTING:
@@ -107,4 +84,35 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 	}
 
 	s.scheduler.Acknowledge(agentId, taskId, status.GetUuid())
+}
+
+// Sets a task to be rescheduled.
+// Rescheduling can be done when there are various failures such as network errors.
+func (s *SprintEventController) reschedule(task *mesos_v1.TaskInfo) {
+
+	// If there's an error, fallback to the regular policy.
+	policy, err := s.taskmanager.CheckPolicy(task)
+	retryFunc := func() error {
+
+		// Check if the task has been deleted while waiting for a retry.
+		t, err := s.taskmanager.Get(task.Name)
+		if err != nil {
+			return err
+		}
+		s.taskmanager.Set(manager.UNKNOWN, t)
+		s.Scheduler().Revive()
+
+		return nil
+	}
+	if err != nil {
+		s.logger.Emit(logging.INFO, err.Error())
+		// Set default policy, we should never get here, this would mean an error in serialization or our api.
+		s.taskmanager.AddPolicy(apiManager.DEFAULT_RETRY_POLICY, task)
+		policy, _ = s.taskmanager.CheckPolicy(task) // update policy reference
+	}
+
+	err = s.taskmanager.RunPolicy(policy, retryFunc)
+	if err != nil {
+		s.logger.Emit(logging.ERROR, "Failed to run policy: %s", err.Error())
+	}
 }
