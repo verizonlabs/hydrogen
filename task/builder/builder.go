@@ -51,7 +51,7 @@ func Application(t *task.ApplicationJSON) (*mesos_v1.TaskInfo, error) {
 		return nil, err
 	}
 
-	labels, err := labels.ParseLabels(t.Labels)
+	lbls, err := labels.ParseLabels(t.Labels)
 	if err != nil {
 		return nil, err
 	}
@@ -65,6 +65,6 @@ func Application(t *task.ApplicationJSON) (*mesos_v1.TaskInfo, error) {
 		cmd,
 		res,
 		image,
-		labels,
+		lbls,
 	), nil
 }

@@ -39,10 +39,18 @@ const (
 )
 
 type (
+	// Provides pluggable controllers that the scheduler can interface with.
+	// An event controller is the control plane for a scheduler.
+	// Events received from Mesos are routed by the controller.
+	// Also used extensively for testing with mocks.
 	EventController interface {
 		events.SchedulerEvent
 		ha.Node
 	}
+
+	// Primary controller that coordinates the calls from the scheduler with the events received from Mesos.
+	// The controller is what is "run" to kick off our scheduler and subscribe to Mesos.
+	// Additionally, our framework's high availability is coordinated by this controller.
 	SprintEventController struct {
 		config          *sprintSched.Configuration
 		scheduler       scheduler.Scheduler
@@ -58,9 +66,7 @@ type (
 	}
 )
 
-//
-// Passes back a new sprint event controller.
-//
+// Returns the main controller that's used to coordinate the calls/events from/to the scheduler.
 func NewSprintEventController(
 	config *sprintSched.Configuration,
 	scheduler scheduler.Scheduler,
@@ -83,15 +89,17 @@ func NewSprintEventController(
 	}
 }
 
-// Getter functions
+// Returns the scheduler that makes calls to Mesos.
 func (s *SprintEventController) Scheduler() scheduler.Scheduler {
 	return s.scheduler
 }
 
+// Returns the task manager which handles task state and persistent storage.
 func (s *SprintEventController) TaskManager() sprintTask.SprintTaskManager {
 	return s.taskmanager
 }
 
+// Returns the resource manager that handles matching offers with tasks.
 func (s *SprintEventController) ResourceManager() manager.ResourceManager {
 	return s.resourcemanager
 }
@@ -174,7 +182,7 @@ func (s *SprintEventController) periodicReconcile() {
 		case <-ticker.C:
 			recon, err := s.TaskManager().AllByState(sdkTaskManager.RUNNING)
 			if err != nil {
-				// log here.
+				s.logger.Emit(logging.ERROR, "Failed to reconcile all running tasks: %s", err.Error())
 				continue
 			}
 			s.Scheduler().Reconcile(recon)

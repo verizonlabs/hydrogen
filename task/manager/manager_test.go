@@ -6,19 +6,11 @@ import (
 	"mesos-framework-sdk/structures"
 	"mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
-	"os"
 	"sprint/scheduler"
 	mockStorage "sprint/task/persistence/test"
 	"strconv"
 	"testing"
 )
-
-func TestMain(m *testing.M) {
-	os.Setenv("TESTING", "true")
-	ret := m.Run()
-	os.Unsetenv("TESTING")
-	os.Exit(ret)
-}
 
 func CreateTestTask(name string) *mesos_v1.TaskInfo {
 	return &mesos_v1.TaskInfo{
