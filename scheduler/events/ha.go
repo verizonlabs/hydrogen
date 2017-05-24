@@ -63,16 +63,16 @@ func (s *SprintEventController) Communicate() {
 
 //
 // Election defines how we elect our leader in our HA mode.
-// We attempt to write ourselves as the leader in etcd.
-// If we cannot write and their is another leader already up, we simply
-// become a client and send a single byte via the TCP channel as a heartbeat.
-// Should the leader ever go down, we start the election again.
-// This is a simple approach in which who ever gets to write to etcd first
-// becomes the leader.
+// All running schedulers attempt to write themselves as the leader to etcd.
+// If there is another existing leader we connect to the leader as a client using TCP keepalive.
+// Should the leader ever go down, we start the election again and wait for an instance to win the election.
+// This is a simple approach in which who ever gets to write to etcd first becomes the leader.
+// Note that reads and writes are atomic operations.
 //
 func (s *SprintEventController) Election() {
 	for {
 		// This will only set us as the leader if there isn't an already existing leader.
+		// If there's an already existing leader then this call is effectively a no-op.
 		err := s.CreateLeader()
 		if err != nil {
 			s.logger.Emit(logging.ERROR, "Failed to persist leader information: %s", err.Error())
@@ -85,17 +85,18 @@ func (s *SprintEventController) Election() {
 			os.Exit(5)
 		}
 
+		// If the leader fetched from persistent storage does not match the IP provided to this instance
+		// then we should connect to the already existing leader.
 		if leader != s.config.Leader.IP {
 			s.status = ha.Listening
 			s.logger.Emit(logging.INFO, "Connecting to leader to determine when we need to wake up and perform leader election")
 
 			// Block here until we lose connection to the leader.
-			// Once the connection has been lost elect a new leader.
+			// Once the connection has been lost, elect a new leader.
 			err := s.leaderClient(leader)
 
 			// Only delete the key if we've lost the connection, not timed out.
 			// This conditional requires Go 1.6+
-
 			// NOTE (tim): Casting here is dangerous and could lead to a panic
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				s.logger.Emit(logging.ERROR, "Timed out connecting to leader")
@@ -136,6 +137,10 @@ func (s *SprintEventController) leaderClient(leader string) error {
 	}
 
 	s.status = ha.Talking
+
+	// Currently the leader server does not send us anything as we rely on TCP keepalive.
+	// Allocate the smallest buffer we can and block on reading data.
+	// If we don't do this we'll spin like crazy in an empty loop.
 	buffer := make([]byte, 1)
 	for {
 		_, err := tcp.Read(buffer)
