@@ -24,8 +24,22 @@ import (
 //Reads are reserved for reconciliation calls.
 //
 
+// TODO (tim): Task manager will keep a single queue from which all goroutines will read from.
+// There will be a queue per state.
+// When a go routine wants to read from the queue, it will create another channel to pass back.
+// The initial channel will write to the returned channel until the return channel is closed.
+
 const (
-	TASK_DIRECTORY = "/tasks/"
+	TASK_DIRECTORY    = "/tasks/"
+	DELETE         OP = "delete"
+	ADD            OP = "add"
+	GET            OP = "get"
+	GETBYID        OP = "getbyid"
+	HASTASK        OP = "hastask"
+	SET            OP = "set"
+	ALLBYSTATE     OP = "allbystate"
+	ALL            OP = "all"
+	STATE          OP = "state"
 )
 
 type (
@@ -40,27 +54,85 @@ type (
 	// The task handler manages all tasks that are submitted, updated, or deleted.
 	// Offers from Mesos are matched up with user-submitted tasks, and those tasks are updated via event callbacks.
 	SprintTaskHandler struct {
-		tasks   structures.DistributedMap
-		storage persistence.Storage
-		retries structures.DistributedMap
-		config  *scheduler.Configuration
-		logger  logging.Logger
+		tasks      map[string]manager.Task
+		storage    persistence.Storage
+		retries    structures.DistributedMap
+		config     *scheduler.Configuration
+		task       chan *mesos_v1.TaskInfo
+		logger     logging.Logger
+		writeQueue chan WriteResponse
+		readQueue  chan ReadResponse
 	}
+
+	WriteResponse struct {
+		task  *mesos_v1.TaskInfo
+		state mesos_v1.TaskState
+		reply chan error
+		op    OP
+	}
+
+	ReadResponse struct {
+		name       string
+		id         string
+		state      mesos_v1.TaskState
+		reply      chan *mesos_v1.TaskInfo
+		replyState chan mesos_v1.TaskState
+		replyTask  chan manager.Task
+		op         OP
+	}
+	OP string
 )
 
 // Returns the core task manager that's used by the scheduler.
 func NewTaskManager(
-	cmap structures.DistributedMap,
+	cmap map[string]manager.Task,
 	storage persistence.Storage,
 	config *scheduler.Configuration,
 	logger logging.Logger) SprintTaskManager {
 
-	return &SprintTaskHandler{
-		tasks:   cmap,
-		storage: storage,
-		retries: structures.NewConcurrentMap(),
-		config:  config,
-		logger:  logger,
+	handler := &SprintTaskHandler{
+		tasks:      cmap,
+		storage:    storage,
+		retries:    structures.NewConcurrentMap(),
+		config:     config,
+		task:       make(chan *mesos_v1.TaskInfo),
+		logger:     logger,
+		writeQueue: make(chan WriteResponse, 100),
+		readQueue:  make(chan ReadResponse, 100),
+	}
+	go handler.listen()
+	return handler
+}
+
+func (m *SprintTaskHandler) listen() {
+	for {
+		select {
+		case write := <-m.writeQueue:
+			switch write.op {
+			case ADD:
+				m.add(write)
+			case DELETE:
+				m.delete(write)
+			case SET:
+				m.set(write)
+			}
+		case read := <-m.readQueue:
+			switch read.op {
+			case GET:
+				m.get(read)
+			case GETBYID:
+				m.getById(read)
+			case HASTASK:
+				m.hasTask(read)
+			case STATE:
+				m.state(read)
+			case ALL:
+				m.all(read)
+			case ALLBYSTATE:
+				m.allByState(read)
+			}
+		default:
+		}
 	}
 }
 
@@ -160,26 +232,40 @@ func (s *SprintTaskHandler) ClearPolicy(mesosTask *mesos_v1.TaskInfo) error {
 // Adds and persists a new task into the task manager.
 // Duplicate task names are not allowed by Mesos, thus they are not allowed here.
 func (m *SprintTaskHandler) Add(t *mesos_v1.TaskInfo) error {
-	defer func() {
-		if r := recover(); r != nil {
-			m.logger.Emit(logging.INFO, "Recovered in Task manager Add", r)
-			return
-		}
-	}()
+	// Add a request to the AddQueue.
+	// Make a response struct to pass a channel to listen
+	// for a response.
+	reply := make(chan error, 1)
+	r := WriteResponse{task: t, reply: reply, op: ADD}
+	m.writeQueue <- r
+	response := <-r.reply // block until reply occurs.
+	if response != nil {
+		return response
+	}
+	return response
+}
 
-	name := t.GetName()
-	if m.tasks.Get(name) != nil {
-		return errors.New("Task " + name + " already exists")
+func (m *SprintTaskHandler) add(add WriteResponse) {
+	task := add.task
+
+	// Use a unique ID for storing in the map, taskid?
+	if _, ok := m.tasks[task.GetName()]; ok {
+		add.reply <- errors.New("Task " + task.GetName() + " already exists")
 	}
 
 	// Write forward.
-	encoded, err := m.encode(t, manager.UNKNOWN)
+	encoded, err := m.encode(task, manager.UNKNOWN)
 	if err != nil {
-		return err
+		add.reply <- err
 	}
 
-	id := t.TaskId.GetValue()
+	id := task.TaskId.GetValue()
+
+	// TODO (tim): Policy should be set once for all storage operations and taken care of by storage class.
+	// Storage.Create() is called and it's default policy is run.
+
 	policy, _ := m.storage.CheckPolicy(nil)
+
 	err = m.storage.RunPolicy(policy, func() error {
 		err := m.storage.Create(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
 		if err != nil {
@@ -187,7 +273,7 @@ func (m *SprintTaskHandler) Add(t *mesos_v1.TaskInfo) error {
 				logging.ERROR,
 				"Failed to save task %s with name %s to persistent data store. Retrying...",
 				id,
-				t.GetName(),
+				task.GetName(),
 			)
 		}
 
@@ -195,19 +281,32 @@ func (m *SprintTaskHandler) Add(t *mesos_v1.TaskInfo) error {
 	})
 
 	if err != nil {
-		return err
+		add.reply <- err
 	}
 
-	m.tasks.Set(t.GetName(), manager.Task{
+	m.tasks[task.GetName()] = manager.Task{
 		State: manager.UNKNOWN,
-		Info:  t,
-	})
+		Info:  task,
+	}
 
-	return nil
+	add.reply <- nil
 }
 
 // Deletes a task from memory and etcd, and clears any associated policy.
 func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) error {
+	reply := make(chan error)
+	r := WriteResponse{task: task, reply: reply, op: "delete"}
+	m.writeQueue <- r
+	response := <-r.reply // block until reply occurs.
+	close(r.reply)
+	if response != nil {
+		return response
+	}
+	return response
+}
+
+func (m *SprintTaskHandler) delete(res WriteResponse) {
+	task := res.task
 	policy, _ := m.storage.CheckPolicy(nil)
 	err := m.storage.RunPolicy(policy, func() error {
 		err := m.storage.Delete(TASK_DIRECTORY + task.GetTaskId().GetValue())
@@ -219,70 +318,110 @@ func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) error {
 	})
 
 	if err != nil {
-		return err
+		res.reply <- err
 	}
-
-	m.tasks.Delete(task.GetName())
+	delete(m.tasks, task.GetName())
 	m.ClearPolicy(task)
 
-	return nil
+	res.reply <- nil
 }
 
 // Gets a task by its name.
 func (m *SprintTaskHandler) Get(name *string) (*mesos_v1.TaskInfo, error) {
-	ret := m.tasks.Get(*name)
-	if ret != nil {
-		return ret.(manager.Task).Info, nil
+	reply := make(chan *mesos_v1.TaskInfo, 1)
+	r := ReadResponse{name: *name, reply: reply, op: GET}
+	m.readQueue <- r
+	response := <-r.reply // block until reply occurs.
+	if response == nil {
+		return nil, errors.New("Could not find task.")
 	}
+	return response, nil
+}
 
-	return nil, errors.New("Could not find task.")
+func (m *SprintTaskHandler) get(res ReadResponse) {
+	name := res.name
+	ret := m.tasks[name]
+	res.reply <- ret.Info
 }
 
 // Gets a task by its ID.
 func (m *SprintTaskHandler) GetById(id *mesos_v1.TaskID) (*mesos_v1.TaskInfo, error) {
-	if m.tasks.Length() == 0 {
+	if len(m.tasks) == 0 {
 		return nil, errors.New("Task manager is empty.")
 	}
+	reply := make(chan *mesos_v1.TaskInfo)
+	r := ReadResponse{id: id.GetValue(), reply: reply, op: GETBYID}
+	m.readQueue <- r
+	response := <-r.reply // block until reply occurs.
+	// If channel returns nil, nothing was found.
+	if response.TaskId == nil {
+		return nil, errors.New("Could not find task by id: " + id.GetValue())
+	}
+	// If channel wasn't nil, no error.
+	return response, nil
+}
 
-	for v := range m.tasks.Iterate() {
-		t := v.Value.(manager.Task)
-		if t.Info.GetTaskId().GetValue() == id.GetValue() {
-			return t.Info, nil
+func (m *SprintTaskHandler) getById(ret ReadResponse) {
+	id := ret.id
+	for _, v := range m.tasks {
+		if id == v.Info.GetTaskId().GetValue() {
+			ret.reply <- v.Info
+			return
 		}
 	}
-
-	return nil, errors.New("Could not find task by id: " + id.GetValue())
+	ret.reply <- &mesos_v1.TaskInfo{}
 }
 
 // Indicates whether or not the task manager holds the specified task.
 func (m *SprintTaskHandler) HasTask(task *mesos_v1.TaskInfo) bool {
-	ret := m.tasks.Get(task.GetName())
-	if ret == nil {
+	if len(m.tasks) == 0 {
+		return false // If the manager is empty, this one doesn't exist.
+	}
+	reply := make(chan manager.Task, 1)
+	r := ReadResponse{name: task.GetName(), replyTask: reply, op: HASTASK}
+	m.readQueue <- r
+	response := <-r.replyTask // block until reply occurs.
+	// If channel returns nil, nothing was found.
+	if response.Info == nil {
 		return false
 	}
-
+	// If channel wasn't nil, no error.
 	return true
+}
+
+func (m *SprintTaskHandler) hasTask(ret ReadResponse) {
+	if val, ok := m.tasks[ret.name]; ok {
+		ret.replyTask <- val
+	} else {
+		ret.replyTask <- manager.Task{}
+	}
 }
 
 // Returns the total number of tasks that the task manager holds.
 func (m *SprintTaskHandler) TotalTasks() int {
-	return m.tasks.Length()
-}
-
-// Returns the internal structure used to hold task data.
-func (m *SprintTaskHandler) Tasks() structures.DistributedMap {
-	return m.tasks
+	return len(m.tasks)
 }
 
 // Update the given task with the given state.
 func (m *SprintTaskHandler) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) error {
+	reply := make(chan error, 1)
+	r := WriteResponse{task: t, state: state, reply: reply, op: SET}
+	m.writeQueue <- r
+	response := <-r.reply
+	if response != nil {
+		return errors.New("Failed to set state on task")
+	}
+	return nil
+}
+
+func (m *SprintTaskHandler) set(ret WriteResponse) {
 	// Write forward.
-	encoded, err := m.encode(t, state)
+	encoded, err := m.encode(ret.task, ret.state)
 	if err != nil {
 		m.logger.Emit(logging.INFO, err.Error())
 	}
 
-	id := t.TaskId.GetValue()
+	id := ret.task.TaskId.GetValue()
 
 	policy, _ := m.storage.CheckPolicy(nil)
 	err = m.storage.RunPolicy(policy, func() error {
@@ -291,7 +430,7 @@ func (m *SprintTaskHandler) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) 
 			m.logger.Emit(
 				logging.ERROR, "Failed to update task %s with name %s to persistent data store. Retrying...",
 				id,
-				t.GetName(),
+				ret.task.GetName(),
 			)
 		}
 
@@ -299,57 +438,85 @@ func (m *SprintTaskHandler) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) 
 	})
 
 	if err != nil {
-		return err
+		ret.reply <- err
 	}
 
-	m.tasks.Set(t.GetName(), manager.Task{
-		Info:  t,
-		State: state,
-	})
-
-	return nil
+	m.tasks[ret.task.GetName()] = manager.Task{
+		Info:  ret.task,
+		State: ret.state,
+	}
+	ret.reply <- nil
 }
 
 // Gets the task's state based on the supplied task name.
 func (m *SprintTaskHandler) State(name *string) (*mesos_v1.TaskState, error) {
-	ret := m.tasks.Get(*name)
-	if ret != nil {
-		state := ret.(manager.Task).State
-		return &state, nil
-	}
+	reply := make(chan mesos_v1.TaskState, 1)
+	r := ReadResponse{name: *name, replyState: reply, op: STATE}
+	m.readQueue <- r
+	response := <-r.replyState // block until reply occurs.
+	return &response, nil
+}
 
-	return nil, errors.New("Task " + *name + " does not exist")
+func (m *SprintTaskHandler) state(ret ReadResponse) {
+	if r, ok := m.tasks[ret.name]; ok {
+		ret.replyState <- r.State
+	} else {
+		ret.replyState <- mesos_v1.TaskState_TASK_UNKNOWN
+	}
 }
 
 // Gets all tasks that match the given state.
 func (m *SprintTaskHandler) AllByState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
-	tasks := []*mesos_v1.TaskInfo{}
-	for v := range m.tasks.Iterate() {
-		t := v.Value.(manager.Task)
-		if t.State == state {
-			tasks = append(tasks, t.Info)
-		}
+	if len(m.tasks) == 0 {
+		return nil, errors.New("Task manager is empty")
+	}
+
+	reply := make(chan *mesos_v1.TaskInfo)
+	r := ReadResponse{state: state, reply: reply, op: ALLBYSTATE}
+	m.readQueue <- r
+
+	tasks := make([]*mesos_v1.TaskInfo, 0)
+	for task := range r.reply {
+		tasks = append(tasks, task)
 	}
 
 	if len(tasks) == 0 {
-		return nil, errors.New("No tasks found with state of " + state.String())
+		return nil, errors.New("No tasks with state " + state.String())
 	}
 
 	return tasks, nil
 }
 
+func (m *SprintTaskHandler) allByState(read ReadResponse) {
+	for _, v := range m.tasks {
+		if v.State == read.state {
+			read.reply <- v.Info
+		}
+	}
+	close(read.reply) // let the calling class know we're done sending values.
+}
+
 // Gets all tasks that are known to the task manager.
 func (m *SprintTaskHandler) All() ([]manager.Task, error) {
-	if m.tasks.Length() == 0 {
-		return nil, errors.New("Task manager is empty.")
+	if len(m.tasks) == 0 {
+		return nil, errors.New("Task manager is empty")
 	}
 
+	reply := make(chan manager.Task)
+	r := ReadResponse{replyTask: reply, op: ALL}
+	m.readQueue <- r
 	tasks := []manager.Task{}
-	for v := range m.tasks.Iterate() {
-		tasks = append(tasks, v.Value.(manager.Task))
+	for task := range r.replyTask {
+		tasks = append(tasks, task)
 	}
-
 	return tasks, nil
+}
+
+func (m *SprintTaskHandler) all(read ReadResponse) {
+	for _, v := range m.tasks {
+		read.replyTask <- v
+	}
+	close(read.replyTask)
 }
 
 //

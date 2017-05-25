@@ -3,7 +3,6 @@ package manager
 import (
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/logging"
-	"mesos-framework-sdk/structures"
 	"mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
 	"sprint/scheduler"
@@ -31,7 +30,7 @@ func CreateTestTask(name string) *mesos_v1.TaskInfo {
 }
 
 func TestNewTaskManager(t *testing.T) {
-	cmap := structures.NewConcurrentMap()
+	cmap := make(map[string]manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -47,7 +46,7 @@ func TestNewTaskManager(t *testing.T) {
 }
 
 func TestTaskManager_Cycle(t *testing.T) {
-	cmap := structures.NewConcurrentMap()
+	cmap := make(map[string]manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -74,7 +73,7 @@ func TestTaskManager_Cycle(t *testing.T) {
 }
 
 func TestTaskManager_Length(t *testing.T) {
-	cmap := structures.NewConcurrentMap()
+	cmap := make(map[string]manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -119,7 +118,7 @@ func TestTaskManager_Length(t *testing.T) {
 }
 
 func TestTaskManager_GetById(t *testing.T) {
-	cmap := structures.NewConcurrentMap()
+	cmap := make(map[string]manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -150,7 +149,7 @@ func TestTaskManager_GetById(t *testing.T) {
 }
 
 func TestTaskManager_State(t *testing.T) {
-	cmap := structures.NewConcurrentMap()
+	cmap := make(map[string]manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -170,7 +169,7 @@ func TestTaskManager_State(t *testing.T) {
 }
 
 func TestTaskManager_HasTask(t *testing.T) {
-	cmap := structures.NewConcurrentMap()
+	cmap := make(map[string]manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -189,7 +188,7 @@ func TestTaskManager_HasTask(t *testing.T) {
 }
 
 func TestTaskManager_Set(t *testing.T) {
-	cmap := structures.NewConcurrentMap()
+	cmap := make(map[string]manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -228,7 +227,7 @@ func TestTaskManager_Set(t *testing.T) {
 }
 
 func TestTaskManager_TotalTasks(t *testing.T) {
-	cmap := structures.NewConcurrentMap()
+	cmap := make(map[string]manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -265,16 +264,10 @@ func TestTaskManager_TotalTasks(t *testing.T) {
 		t.Logf("Expecting 1 tasks, got %v", tasksLength)
 		t.FailNow()
 	}
-
-	allTasks := taskManager.Tasks()
-	if allTasks.Length() != 1 {
-		t.Logf("Expecting 1 tasks, got %v", tasksLength)
-		t.FailNow()
-	}
 }
 
 func TestTaskManager_AddSameTask(t *testing.T) {
-	cmap := structures.NewConcurrentMap()
+	cmap := make(map[string]manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -293,7 +286,7 @@ func TestTaskManager_AddSameTask(t *testing.T) {
 }
 
 func TestTaskManager_DeleteFail(t *testing.T) {
-	cmap := structures.NewConcurrentMap()
+	cmap := make(map[string]manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -309,7 +302,7 @@ func TestTaskManager_DeleteFail(t *testing.T) {
 }
 
 func TestTaskManager_GetByIdFail(t *testing.T) {
-	cmap := structures.NewConcurrentMap()
+	cmap := make(map[string]manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -337,7 +330,7 @@ func TestTaskManager_GetByIdFail(t *testing.T) {
 }
 
 func TestTaskManager_HasTaskFail(t *testing.T) {
-	cmap := structures.NewConcurrentMap()
+	cmap := make(map[string]manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -357,7 +350,7 @@ func TestTaskManager_HasTaskFail(t *testing.T) {
 }
 
 func TestTaskManager_HasTaskFailWithBrokenStorage(t *testing.T) {
-	cmap := structures.NewConcurrentMap()
+	cmap := make(map[string]manager.Task)
 	storage := mockStorage.MockBrokenStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -375,7 +368,7 @@ func TestTaskManager_HasTaskFailWithBrokenStorage(t *testing.T) {
 }
 
 func TestTaskManager_DeleteFailWithBrokenStorage(t *testing.T) {
-	cmap := structures.NewConcurrentMap()
+	cmap := make(map[string]manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -389,7 +382,7 @@ func TestTaskManager_DeleteFailWithBrokenStorage(t *testing.T) {
 }
 
 func TestTaskManager_SetFailWithBrokenStorage(t *testing.T) {
-	cmap := structures.NewConcurrentMap()
+	cmap := make(map[string]manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -400,17 +393,4 @@ func TestTaskManager_SetFailWithBrokenStorage(t *testing.T) {
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	testTask := CreateTestTask("testTask")
 	taskManager.Set(manager.FAILED, testTask)
-}
-
-func TestTaskManager_EncodeFailWithBrokenStorage(t *testing.T) {
-	cmap := structures.NewConcurrentMap()
-	storage := mockStorage.MockStorage{}
-	config := &scheduler.Configuration{
-		Persistence: &scheduler.PersistenceConfiguration{
-			MaxRetries: 0,
-		},
-	}
-	logger := logging.NewDefaultLogger()
-	taskManager := NewTaskManager(cmap, storage, config, logger)
-	taskManager.Add(nil) // Panic will fail testing if it occurs.
 }

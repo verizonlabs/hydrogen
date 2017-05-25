@@ -22,6 +22,7 @@ type Persistence struct {
 	persistence.KeyValueStore
 	policy retry.TaskRetry
 }
+
 // Returns the main persistence engine that's used across the framework.
 func NewPersistence(kv persistence.KeyValueStore, config *scheduler.Configuration) Storage {
 	return &Persistence{

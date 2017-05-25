@@ -22,7 +22,7 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 	if err != nil {
 		s.logger.Emit(logging.INFO, "No tasks to launch.")
 		s.scheduler.Suppress()
-		s.declineOffers(offerEvent.GetOffers(), refuseSeconds) // All offers to decline.
+		s.declineOffers(offerEvent.GetOffers(), refuseSeconds)
 		return
 	}
 

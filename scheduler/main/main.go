@@ -11,7 +11,7 @@ import (
 	sched "mesos-framework-sdk/scheduler"
 	"mesos-framework-sdk/server"
 	"mesos-framework-sdk/server/file"
-	"mesos-framework-sdk/structures"
+	t "mesos-framework-sdk/task/manager"
 	"net/http"
 	"sprint/scheduler"
 	"sprint/scheduler/api"
@@ -72,7 +72,7 @@ func main() {
 
 	// Wire up dependencies for the event controller
 	t := sprintTaskManager.NewTaskManager(
-		structures.NewConcurrentMap(DEFAULT_MAP_SIZE),
+		make(map[string]t.Task),
 		p,
 		config,
 		logger,

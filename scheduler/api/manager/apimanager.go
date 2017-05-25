@@ -10,6 +10,8 @@ import (
 	t "mesos-framework-sdk/task/manager"
 	"sprint/task/builder"
 	"sprint/task/manager"
+	"src/github.com/golang/protobuf/proto"
+	"strconv"
 )
 
 var (
@@ -55,12 +57,6 @@ func (m *Parser) Deploy(decoded []byte) (*mesos_v1.TaskInfo, error) {
 		return nil, err
 	}
 
-	// Check if a task with this name already exists.
-	exists, err := m.taskManager.Get(mesosTask.Name)
-	if exists != nil {
-		return nil, errors.New("Duplicate task name.")
-	}
-
 	// If we have any filters, let the resource manager know.
 	if len(appJson.Filters) > 0 {
 		if err := m.resourceManager.AddFilter(mesosTask, appJson.Filters); err != nil {
@@ -68,6 +64,7 @@ func (m *Parser) Deploy(decoded []byte) (*mesos_v1.TaskInfo, error) {
 		}
 	}
 
+	// Check for retry policy.
 	if appJson.Retry != nil {
 		err := m.taskManager.AddPolicy(appJson.Retry, mesosTask)
 		if err != nil {
@@ -80,8 +77,39 @@ func (m *Parser) Deploy(decoded []byte) (*mesos_v1.TaskInfo, error) {
 		}
 	}
 
-	if err := m.taskManager.Add(mesosTask); err != nil {
-		return nil, err
+	// Deployment strategy
+	if appJson.Instances == 1 {
+		if err := m.taskManager.Add(mesosTask); err != nil {
+			return nil, err
+		}
+	} else if appJson.Instances > 1 {
+		var duplicate *mesos_v1.TaskInfo
+		name := mesosTask.GetName()
+		taskId := mesosTask.GetTaskId().GetValue()
+		for i := 0; i < appJson.Instances-1; i++ {
+			duplicate = &mesos_v1.TaskInfo{
+				Name:        mesosTask.Name,
+				TaskId:      mesosTask.TaskId,
+				AgentId:     mesosTask.AgentId,
+				Resources:   mesosTask.Resources,
+				Executor:    mesosTask.Executor,
+				Command:     mesosTask.Command,
+				Container:   mesosTask.Container,
+				HealthCheck: mesosTask.HealthCheck,
+				Check:       mesosTask.Check,
+				KillPolicy:  mesosTask.KillPolicy,
+				Data:        mesosTask.Data,
+				Labels:      mesosTask.Labels,
+				Discovery:   mesosTask.Discovery,
+			}
+			duplicate.Name = proto.String(name + "-" + strconv.Itoa(i+1))
+			duplicate.TaskId = &mesos_v1.TaskID{Value: proto.String(taskId + "-" + strconv.Itoa(i+1))}
+			if err := m.taskManager.Add(duplicate); err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		return nil, errors.New("0 instances passed in. Not launching any tasks.")
 	}
 
 	m.scheduler.Revive()
