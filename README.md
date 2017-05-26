@@ -32,7 +32,7 @@ This is not valid JSON to launch but an example enumeration of all options avail
   "resources": {
     "cpu": 1.5,                          # CPU shares
     "mem": 128.25,                       # Memory
-    "disk": 1024.00                      # Disk
+    "disk": {"size": 1024.00}            # Disk
   },
   "filters": [                           # Used to filter mesos attributes
       {
