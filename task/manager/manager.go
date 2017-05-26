@@ -124,7 +124,6 @@ func (m *SprintTaskHandler) listen() {
 			case LEN:
 				m.totalTasks(read)
 			}
-		default:
 		}
 	}
 }
@@ -220,16 +219,11 @@ func (m *SprintTaskHandler) Add(t *mesos_v1.TaskInfo) error {
 	reply := make(chan error, 1)
 	r := WriteResponse{task: t, reply: reply, op: ADD}
 	m.writeQueue <- r
-	select {
-	case response := <-r.reply:
-		if response != nil {
-			return response
-		}
+	response := <-r.reply
+	if response != nil {
 		return response
-	case <-time.After(1 * time.Second):
-		break
 	}
-	return errors.New("Add operation timed out.")
+	return response
 }
 
 func (m *SprintTaskHandler) add(add WriteResponse) {
@@ -284,17 +278,12 @@ func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) error {
 	reply := make(chan error)
 	r := WriteResponse{task: task, reply: reply, op: "delete"}
 	m.writeQueue <- r
-	select {
-	case response := <-r.reply:
-		close(r.reply)
-		if response != nil {
-			return response
-		}
+	response := <-r.reply
+	close(r.reply)
+	if response != nil {
 		return response
-	case <-time.After(1 * time.Second):
-		break
 	}
-	return errors.New("Delete timed out.")
+	return response
 }
 
 func (m *SprintTaskHandler) delete(res WriteResponse) {
@@ -323,16 +312,11 @@ func (m *SprintTaskHandler) Get(name *string) (*mesos_v1.TaskInfo, error) {
 	reply := make(chan *mesos_v1.TaskInfo, 1)
 	r := ReadResponse{name: *name, reply: reply, op: GET}
 	m.readQueue <- r
-	select {
-	case response := <-r.reply:
-		if response == nil {
-			return nil, errors.New("Could not find task.")
-		}
-		return response, nil
-	case <-time.After(1 * time.Second):
-		break
+	response := <-r.reply
+	if response == nil {
+		return nil, errors.New("Could not find task.")
 	}
-	return nil, errors.New("Get timed out.")
+	return response, nil
 }
 
 func (m *SprintTaskHandler) get(res ReadResponse) {
@@ -348,16 +332,11 @@ func (m *SprintTaskHandler) GetById(id *mesos_v1.TaskID) (*mesos_v1.TaskInfo, er
 	reply := make(chan *mesos_v1.TaskInfo)
 	r := ReadResponse{id: id.GetValue(), reply: reply, op: GETBYID}
 	m.readQueue <- r
-	select {
-	case response := <-r.reply:
-		if response.TaskId == nil {
-			return nil, errors.New("Could not find task by id: " + id.GetValue())
-		}
-		return response, nil
-	case <-time.After(1 * time.Second):
-		break
+	response := <-r.reply
+	if response.TaskId == nil {
+		return nil, errors.New("Could not find task by id: " + id.GetValue())
 	}
-	return nil, errors.New("GetById timed out.")
+	return response, nil
 }
 
 func (m *SprintTaskHandler) getById(ret ReadResponse) {
@@ -379,16 +358,12 @@ func (m *SprintTaskHandler) HasTask(task *mesos_v1.TaskInfo) bool {
 	reply := make(chan manager.Task, 1)
 	r := ReadResponse{name: task.GetName(), replyTask: reply, op: HASTASK}
 	m.readQueue <- r
-	select {
-	case response := <-r.replyTask:
-		if response.Info == nil {
-			return false
-		}
-		return true
-	case <-time.After(1 * time.Second):
-		break
+	response := <-r.replyTask
+	if response.Info == nil {
+		return false
 	}
-	return false
+	return true
+
 }
 
 func (m *SprintTaskHandler) hasTask(ret ReadResponse) {
@@ -404,13 +379,8 @@ func (m *SprintTaskHandler) TotalTasks() int {
 	replyLength := make(chan int, 1)
 	r := ReadResponse{replySize: replyLength, op: LEN}
 	m.readQueue <- r
-	select {
-	case response := <-r.replySize:
-		return response
-	case <-time.After(1 * time.Second):
-		break
-	}
-	return 0
+	response := <-r.replySize
+	return response
 }
 
 func (m *SprintTaskHandler) totalTasks(read ReadResponse) {
@@ -422,16 +392,11 @@ func (m *SprintTaskHandler) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) 
 	reply := make(chan error, 1)
 	r := WriteResponse{task: t, state: state, reply: reply, op: SET}
 	m.writeQueue <- r
-	select {
-	case response := <-r.reply:
-		if response != nil {
-			return errors.New("Failed to set state on task")
-		}
-		return nil
-	case <-time.After(1 * time.Second):
-		break
+	response := <-r.reply
+	if response != nil {
+		return errors.New("Failed to set state on task")
 	}
-	return errors.New("Set timed out.")
+	return nil
 }
 
 func (m *SprintTaskHandler) set(ret WriteResponse) {
@@ -473,13 +438,8 @@ func (m *SprintTaskHandler) State(name *string) (*mesos_v1.TaskState, error) {
 	reply := make(chan mesos_v1.TaskState, 1)
 	r := ReadResponse{name: *name, replyState: reply, op: STATE}
 	m.readQueue <- r
-	select {
-	case response := <-r.replyState:
-		return &response, nil
-	case <-time.After(1 * time.Second):
-		break
-	}
-	return nil, errors.New("State timed out.")
+	response := <-r.replyState
+	return &response, nil
 }
 
 func (m *SprintTaskHandler) state(ret ReadResponse) {
@@ -499,22 +459,17 @@ func (m *SprintTaskHandler) AllByState(state mesos_v1.TaskState) ([]*mesos_v1.Ta
 	reply := make(chan *mesos_v1.TaskInfo)
 	r := ReadResponse{state: state, reply: reply, op: ALLBYSTATE}
 
-	select {
-	case m.readQueue <- r:
-		tasks := make([]*mesos_v1.TaskInfo, 0)
-		for task := range r.reply {
-			tasks = append(tasks, task)
-		}
-
-		if len(tasks) == 0 {
-			return nil, errors.New("No tasks with state " + state.String())
-		}
-
-		return tasks, nil
-	case <-time.After(1 * time.Second):
-		break
+	m.readQueue <- r
+	tasks := make([]*mesos_v1.TaskInfo, 0)
+	for task := range r.reply {
+		tasks = append(tasks, task)
 	}
-	return nil, errors.New("AllByState timed out.")
+
+	if len(tasks) == 0 {
+		return nil, errors.New("No tasks with state " + state.String())
+	}
+
+	return tasks, nil
 }
 
 func (m *SprintTaskHandler) allByState(read ReadResponse) {

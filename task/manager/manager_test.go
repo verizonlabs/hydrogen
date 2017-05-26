@@ -394,3 +394,51 @@ func TestTaskManager_SetFailWithBrokenStorage(t *testing.T) {
 	testTask := CreateTestTask("testTask")
 	taskManager.Set(manager.FAILED, testTask)
 }
+
+func TestTaskManager_AddManyTasks(t *testing.T) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	tasks := make([]*mesos_v1.TaskInfo, 0)
+	for i := 0; i <= 1000; i++ {
+		tasks = append(tasks, CreateTestTask("testTask"+strconv.Itoa(i)))
+	}
+	for _, k := range tasks {
+		taskManager.Set(manager.UNKNOWN, k)
+	}
+	if taskManager.TotalTasks() == 1000 {
+		t.Log(taskManager.TotalTasks())
+	}
+}
+
+func TestTaskManager_AddManyTasksAndDelete(t *testing.T) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	tasks := make([]*mesos_v1.TaskInfo, 0)
+	for i := 0; i <= 1000; i++ {
+		tasks = append(tasks, CreateTestTask("testTask"+strconv.Itoa(i)))
+	}
+	for _, k := range tasks {
+		taskManager.Set(manager.UNKNOWN, k)
+	}
+	if taskManager.TotalTasks() == 1000 {
+		t.Log(taskManager.TotalTasks())
+	}
+	for _, k := range tasks {
+		taskManager.Delete(k)
+	}
+
+}
