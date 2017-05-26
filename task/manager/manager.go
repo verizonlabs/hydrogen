@@ -24,11 +24,6 @@ import (
 //Reads are reserved for reconciliation calls.
 //
 
-// TODO (tim): Task manager will keep a single queue from which all goroutines will read from.
-// There will be a queue per state.
-// When a go routine wants to read from the queue, it will create another channel to pass back.
-// The initial channel will write to the returned channel until the return channel is closed.
-
 const (
 	TASK_DIRECTORY    = "/tasks/"
 	DELETE         OP = "delete"
