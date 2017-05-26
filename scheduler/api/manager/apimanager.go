@@ -83,28 +83,13 @@ func (m *Parser) Deploy(decoded []byte) (*mesos_v1.TaskInfo, error) {
 			return nil, err
 		}
 	} else if appJson.Instances > 1 {
-		var duplicate *mesos_v1.TaskInfo
 		name := mesosTask.GetName()
 		taskId := mesosTask.GetTaskId().GetValue()
 		for i := 0; i < appJson.Instances-1; i++ {
-			duplicate = &mesos_v1.TaskInfo{
-				Name:        mesosTask.Name,
-				TaskId:      mesosTask.TaskId,
-				AgentId:     mesosTask.AgentId,
-				Resources:   mesosTask.Resources,
-				Executor:    mesosTask.Executor,
-				Command:     mesosTask.Command,
-				Container:   mesosTask.Container,
-				HealthCheck: mesosTask.HealthCheck,
-				Check:       mesosTask.Check,
-				KillPolicy:  mesosTask.KillPolicy,
-				Data:        mesosTask.Data,
-				Labels:      mesosTask.Labels,
-				Discovery:   mesosTask.Discovery,
-			}
+			duplicate := *mesosTask
 			duplicate.Name = proto.String(name + "-" + strconv.Itoa(i+1))
 			duplicate.TaskId = &mesos_v1.TaskID{Value: proto.String(taskId + "-" + strconv.Itoa(i+1))}
-			if err := m.taskManager.Add(duplicate); err != nil {
+			if err := m.taskManager.Add(&duplicate); err != nil {
 				return nil, err
 			}
 		}
