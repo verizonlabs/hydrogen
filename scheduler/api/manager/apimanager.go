@@ -3,7 +3,6 @@ package manager
 import (
 	"encoding/json"
 	"errors"
-	"github.com/golang/protobuf/proto"
 	"mesos-framework-sdk/include/mesos_v1"
 	r "mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
@@ -83,12 +82,16 @@ func (m *Parser) Deploy(decoded []byte) (*mesos_v1.TaskInfo, error) {
 			return nil, err
 		}
 	} else if appJson.Instances > 1 {
-		name := mesosTask.GetName()
+		originalName := mesosTask.GetName()
 		taskId := mesosTask.GetTaskId().GetValue()
 		for i := 0; i < appJson.Instances-1; i++ {
+			var id *string
+			var name *string
+			*id = taskId + "-" + strconv.Itoa(i+1)
+			*name = originalName + "-" + strconv.Itoa(i+1)
 			duplicate := *mesosTask
-			duplicate.Name = proto.String(name + "-" + strconv.Itoa(i+1))
-			duplicate.TaskId = &mesos_v1.TaskID{Value: proto.String(taskId + "-" + strconv.Itoa(i+1))}
+			duplicate.Name = name
+			duplicate.TaskId = &mesos_v1.TaskID{Value: id}
 			if err := m.taskManager.Add(&duplicate); err != nil {
 				return nil, err
 			}
@@ -108,7 +111,6 @@ func (m *Parser) Update(decoded []byte) (*mesos_v1.TaskInfo, error) {
 		return nil, err
 	}
 
-	// Check if this task already exists
 	taskToKill, err := m.taskManager.Get(&appJson.Name)
 	if err != nil {
 		return nil, err
