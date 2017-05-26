@@ -3,6 +3,7 @@ package manager
 import (
 	"encoding/json"
 	"errors"
+	"github.com/golang/protobuf/proto"
 	"mesos-framework-sdk/include/mesos_v1"
 	r "mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
@@ -10,7 +11,6 @@ import (
 	t "mesos-framework-sdk/task/manager"
 	"sprint/task/builder"
 	"sprint/task/manager"
-	"src/github.com/golang/protobuf/proto"
 	"strconv"
 )
 

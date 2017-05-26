@@ -10,7 +10,6 @@ import (
 	sdkTaskManager "mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
 	"os"
-
 	"os/signal"
 	sprintSched "sprint/scheduler"
 	sprintTask "sprint/task/manager"
