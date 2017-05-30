@@ -2,6 +2,7 @@ package manager
 
 import (
 	"encoding/json"
+	"errors"
 	"mesos-framework-sdk/include/mesos_v1"
 	r "mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
@@ -9,6 +10,7 @@ import (
 	t "mesos-framework-sdk/task/manager"
 	"sprint/task/builder"
 	"sprint/task/manager"
+	"strconv"
 )
 
 var (
@@ -61,6 +63,7 @@ func (m *Parser) Deploy(decoded []byte) (*mesos_v1.TaskInfo, error) {
 		}
 	}
 
+	// Check for retry policy.
 	if appJson.Retry != nil {
 		err := m.taskManager.AddPolicy(appJson.Retry, mesosTask)
 		if err != nil {
@@ -73,8 +76,28 @@ func (m *Parser) Deploy(decoded []byte) (*mesos_v1.TaskInfo, error) {
 		}
 	}
 
-	if err := m.taskManager.Add(mesosTask); err != nil {
-		return nil, err
+	// Deployment strategy
+	if appJson.Instances == 1 {
+		if err := m.taskManager.Add(mesosTask); err != nil {
+			return nil, err
+		}
+	} else if appJson.Instances > 1 {
+		originalName := mesosTask.GetName()
+		taskId := mesosTask.GetTaskId().GetValue()
+		for i := 0; i < appJson.Instances-1; i++ {
+			var id *string
+			var name *string
+			*id = taskId + "-" + strconv.Itoa(i+1)
+			*name = originalName + "-" + strconv.Itoa(i+1)
+			duplicate := *mesosTask
+			duplicate.Name = name
+			duplicate.TaskId = &mesos_v1.TaskID{Value: id}
+			if err := m.taskManager.Add(&duplicate); err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		return nil, errors.New("0 instances passed in. Not launching any tasks.")
 	}
 
 	m.scheduler.Revive()
@@ -88,7 +111,6 @@ func (m *Parser) Update(decoded []byte) (*mesos_v1.TaskInfo, error) {
 		return nil, err
 	}
 
-	// Check if this task already exists
 	taskToKill, err := m.taskManager.Get(&appJson.Name)
 	if err != nil {
 		return nil, err
