@@ -326,7 +326,7 @@ func (m *SprintTaskHandler) get(res ReadResponse) {
 
 // Gets a task by its ID.
 func (m *SprintTaskHandler) GetById(id *mesos_v1.TaskID) (*mesos_v1.TaskInfo, error) {
-	if len(m.tasks) == 0 {
+	if m.TotalTasks() == 0 {
 		return nil, errors.New("Task manager is empty.")
 	}
 	reply := make(chan *mesos_v1.TaskInfo)
@@ -352,7 +352,7 @@ func (m *SprintTaskHandler) getById(ret ReadResponse) {
 
 // Indicates whether or not the task manager holds the specified task.
 func (m *SprintTaskHandler) HasTask(task *mesos_v1.TaskInfo) bool {
-	if len(m.tasks) == 0 {
+	if m.TotalTasks() == 0 {
 		return false // If the manager is empty, this one doesn't exist.
 	}
 	reply := make(chan manager.Task, 1)
@@ -452,7 +452,7 @@ func (m *SprintTaskHandler) state(ret ReadResponse) {
 
 // Gets all tasks that match the given state.
 func (m *SprintTaskHandler) AllByState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
-	if len(m.tasks) == 0 {
+	if m.TotalTasks() == 0 {
 		return nil, errors.New("Task manager is empty")
 	}
 
