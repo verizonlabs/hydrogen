@@ -432,6 +432,7 @@ func TestTaskManager_AddManyTasksAndDelete(t *testing.T) {
 		tasks = append(tasks, CreateTestTask("testTask"+strconv.Itoa(i)))
 	}
 	for _, k := range tasks {
+		taskManager.Add(k)
 		taskManager.Set(manager.UNKNOWN, k)
 	}
 	if taskManager.TotalTasks() == 1000 {
@@ -440,5 +441,32 @@ func TestTaskManager_AddManyTasksAndDelete(t *testing.T) {
 	for _, k := range tasks {
 		taskManager.Delete(k)
 	}
+}
 
+func TestTaskManager_DoubleAdd(t *testing.T) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	tasks := make([]*mesos_v1.TaskInfo, 1000)
+	for i := 0; i < 1000; i++ {
+		tasks[i] = CreateTestTask("testTask" + strconv.Itoa(i))
+	}
+	for _, k := range tasks {
+		taskManager.Add(k)
+		// Try to add the task again, should fail and throw an err.
+		if err := taskManager.Add(k); err == nil {
+			t.Log("Able to add multiples of the same task", err.Error())
+		}
+		taskManager.Set(manager.UNKNOWN, k)
+	}
+
+	if taskManager.TotalTasks() != 1000 {
+		t.Log("Expecting 1000 tasks in total, got " + strconv.Itoa(taskManager.TotalTasks()))
+	}
 }
