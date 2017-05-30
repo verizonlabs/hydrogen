@@ -3,12 +3,15 @@ package manager
 import (
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/logging"
+	"mesos-framework-sdk/task"
 	"mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
 	"sprint/scheduler"
 	mockStorage "sprint/task/persistence/test"
+	"sprint/task/retry"
 	"strconv"
 	"testing"
+	"time"
 )
 
 func CreateTestTask(name string) *mesos_v1.TaskInfo {
@@ -469,4 +472,290 @@ func TestTaskManager_DoubleAdd(t *testing.T) {
 	if taskManager.TotalTasks() != 1000 {
 		t.Log("Expecting 1000 tasks in total, got " + strconv.Itoa(taskManager.TotalTasks()))
 	}
+}
+
+func BenchmarkSprintTaskHandler_Add(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	t := CreateTestTask("test")
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.Add(t)
+	}
+	b.StopTimer()
+}
+
+func BenchmarkSprintTaskHandler_Delete(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	t := CreateTestTask("test")
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.Delete(t)
+	}
+	b.StopTimer()
+
+}
+
+func BenchmarkSprintTaskHandler_Get(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	t := CreateTestTask("test")
+	taskManager.Add(t)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.Get(t.Name)
+	}
+	b.StopTimer()
+}
+
+func BenchmarkSprintTaskHandler_Set(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	t := CreateTestTask("test")
+	taskManager.Add(t)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.Set(manager.UNKNOWN, t)
+	}
+	b.StopTimer()
+}
+
+func BenchmarkSprintTaskHandler_GetById(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	t := CreateTestTask("test")
+	taskManager.Add(t)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.GetById(t.TaskId)
+	}
+	b.StopTimer()
+}
+
+func BenchmarkSprintTaskHandler_HasTask(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	t := CreateTestTask("test")
+	taskManager.Add(t)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.HasTask(t)
+	}
+	b.StopTimer()
+}
+
+func BenchmarkSprintTaskHandler_All(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	t := CreateTestTask("test")
+	taskManager.Add(t)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.All()
+	}
+	b.StopTimer()
+}
+
+func BenchmarkSprintTaskHandler_TotalTasks(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	t := CreateTestTask("test")
+	taskManager.Add(t)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.TotalTasks()
+	}
+	b.StopTimer()
+}
+
+func BenchmarkSprintTaskHandler_State(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	t := CreateTestTask("test")
+	taskManager.Add(t)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.State(t.Name)
+	}
+	b.StopTimer()
+}
+
+func BenchmarkSprintTaskHandler_AddPolicy(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	t := CreateTestTask("test")
+	taskManager.Add(t)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.AddPolicy(&task.TimeRetry{
+			Time:       "1",
+			Backoff:    true,
+			MaxRetries: 100,
+		}, t)
+	}
+	b.StopTimer()
+}
+
+func BenchmarkSprintTaskHandler_CheckPolicy(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	t := CreateTestTask("test")
+	taskManager.Add(t)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.CheckPolicy(t)
+	}
+	b.StopTimer()
+}
+
+func BenchmarkSprintTaskHandler_ClearPolicy(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	t := CreateTestTask("test")
+	taskManager.Add(t)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.ClearPolicy(t)
+	}
+	b.StopTimer()
+}
+
+func BenchmarkSprintTaskHandler_RunPolicy(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	t := CreateTestTask("test")
+	taskManager.Add(t)
+	retryFunc := func() error {
+
+		// Check if the task has been deleted while waiting for a retry.
+		t, err := taskManager.Get(t.Name)
+		if err != nil {
+			return err
+		}
+		taskManager.Set(manager.UNKNOWN, t)
+
+		return nil
+	}
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.RunPolicy(&retry.TaskRetry{
+			TotalRetries: 0,
+			MaxRetries:   100,
+			RetryTime:    1 * time.Nanosecond,
+			Backoff:      false,
+			Name:         "test",
+		}, retryFunc)
+	}
+	b.StopTimer()
+}
+
+func BenchmarkSprintTaskHandler_AllByState(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	t := CreateTestTask("test")
+	taskManager.Add(t)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.AllByState(manager.UNKNOWN)
+	}
+	b.StopTimer()
 }
