@@ -26,7 +26,7 @@ var (
 type (
 	ApiParser interface {
 		Deploy([]byte) (*mesos_v1.TaskInfo, error)
-		Kill([]byte) error
+		Kill([]byte) (string, error)
 		Update([]byte) (*mesos_v1.TaskInfo, error)
 		Status(string) (mesos_v1.TaskState, error)
 		AllTasks() ([]t.Task, error)
@@ -142,45 +142,45 @@ func (m *Parser) Update(decoded []byte) (*mesos_v1.TaskInfo, error) {
 	return mesosTask, nil
 }
 
-func (m *Parser) Kill(decoded []byte) error {
+func (m *Parser) Kill(decoded []byte) (string, error) {
 	var appJson task.KillJson
 	err := json.Unmarshal(decoded, &appJson)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// Make sure we have a name to look up
 	if appJson.Name == nil {
-		return nil
+		return "", errors.New("Task name is nil")
 	}
 
 	// Look up task in task manager
 	tsk, err := m.taskManager.Get(appJson.Name)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	state, err := m.taskManager.State(tsk.Name)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	err = m.taskManager.Delete(tsk)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	m.resourceManager.ClearFilters(tsk)
 	if *state == t.STAGING || *state == t.RUNNING || *state == t.STARTING {
 		_, err := m.scheduler.Kill(tsk.GetTaskId(), tsk.GetAgentId())
 		if err != nil {
-			return err
+			return "", err
 		}
 
-		return nil
+		return *appJson.Name, nil
 	}
 
-	return nil
+	return "", errors.New("Task isn't staging, starting, or running")
 }
 
 func (m *Parser) Status(name string) (mesos_v1.TaskState, error) {

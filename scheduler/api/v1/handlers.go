@@ -2,7 +2,6 @@ package v1
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	apiManager "sprint/scheduler/api/manager"
@@ -25,14 +24,19 @@ func failureResponse(w http.ResponseWriter, msg string) {
 	})
 }
 
+func successResponse(w http.ResponseWriter, status, name, msg string) {
+	json.NewEncoder(w).Encode(Response{
+		Status:   status,
+		TaskName: name,
+		Message:  msg,
+	})
+}
+
 // Deploy handler launches a given application from parsed JSON.
 func (h *Handlers) Deploy(w http.ResponseWriter, r *http.Request) {
 	dec, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		json.NewEncoder(w).Encode(Response{
-			Status:  FAILED,
-			Message: err.Error(),
-		})
+		failureResponse(w, err.Error())
 		return
 	}
 
@@ -44,20 +48,14 @@ func (h *Handlers) Deploy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(Response{
-		Status:   QUEUED,
-		TaskName: task.GetName(),
-	})
+	successResponse(w, QUEUED, task.GetName(), "Task successfully queued.")
 }
 
 // Update handler allows for updates to an existing/running task.
 func (h *Handlers) Update(w http.ResponseWriter, r *http.Request) {
 	dec, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		json.NewEncoder(w).Encode(Response{
-			Status:  FAILED,
-			Message: err.Error(),
-		})
+		failureResponse(w, err.Error())
 		return
 	}
 
@@ -69,10 +67,9 @@ func (h *Handlers) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(Response{
-		Status:  UPDATE,
-		Message: fmt.Sprintf("Updating %v", newTask.GetName()),
-	})
+	name := newTask.GetName()
+
+	successResponse(w, UPDATE, name, "Updating "+name+".")
 }
 
 // Kill handler allows users to stop their running task.
@@ -84,35 +81,32 @@ func (h *Handlers) Kill(w http.ResponseWriter, r *http.Request) {
 
 	defer r.Body.Close()
 
-	err = h.manager.Kill(dec)
+	name, err := h.manager.Kill(dec)
 	if err != nil {
 		failureResponse(w, err.Error())
 		return
 	}
 
-	json.NewEncoder(w).Encode(Response{
-		Status:  KILLED,
-		Message: "Successfully killed task.",
-	})
+	successResponse(w, KILLED, name, "Successfully killed task task "+name)
 }
 
 // State handler provides the given task's current execution status.
 func (h *Handlers) State(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Query().Get("name")
 	if name == "" {
-		json.NewEncoder(w).Encode(Response{
-			Status:  FAILED,
-			Message: "No name was found in URL params.",
-		})
+		failureResponse(w, "No name was found in URL params.")
 		return
 	}
+
 	state, err := h.manager.Status(name)
 	if err != nil {
 		failureResponse(w, err.Error())
 		return
 	}
 
-	json.NewEncoder(w).Encode(Response{Status: state.String(), TaskName: name})
+	stateStr := state.String()
+
+	successResponse(w, stateStr, name, "Task is "+stateStr)
 }
 
 // Tasks handler provides a list of all tasks known to the scheduler.
