@@ -8,13 +8,12 @@ import (
 	apiManager "sprint/scheduler/api/manager"
 )
 
-// API server used for scheduling/updating/killing tasks.
-// Provides an interface for users to interact with the core scheduler.
+// API handlers communicate with the API manager to perform the appropriate actions.
 type Handlers struct {
 	manager apiManager.ApiParser
 }
 
-// Returns a new API server injected with the necessary components.
+// Returns a new handlers instance for mapping routes.
 func NewHandlers(mgr apiManager.ApiParser) *Handlers {
 	return &Handlers{manager: mgr}
 }

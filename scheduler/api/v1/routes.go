@@ -6,6 +6,7 @@ import (
 
 const baseUrl string = "/v1/api"
 
+// Returns a mapping of routes to their respective handlers.
 func MapRoutes(h *Handlers) map[string]http.HandlerFunc {
 	return map[string]http.HandlerFunc{
 		baseUrl + "/deploy": h.Deploy,

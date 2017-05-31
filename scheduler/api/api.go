@@ -9,13 +9,6 @@ import (
 	"sprint/scheduler/api/v1"
 )
 
-// Common format for API responses.
-type Response struct {
-	Status   string
-	TaskName string
-	Message  string
-}
-
 // API server used for scheduling/updating/killing tasks.
 // Provides an interface for users to interact with the core scheduler.
 type ApiServer struct {
@@ -25,20 +18,15 @@ type ApiServer struct {
 }
 
 // Returns a new API server injected with the necessary components.
-func NewApiServer(
-	cfg *sched.Configuration,
-	mgr apiManager.ApiParser,
-	lgr logging.Logger) *ApiServer {
-
-	srv := &ApiServer{
+func NewApiServer(cfg *sched.Configuration, mgr apiManager.ApiParser, lgr logging.Logger) *ApiServer {
+	return &ApiServer{
 		cfg:     cfg,
 		manager: mgr,
 		logger:  lgr,
 	}
-
-	return srv
 }
 
+// Detects the API version to be used and registers the handlers to the server.
 func (a *ApiServer) applyRoutes(version string) {
 	switch version {
 	case "v1":
@@ -49,7 +37,7 @@ func (a *ApiServer) applyRoutes(version string) {
 	}
 }
 
-// RunAPI sets up the various HTTP handlers, optionally configures TLS, and runs the server.
+// RunAPI runs the server, optionally using TLS.
 func (a *ApiServer) RunAPI(handlers map[string]http.HandlerFunc) {
 	a.applyRoutes(a.cfg.APIServer.Version)
 	apiSrvCfg := a.cfg.APIServer.Server
