@@ -10,8 +10,7 @@ import (
 	"sprint/scheduler/api/v1"
 )
 
-// API server used for scheduling/updating/killing tasks.
-// Provides an interface for users to interact with the core scheduler.
+// API server provides an interface for users to interact with the core scheduler.
 type ApiServer struct {
 	cfg     *sched.Configuration
 	manager apiManager.ApiParser
@@ -40,6 +39,8 @@ func (a *ApiServer) applyRoutes(version string) {
 			func(path string, route v1.Route) {
 				mux.HandleFunc(
 					path,
+
+					// Apply middleware to determine if the HTTP method is allowed or not for each endpoint.
 					http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 						for _, method := range route.Methods {
 							if method == r.Method {
