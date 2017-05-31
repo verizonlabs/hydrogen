@@ -18,6 +18,13 @@ func NewHandlers(mgr apiManager.ApiParser) *Handlers {
 	return &Handlers{manager: mgr}
 }
 
+func (h *Handlers) failureResponse(w http.ResponseWriter, msg string) {
+	json.NewEncoder(w).Encode(Response{
+		Status:  FAILED,
+		Message: msg,
+	})
+}
+
 // Deploy handler launches a given application from parsed JSON.
 func (h *Handlers) Deploy(w http.ResponseWriter, r *http.Request) {
 	dec, err := ioutil.ReadAll(r.Body)
@@ -33,10 +40,7 @@ func (h *Handlers) Deploy(w http.ResponseWriter, r *http.Request) {
 
 	task, err := h.manager.Deploy(dec)
 	if err != nil {
-		json.NewEncoder(w).Encode(Response{
-			Status:  FAILED,
-			Message: err.Error(),
-		})
+		h.failureResponse(w, err.Error())
 		return
 	}
 
@@ -61,10 +65,7 @@ func (h *Handlers) Update(w http.ResponseWriter, r *http.Request) {
 
 	newTask, err := h.manager.Update(dec)
 	if err != nil {
-		json.NewEncoder(w).Encode(Response{
-			Status:  FAILED,
-			Message: err.Error(),
-		})
+		h.failureResponse(w, err.Error())
 		return
 	}
 
@@ -85,12 +86,10 @@ func (h *Handlers) Kill(w http.ResponseWriter, r *http.Request) {
 
 	err = h.manager.Kill(dec)
 	if err != nil {
-		json.NewEncoder(w).Encode(Response{
-			Status:  FAILED,
-			Message: err.Error(),
-		})
+		h.failureResponse(w, err.Error())
 		return
 	}
+
 	json.NewEncoder(w).Encode(Response{
 		Status:  KILLED,
 		Message: "Successfully killed task.",
@@ -109,10 +108,7 @@ func (h *Handlers) State(w http.ResponseWriter, r *http.Request) {
 	}
 	state, err := h.manager.Status(name)
 	if err != nil {
-		json.NewEncoder(w).Encode(Response{
-			Status:  FAILED,
-			Message: err.Error(),
-		})
+		h.failureResponse(w, err.Error())
 		return
 	}
 
@@ -123,10 +119,7 @@ func (h *Handlers) State(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) Tasks(w http.ResponseWriter, r *http.Request) {
 	tasks, err := h.manager.AllTasks()
 	if err != nil {
-		json.NewEncoder(w).Encode(Response{
-			Status:  FAILED,
-			Message: err.Error(),
-		})
+		h.failureResponse(w, err.Error())
 		return
 	}
 
