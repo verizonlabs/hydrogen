@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"mesos-framework-sdk/logging"
 	"net/http"
 	"os"
@@ -31,8 +32,29 @@ func (a *ApiServer) applyRoutes(version string) {
 	switch version {
 	case "v1":
 		routes := v1.MapRoutes(v1.NewHandlers(a.manager))
-		for route, f := range routes {
-			a.cfg.APIServer.Server.Mux().HandleFunc(route, f)
+		mux := a.cfg.APIServer.Server.Mux()
+		for path, route := range routes {
+
+			// Close over the path and allowed methods to properly scope for the inner logic.
+			// Without this closure neither the path nor the Route will be correct for each iteration.
+			func(path string, route v1.Route) {
+				mux.HandleFunc(
+					path,
+					http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						for _, method := range route.Methods {
+							if method == r.Method {
+								route.Handler(w, r)
+								return
+							}
+
+							json.NewEncoder(w).Encode(v1.Response{
+								Status:  v1.FAILED,
+								Message: r.Method + " is not allowed on this endpoint.",
+							})
+						}
+					}),
+				)
+			}(path, route)
 		}
 	}
 }

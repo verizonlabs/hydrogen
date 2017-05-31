@@ -6,13 +6,33 @@ import (
 
 const baseUrl string = "/v1/api"
 
+type Route struct {
+	Handler http.HandlerFunc
+	Methods []string
+}
+
 // Returns a mapping of routes to their respective handlers.
-func MapRoutes(h *Handlers) map[string]http.HandlerFunc {
-	return map[string]http.HandlerFunc{
-		baseUrl + "/deploy": h.Deploy,
-		baseUrl + "/status": h.State,
-		baseUrl + "/tasks":  h.Tasks,
-		baseUrl + "/kill":   h.Kill,
-		baseUrl + "/update": h.Update,
+func MapRoutes(h *Handlers) map[string]Route {
+	return map[string]Route{
+		baseUrl + "/deploy": {
+			h.Deploy,
+			[]string{"POST"},
+		},
+		baseUrl + "/status": {
+			h.State,
+			[]string{"GET"},
+		},
+		baseUrl + "/tasks": {
+			h.Tasks,
+			[]string{"GET"},
+		},
+		baseUrl + "/kill": {
+			h.Kill,
+			[]string{"DELETE"},
+		},
+		baseUrl + "/update": {
+			h.Update,
+			[]string{"PUT"},
+		},
 	}
 }
