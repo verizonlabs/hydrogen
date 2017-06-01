@@ -39,6 +39,7 @@ func (a *ApiServer) applyRoute(path string, route v1.Route) {
 				return
 			}
 
+			w.WriteHeader(http.StatusMethodNotAllowed)
 			json.NewEncoder(w).Encode(v1.Response{
 				Status:  v1.FAILED,
 				Message: r.Method + " is not allowed on this endpoint.",
