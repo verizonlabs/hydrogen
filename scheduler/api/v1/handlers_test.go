@@ -59,7 +59,7 @@ func TestHandlers_DeployError(t *testing.T) {
 // Validates the endpoint to kill tasks.
 func TestHandlers_Kill(t *testing.T) {
 	h := NewHandlers(apiMgr)
-	rr := requestFixture(h.Kill, "POST", "/kill", strings.NewReader(validJSON))
+	rr := requestFixture(h.Kill, "DELETE", "/kill", strings.NewReader(validJSON))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("Wrong status code: want %d but got %d", http.StatusOK, rr.Code)
 	}
@@ -68,7 +68,7 @@ func TestHandlers_Kill(t *testing.T) {
 // Makes sure the endpoint to kill tasks gives an error when it should.
 func TestHandlers_KillError(t *testing.T) {
 	h := NewHandlers(brokenApiMgr)
-	rr := requestFixture(h.Kill, "POST", "/kill", strings.NewReader(junkJSON))
+	rr := requestFixture(h.Kill, "DELETE", "/kill", strings.NewReader(junkJSON))
 	if rr.Code == http.StatusOK {
 		t.Fatalf("Wrong status code: want %d but got %d", rr.Code, http.StatusOK)
 	}
