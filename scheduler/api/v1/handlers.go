@@ -18,7 +18,8 @@ func NewHandlers(mgr apiManager.ApiParser) *Handlers {
 }
 
 // Helper for sending responses indicating failure.
-func failureResponse(w http.ResponseWriter, msg string) {
+func failureResponse(w http.ResponseWriter, msg string, status int) {
+	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(Response{
 		Status:  FAILED,
 		Message: msg,
@@ -38,7 +39,7 @@ func successResponse(w http.ResponseWriter, status, name, msg string) {
 func (h *Handlers) Deploy(w http.ResponseWriter, r *http.Request) {
 	dec, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		failureResponse(w, err.Error())
+		failureResponse(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -46,7 +47,7 @@ func (h *Handlers) Deploy(w http.ResponseWriter, r *http.Request) {
 
 	task, err := h.manager.Deploy(dec)
 	if err != nil {
-		failureResponse(w, err.Error())
+		failureResponse(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -57,7 +58,7 @@ func (h *Handlers) Deploy(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) Update(w http.ResponseWriter, r *http.Request) {
 	dec, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		failureResponse(w, err.Error())
+		failureResponse(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -65,7 +66,7 @@ func (h *Handlers) Update(w http.ResponseWriter, r *http.Request) {
 
 	newTask, err := h.manager.Update(dec)
 	if err != nil {
-		failureResponse(w, err.Error())
+		failureResponse(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -78,6 +79,7 @@ func (h *Handlers) Update(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) Kill(w http.ResponseWriter, r *http.Request) {
 	dec, err := ioutil.ReadAll(r.Body)
 	if err != nil {
+		failureResponse(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -85,7 +87,7 @@ func (h *Handlers) Kill(w http.ResponseWriter, r *http.Request) {
 
 	name, err := h.manager.Kill(dec)
 	if err != nil {
-		failureResponse(w, err.Error())
+		failureResponse(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -96,13 +98,13 @@ func (h *Handlers) Kill(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) State(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Query().Get("name")
 	if name == "" {
-		failureResponse(w, "No name was found in URL params.")
+		failureResponse(w, "No name was found in URL params.", http.StatusBadRequest)
 		return
 	}
 
 	state, err := h.manager.Status(name)
 	if err != nil {
-		failureResponse(w, err.Error())
+		failureResponse(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -115,7 +117,7 @@ func (h *Handlers) State(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) Tasks(w http.ResponseWriter, r *http.Request) {
 	tasks, err := h.manager.AllTasks()
 	if err != nil {
-		failureResponse(w, err.Error())
+		failureResponse(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
