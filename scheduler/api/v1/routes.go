@@ -18,7 +18,7 @@ func MapRoutes(h *Handlers) map[string]Route {
 			h.Deploy,
 			[]string{"POST"},
 		},
-		baseUrl + "/status": {
+		baseUrl + "/state": {
 			h.State,
 			[]string{"GET"},
 		},
