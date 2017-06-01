@@ -26,36 +26,34 @@ func NewApiServer(cfg *sched.Configuration, mgr apiManager.ApiParser, lgr loggin
 	}
 }
 
+// Registers an HTTP handler to a given path.
+// Applies middleware to determine if the supplied HTTP method is allowed or not.
+func (a *ApiServer) applyRoute(path string, route v1.Route) {
+	mux := a.cfg.APIServer.Server.Mux()
+
+	// Apply middleware to determine if the HTTP method is allowed or not for each endpoint.
+	mux.HandleFunc(path, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for _, method := range route.Methods {
+			if method == r.Method {
+				route.Handler(w, r)
+				return
+			}
+
+			json.NewEncoder(w).Encode(v1.Response{
+				Status:  v1.FAILED,
+				Message: r.Method + " is not allowed on this endpoint.",
+			})
+		}
+	}))
+}
+
 // Detects the API version to be used and registers the handlers to the server.
 func (a *ApiServer) applyRoutes(version string) {
 	switch version {
 	case "v1":
 		routes := v1.MapRoutes(v1.NewHandlers(a.manager))
-		mux := a.cfg.APIServer.Server.Mux()
 		for path, route := range routes {
-
-			// Close over the path and allowed methods to properly scope for the inner logic.
-			// Without this closure neither the path nor the Route will be correct for each iteration.
-			func(path string, route v1.Route) {
-				mux.HandleFunc(
-					path,
-
-					// Apply middleware to determine if the HTTP method is allowed or not for each endpoint.
-					http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-						for _, method := range route.Methods {
-							if method == r.Method {
-								route.Handler(w, r)
-								return
-							}
-
-							json.NewEncoder(w).Encode(v1.Response{
-								Status:  v1.FAILED,
-								Message: r.Method + " is not allowed on this endpoint.",
-							})
-						}
-					}),
-				)
-			}(path, route)
+			a.applyRoute(path, route)
 		}
 	}
 }

@@ -17,6 +17,7 @@ func NewHandlers(mgr apiManager.ApiParser) *Handlers {
 	return &Handlers{manager: mgr}
 }
 
+// Helper for sending responses indicating failure.
 func failureResponse(w http.ResponseWriter, msg string) {
 	json.NewEncoder(w).Encode(Response{
 		Status:  FAILED,
@@ -24,6 +25,7 @@ func failureResponse(w http.ResponseWriter, msg string) {
 	})
 }
 
+// Helper for sending responses indicating success.
 func successResponse(w http.ResponseWriter, status, name, msg string) {
 	json.NewEncoder(w).Encode(Response{
 		Status:   status,
