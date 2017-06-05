@@ -333,7 +333,7 @@ func (m *SprintTaskHandler) GetById(id *mesos_v1.TaskID) (*mesos_v1.TaskInfo, er
 	r := ReadResponse{id: id.GetValue(), reply: reply, op: GETBYID}
 	m.readQueue <- r
 	response := <-r.reply
-	if response.TaskId == nil {
+	if response == nil {
 		return nil, errors.New("Could not find task by id: " + id.GetValue())
 	}
 	return response, nil
@@ -347,7 +347,7 @@ func (m *SprintTaskHandler) getById(ret ReadResponse) {
 			return
 		}
 	}
-	ret.reply <- &mesos_v1.TaskInfo{}
+	ret.reply <- nil
 }
 
 // Indicates whether or not the task manager holds the specified task.
