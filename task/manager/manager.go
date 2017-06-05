@@ -261,6 +261,7 @@ func (m *SprintTaskHandler) add(add WriteResponse) {
 
 	if err != nil {
 		add.reply <- err
+		return
 	}
 
 	m.tasks[task.GetName()] = manager.Task{
