@@ -230,6 +230,7 @@ func (m *SprintTaskHandler) add(add WriteResponse) {
 	// Use a unique ID for storing in the map, taskid?
 	if _, ok := m.tasks[task.GetName()]; ok {
 		add.reply <- errors.New("Task " + task.GetName() + " already exists")
+		return
 	}
 
 	// Write forward.
