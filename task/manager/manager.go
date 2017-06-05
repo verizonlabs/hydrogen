@@ -145,21 +145,22 @@ func (m *SprintTaskHandler) encode(task *mesos_v1.TaskInfo, state mesos_v1.TaskS
 // Methods to satisfy retry interface.
 //
 func (s *SprintTaskHandler) AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v1.TaskInfo) error {
-	if mesosTask != nil {
-		t, err := time.ParseDuration(policy.Time + "s")
-		if err != nil {
-			return errors.New("Invalid time given in policy.")
-		}
-
-		s.retries.Set(mesosTask.GetName(), &retry.TaskRetry{
-			TotalRetries: 0,
-			RetryTime:    t,
-			Backoff:      policy.Backoff,
-			Name:         mesosTask.GetName(),
-		})
-		return nil
+	if mesosTask == nil {
+		return errors.New("Nil mesos task passed in")
 	}
-	return errors.New("Nil mesos task passed in")
+
+	t, err := time.ParseDuration(policy.Time + "s")
+	if err != nil {
+		return errors.New("Invalid time given in policy.")
+	}
+
+	s.retries.Set(mesosTask.GetName(), &retry.TaskRetry{
+		TotalRetries: 0,
+		RetryTime:    t,
+		Backoff:      policy.Backoff,
+		Name:         mesosTask.GetName(),
+	})
+	return nil
 }
 
 // Runs the specified policy with a configurable backoff.
