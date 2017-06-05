@@ -400,7 +400,8 @@ func (m *SprintTaskHandler) set(ret WriteResponse) {
 	// Write forward.
 	encoded, err := m.encode(ret.task, ret.state)
 	if err != nil {
-		m.logger.Emit(logging.INFO, err.Error())
+		ret.reply <- err
+		return
 	}
 
 	id := ret.task.TaskId.GetValue()
@@ -421,6 +422,7 @@ func (m *SprintTaskHandler) set(ret WriteResponse) {
 
 	if err != nil {
 		ret.reply <- err
+		return
 	}
 
 	m.tasks[ret.task.GetName()] = manager.Task{
