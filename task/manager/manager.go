@@ -236,6 +236,7 @@ func (m *SprintTaskHandler) add(add WriteResponse) {
 	encoded, err := m.encode(task, manager.UNKNOWN)
 	if err != nil {
 		add.reply <- err
+		return
 	}
 
 	id := task.TaskId.GetValue()
