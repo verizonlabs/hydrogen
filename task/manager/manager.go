@@ -220,9 +220,7 @@ func (m *SprintTaskHandler) Add(t *mesos_v1.TaskInfo) error {
 	r := WriteResponse{task: t, reply: reply, op: ADD}
 	m.writeQueue <- r
 	response := <-r.reply
-	if response != nil {
-		return response
-	}
+
 	return response
 }
 
@@ -280,9 +278,7 @@ func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) error {
 	m.writeQueue <- r
 	response := <-r.reply
 	close(r.reply)
-	if response != nil {
-		return response
-	}
+
 	return response
 }
 
