@@ -1,10 +1,10 @@
 package events
 
 import (
-	"fmt"
 	exec "mesos-framework-sdk/include/mesos_v1_executor"
+	"mesos-framework-sdk/logging"
 )
 
 func (d *SprintExecutorController) Kill(kill *exec.Event_Kill) {
-	fmt.Printf("%v, %v\n", kill.GetTaskId(), kill.GetKillPolicy())
+	d.logger.Emit(logging.INFO, "Kill event received")
 }

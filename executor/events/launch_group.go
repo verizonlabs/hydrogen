@@ -1,10 +1,10 @@
 package events
 
 import (
-	"fmt"
 	exec "mesos-framework-sdk/include/mesos_v1_executor"
+	"mesos-framework-sdk/logging"
 )
 
 func (d *SprintExecutorController) LaunchGroup(launchGroup *exec.Event_LaunchGroup) {
-	fmt.Println(launchGroup.GetTaskGroup())
+	d.logger.Emit(logging.INFO, "Launch_group event received")
 }

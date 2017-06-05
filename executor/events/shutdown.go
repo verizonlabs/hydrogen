@@ -1,5 +1,7 @@
 package events
 
-func (d *SprintExecutorController) Shutdown() {
+import "mesos-framework-sdk/logging"
 
+func (d *SprintExecutorController) Shutdown() {
+	d.logger.Emit(logging.INFO, "Executor is shutting down...")
 }

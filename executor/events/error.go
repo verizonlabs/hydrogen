@@ -1,10 +1,10 @@
 package events
 
 import (
-	"fmt"
 	exec "mesos-framework-sdk/include/mesos_v1_executor"
+	"mesos-framework-sdk/logging"
 )
 
 func (d *SprintExecutorController) Error(error *exec.Event_Error) {
-	fmt.Printf("%v\n", error.GetMessage())
+	d.logger.Emit(logging.ERROR, error.GetMessage())
 }
