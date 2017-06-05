@@ -51,7 +51,9 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 			Resources: mesosTask.GetResources(),
 		}
 
-		// If we're using our custom executor then make sure we adjust the
+		// If we're using our custom executor then make sure we remove the original CommandInfo.
+		// Set up our ExecutorInfo and pass the user's command as data to the executor.
+		// The executor is responsible for taking this data and acting as expected.
 		if s.config.Executor.CustomExecutor {
 			t.Command = nil
 			t.Executor = &mesos_v1.ExecutorInfo{
