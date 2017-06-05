@@ -20,6 +20,7 @@ type Configuration struct {
 type ExecutorConfiguration struct {
 	CustomExecutor bool
 	Name           string
+	Command        string
 }
 
 // Persistence connection configuration.
@@ -91,6 +92,7 @@ func (c *Configuration) Initialize() *Configuration {
 func (c *ExecutorConfiguration) initialize() *ExecutorConfiguration {
 	flag.BoolVar(&c.CustomExecutor, "executor.enable", false, "Enable/disable usage of the custom executor")
 	flag.StringVar(&c.Name, "executor.name", "Sprinter", "The executor's name")
+	flag.StringVar(&c.Command, "executor.command", "./executor", "Command to run the executor")
 
 	return c
 }
