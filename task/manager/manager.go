@@ -359,11 +359,8 @@ func (m *SprintTaskHandler) HasTask(task *mesos_v1.TaskInfo) bool {
 	r := ReadResponse{name: task.GetName(), replyTask: reply, op: HASTASK}
 	m.readQueue <- r
 	response := <-r.replyTask
-	if response.Info == nil {
-		return false
-	}
-	return true
 
+	return response.Info != nil
 }
 
 func (m *SprintTaskHandler) hasTask(ret ReadResponse) {
