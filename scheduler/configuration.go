@@ -14,6 +14,11 @@ type Configuration struct {
 	APIServer   *ApiConfiguration
 	FileServer  *FileServerConfiguration
 	Scheduler   *SchedulerConfiguration
+	Executor    *ExecutorConfiguration
+}
+
+type ExecutorConfiguration struct {
+	CustomExecutor bool
 }
 
 // Persistence connection configuration.
@@ -53,6 +58,7 @@ type FileServerConfiguration struct {
 
 // Configuration for the main scheduler.
 type SchedulerConfiguration struct {
+	CustomExecutor    bool
 	MesosEndpoint     string
 	Name              string
 	User              string
@@ -76,7 +82,15 @@ func (c *Configuration) Initialize() *Configuration {
 		APIServer:   new(ApiConfiguration).initialize(),
 		FileServer:  new(FileServerConfiguration).initialize(),
 		Scheduler:   new(SchedulerConfiguration).initialize(),
+		Executor:    new(ExecutorConfiguration).initialize(),
 	}
+}
+
+// Configuration for the custom executor
+func (c *ExecutorConfiguration) initialize() *ExecutorConfiguration {
+	flag.BoolVar(&c.CustomExecutor, "custom_executor", false, "Enable/disable usage of the custom executor")
+
+	return c
 }
 
 // Applies default configuration for our persistence connection.
