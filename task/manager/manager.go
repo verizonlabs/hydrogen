@@ -137,11 +137,8 @@ func (m *SprintTaskHandler) encode(task *mesos_v1.TaskInfo, state mesos_v1.TaskS
 		Info:  task,
 		State: state,
 	})
-	if err != nil {
-		return b, err
-	}
 
-	return b, nil
+	return b, err
 }
 
 //
