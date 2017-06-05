@@ -299,6 +299,7 @@ func (m *SprintTaskHandler) delete(res WriteResponse) {
 
 	if err != nil {
 		res.reply <- err
+		return
 	}
 	delete(m.tasks, task.GetName())
 	m.ClearPolicy(task)
