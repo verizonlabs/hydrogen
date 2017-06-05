@@ -65,7 +65,7 @@ func (d *SprintExecutorController) Listen() {
 		case exec.Event_ERROR:
 			d.Error(t.GetError())
 		case exec.Event_UNKNOWN:
-			d.logger.Emit(logging.INFO, "Unknown event caught")
+			d.logger.Emit(logging.ALARM, "Unknown event received")
 		}
 	}
 }
