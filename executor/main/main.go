@@ -4,7 +4,6 @@ import (
 	"mesos-framework-sdk/client"
 	"mesos-framework-sdk/executor"
 	"mesos-framework-sdk/include/mesos_v1"
-	"mesos-framework-sdk/include/mesos_v1_executor"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/utils"
 	"net"
@@ -83,6 +82,6 @@ func main() {
 	logger.Emit(logging.INFO, "Endpoint set to "+"http://"+endpoint+":"+port+"/api/v1/executor")
 	c := client.NewClient("http://"+endpoint+":"+port+"/api/v1/executor", logger)
 	ex := executor.NewDefaultExecutor(fwId, execId, c, logger)
-	e := events.NewSprintExecutorEventController(ex, make(chan *mesos_v1_executor.Event), logger)
+	e := events.NewSprintExecutorEventController(ex, logger)
 	e.Run()
 }
