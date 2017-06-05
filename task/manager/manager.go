@@ -275,7 +275,7 @@ func (m *SprintTaskHandler) add(add WriteResponse) {
 // Deletes a task from memory and etcd, and clears any associated policy.
 func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) error {
 	reply := make(chan error)
-	r := WriteResponse{task: task, reply: reply, op: "delete"}
+	r := WriteResponse{task: task, reply: reply, op: DELETE}
 	m.writeQueue <- r
 	response := <-r.reply
 	close(r.reply)
