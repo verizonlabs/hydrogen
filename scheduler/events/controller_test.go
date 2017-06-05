@@ -33,7 +33,8 @@ func TestSprintEventController_Offers(t *testing.T) {
 	mg := mockTaskManager.MockTaskManager{}
 	sh := sched.MockScheduler{}
 	cfg := &scheduler.Configuration{
-		Leader: &scheduler.LeaderConfiguration{},
+		Leader:   &scheduler.LeaderConfiguration{},
+		Executor: &scheduler.ExecutorConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
 	kv := mockStorage.MockStorage{}
@@ -74,7 +75,8 @@ func TestSprintEventController_OffersWithQueuedTasks(t *testing.T) {
 	mg := mockTaskManager.MockTaskManagerQueued{}
 	sh := sched.MockScheduler{}
 	cfg := &scheduler.Configuration{
-		Leader: &scheduler.LeaderConfiguration{},
+		Leader:   &scheduler.LeaderConfiguration{},
+		Executor: &scheduler.ExecutorConfiguration{},
 	}
 	eventChan := make(chan *mesos_v1_scheduler.Event)
 	kv := mockStorage.MockStorage{}
