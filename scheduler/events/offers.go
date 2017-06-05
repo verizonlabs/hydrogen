@@ -51,6 +51,20 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 			Resources: mesosTask.GetResources(),
 		}
 
+		// If we're using our custom executor then make sure we adjust the
+		if s.config.Executor.CustomExecutor {
+			t.Command = nil
+			t.Executor = &mesos_v1.ExecutorInfo{
+				ExecutorId: &mesos_v1.ExecutorID{Value: &s.config.Executor.Name},
+				Type:       mesos_v1.ExecutorInfo_CUSTOM.Enum(),
+				Resources:  mesosTask.GetResources(),
+				Container:  mesosTask.GetContainer(),
+				Command:    mesosTask.GetCommand(),
+				Data:       []byte(mesosTask.GetCommand().GetValue()),
+			}
+			t.Executor.Command.Value = &s.config.Executor.Command
+		}
+
 		// TODO (aaron) investigate this state further as it might cause side effects.
 		// this is artificially set to STAGING, it does not correspond to when Mesos sets this task as STAGING.
 		// for example other parts of the codebase may check for STAGING and this would cause it to be set too early.
