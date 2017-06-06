@@ -259,19 +259,7 @@ func (m *SprintTaskHandler) add(add WriteResponse) {
 
 	policy := m.storage.CheckPolicy(nil)
 
-	err = m.storage.RunPolicy(policy, func() error {
-		err := m.storage.Create(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
-		if err != nil {
-			m.logger.Emit(
-				logging.ERROR,
-				"Failed to save task %s with name %s to persistent data store. Retrying...",
-				id,
-				task.GetName(),
-			)
-		}
-
-		return err
-	})
+	err = m.storage.RunPolicy(policy, m.storageWrite(id, encoded))
 
 	if err != nil {
 		add.reply <- err
@@ -298,17 +286,20 @@ func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) error {
 	return response
 }
 
-func (m *SprintTaskHandler) delete(res WriteResponse) {
-	task := res.task
-	policy := m.storage.CheckPolicy(nil)
-	err := m.storage.RunPolicy(policy, func() error {
-		err := m.storage.Delete(TASK_DIRECTORY + task.GetTaskId().GetValue())
+func (m *SprintTaskHandler) storageDelete(taskId string) func() error{
+	return func() error {
+		err := m.storage.Delete(TASK_DIRECTORY + taskId)
 		if err != nil {
 			m.logger.Emit(logging.ERROR, err.Error())
 		}
-
 		return err
-	})
+	}
+}
+
+func (m *SprintTaskHandler) delete(res WriteResponse) {
+	task := res.task
+	policy := m.storage.CheckPolicy(nil)
+	err := m.storage.RunPolicy(policy, m.storageDelete(task.GetTaskId().GetValue()))
 
 	if err != nil {
 		res.reply <- err
@@ -411,6 +402,19 @@ func (m *SprintTaskHandler) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) 
 	return nil
 }
 
+func (m *SprintTaskHandler) storageWrite(id string, encoded bytes.Buffer) func() error {
+	return func() error {
+		err := m.storage.Update(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
+		if err != nil {
+			m.logger.Emit(
+				logging.ERROR, "Failed to update task %s with name %s to persistent data store. Retrying...",
+				id,
+			)
+		}
+		return err
+	}
+}
+
 func (m *SprintTaskHandler) set(ret WriteResponse) {
 	// Write forward.
 	encoded, err := m.encode(ret.task, ret.state)
@@ -421,18 +425,7 @@ func (m *SprintTaskHandler) set(ret WriteResponse) {
 	id := ret.task.TaskId.GetValue()
 
 	policy := m.storage.CheckPolicy(nil)
-	err = m.storage.RunPolicy(policy, func() error {
-		err := m.storage.Update(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
-		if err != nil {
-			m.logger.Emit(
-				logging.ERROR, "Failed to update task %s with name %s to persistent data store. Retrying...",
-				id,
-				ret.task.GetName(),
-			)
-		}
-
-		return err
-	})
+	err = m.storage.RunPolicy(policy, m.storageWrite(id, encoded))
 
 	if err != nil {
 		ret.reply <- err
@@ -470,9 +463,10 @@ func (m *SprintTaskHandler) AllByState(state mesos_v1.TaskState) ([]*mesos_v1.Ta
 
 	reply := make(chan *mesos_v1.TaskInfo)
 	r := ReadResponse{state: state, reply: reply, op: ALLBYSTATE}
-
 	m.readQueue <- r
+
 	tasks := make([]*mesos_v1.TaskInfo, 0)
+
 	for task := range r.reply {
 		tasks = append(tasks, task)
 	}
