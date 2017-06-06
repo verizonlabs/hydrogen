@@ -73,6 +73,14 @@ type (
 	}
 )
 
+var (
+	DEFAULT_RETRY_POLICY = &task.TimeRetry{
+	Time:       "1.5",
+	Backoff:    true,
+	MaxRetries: 3,
+	}
+)
+
 // Returns the core task manager that's used by the scheduler.
 func NewTaskManager(
 	cmap map[string]manager.Task,
@@ -154,6 +162,10 @@ func (s *SprintTaskHandler) AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v
 			return errors.New("Invalid time given in policy.")
 		}
 
+		if policy == nil {
+			policy = DEFAULT_RETRY_POLICY
+		}
+
 		s.retries.Set(mesosTask.GetName(), &retry.TaskRetry{
 			TotalRetries: 0,
 			RetryTime:    t,
@@ -193,15 +205,15 @@ func (s *SprintTaskHandler) RunPolicy(policy *retry.TaskRetry, f func() error) e
 }
 
 // Checks whether a policy exists for a given task.
-func (s *SprintTaskHandler) CheckPolicy(mesosTask *mesos_v1.TaskInfo) (*retry.TaskRetry, error) {
+func (s *SprintTaskHandler) CheckPolicy(mesosTask *mesos_v1.TaskInfo) *retry.TaskRetry{
 	if mesosTask != nil {
 		policy := s.retries.Get(mesosTask.GetName())
 		if policy != nil {
-			return policy.(*retry.TaskRetry), nil
+			return policy.(*retry.TaskRetry)
 		}
 	}
 
-	return nil, errors.New("No policy exists for this task.")
+	return nil
 }
 
 // Removes an existing policy associated with the given task.
@@ -245,7 +257,7 @@ func (m *SprintTaskHandler) add(add WriteResponse) {
 	// TODO (tim): Policy should be set once for all storage operations and taken care of by storage class.
 	// Storage.Create() is called and it's default policy is run.
 
-	policy, _ := m.storage.CheckPolicy(nil)
+	policy := m.storage.CheckPolicy(nil)
 
 	err = m.storage.RunPolicy(policy, func() error {
 		err := m.storage.Create(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
@@ -288,7 +300,7 @@ func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) error {
 
 func (m *SprintTaskHandler) delete(res WriteResponse) {
 	task := res.task
-	policy, _ := m.storage.CheckPolicy(nil)
+	policy := m.storage.CheckPolicy(nil)
 	err := m.storage.RunPolicy(policy, func() error {
 		err := m.storage.Delete(TASK_DIRECTORY + task.GetTaskId().GetValue())
 		if err != nil {
@@ -408,7 +420,7 @@ func (m *SprintTaskHandler) set(ret WriteResponse) {
 
 	id := ret.task.TaskId.GetValue()
 
-	policy, _ := m.storage.CheckPolicy(nil)
+	policy := m.storage.CheckPolicy(nil)
 	err = m.storage.RunPolicy(policy, func() error {
 		err := m.storage.Update(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
 		if err != nil {

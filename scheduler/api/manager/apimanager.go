@@ -9,16 +9,9 @@ import (
 	"mesos-framework-sdk/task"
 	t "mesos-framework-sdk/task/manager"
 	"sprint/task/builder"
-	"sprint/task/manager"
 	"strconv"
-)
-
-var (
-	DEFAULT_RETRY_POLICY = &task.TimeRetry{
-		Time:       "1.5",
-		Backoff:    true,
-		MaxRetries: 3,
-	}
+	"sprint/task/manager"
+	"mesos-framework-sdk/utils"
 )
 
 //api manager will hold refs to task/resource manager.
@@ -69,11 +62,6 @@ func (m *Parser) Deploy(decoded []byte) (*mesos_v1.TaskInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		err := m.taskManager.AddPolicy(DEFAULT_RETRY_POLICY, mesosTask)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	// Deployment strategy
@@ -85,13 +73,9 @@ func (m *Parser) Deploy(decoded []byte) (*mesos_v1.TaskInfo, error) {
 		originalName := mesosTask.GetName()
 		taskId := mesosTask.GetTaskId().GetValue()
 		for i := 0; i < appJson.Instances-1; i++ {
-			var id *string
-			var name *string
-			*id = taskId + "-" + strconv.Itoa(i+1)
-			*name = originalName + "-" + strconv.Itoa(i+1)
 			duplicate := *mesosTask
-			duplicate.Name = name
-			duplicate.TaskId = &mesos_v1.TaskID{Value: id}
+			duplicate.Name = utils.ProtoString(originalName + "-" + strconv.Itoa(i+1))
+			duplicate.TaskId = &mesos_v1.TaskID{Value: utils.ProtoString(taskId + "-" + strconv.Itoa(i+1))}
 			if err := m.taskManager.Add(&duplicate); err != nil {
 				return nil, err
 			}
@@ -123,8 +107,6 @@ func (m *Parser) Update(decoded []byte) (*mesos_v1.TaskInfo, error) {
 
 	if appJson.Retry != nil {
 		err = m.taskManager.AddPolicy(appJson.Retry, mesosTask)
-	} else {
-		err = m.taskManager.AddPolicy(DEFAULT_RETRY_POLICY, mesosTask)
 	}
 
 	if err != nil {
@@ -171,7 +153,8 @@ func (m *Parser) Kill(decoded []byte) (string, error) {
 	}
 
 	m.resourceManager.ClearFilters(tsk)
-	if *state == t.STAGING || *state == t.RUNNING || *state == t.STARTING {
+
+	if *state == t.STAGING || *state == t.RUNNING || *state == t.STARTING || *state == t.UNKNOWN {
 		_, err := m.scheduler.Kill(tsk.GetTaskId(), tsk.GetAgentId())
 		if err != nil {
 			return "", err

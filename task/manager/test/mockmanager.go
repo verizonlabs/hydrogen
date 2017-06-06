@@ -15,8 +15,8 @@ type MockTaskManager struct{}
 func (m MockTaskManager) AddPolicy(*task.TimeRetry, *mesos_v1.TaskInfo) error {
 	return nil
 }
-func (m MockTaskManager) CheckPolicy(*mesos_v1.TaskInfo) (*retry.TaskRetry, error) {
-	return nil, nil
+func (m MockTaskManager) CheckPolicy(*mesos_v1.TaskInfo) *retry.TaskRetry {
+	return nil
 }
 func (m MockTaskManager) ClearPolicy(*mesos_v1.TaskInfo) error {
 	return nil
@@ -139,8 +139,8 @@ type MockTaskManagerQueued struct{}
 func (m MockTaskManagerQueued) AddPolicy(*task.TimeRetry, *mesos_v1.TaskInfo) error {
 	return nil
 }
-func (m MockTaskManagerQueued) CheckPolicy(*mesos_v1.TaskInfo) (*retry.TaskRetry, error) {
-	return nil, nil
+func (m MockTaskManagerQueued) CheckPolicy(*mesos_v1.TaskInfo) *retry.TaskRetry {
+	return nil
 }
 func (m MockTaskManagerQueued) ClearPolicy(*mesos_v1.TaskInfo) error {
 	return nil
