@@ -8,10 +8,10 @@ import (
 	"mesos-framework-sdk/scheduler"
 	"mesos-framework-sdk/task"
 	t "mesos-framework-sdk/task/manager"
-	"sprint/task/builder"
-	"strconv"
-	"sprint/task/manager"
 	"mesos-framework-sdk/utils"
+	"sprint/task/builder"
+	"sprint/task/manager"
+	"strconv"
 )
 
 //api manager will hold refs to task/resource manager.
@@ -71,8 +71,11 @@ func (m *Parser) Deploy(decoded []byte) (*mesos_v1.TaskInfo, error) {
 		}
 	} else if appJson.Instances > 1 {
 		originalName := mesosTask.GetName()
+		if err := m.taskManager.CreateGroup(originalName); err != nil {
+			return nil, err
+		} // Create our new group.
 		taskId := mesosTask.GetTaskId().GetValue()
-		for i := 0; i < appJson.Instances-1; i++ {
+		for i := 0; i < appJson.Instances; i++ {
 			duplicate := *mesosTask
 			duplicate.Name = utils.ProtoString(originalName + "-" + strconv.Itoa(i+1))
 			duplicate.TaskId = &mesos_v1.TaskID{Value: utils.ProtoString(taskId + "-" + strconv.Itoa(i+1))}
