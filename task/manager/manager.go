@@ -73,6 +73,14 @@ type (
 	}
 )
 
+var (
+	DEFAULT_RETRY_POLICY = &task.TimeRetry{
+		Time:       "1.5",
+		Backoff:    true,
+		MaxRetries: 3,
+	}
+)
+
 // Returns the core task manager that's used by the scheduler.
 func NewTaskManager(
 	cmap map[string]manager.Task,
@@ -137,32 +145,34 @@ func (m *SprintTaskHandler) encode(task *mesos_v1.TaskInfo, state mesos_v1.TaskS
 		Info:  task,
 		State: state,
 	})
-	if err != nil {
-		return b, err
-	}
 
-	return b, nil
+	return b, err
 }
 
 //
 // Methods to satisfy retry interface.
 //
 func (s *SprintTaskHandler) AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v1.TaskInfo) error {
-	if mesosTask != nil {
-		t, err := time.ParseDuration(policy.Time + "s")
-		if err != nil {
-			return errors.New("Invalid time given in policy.")
-		}
-
-		s.retries.Set(mesosTask.GetName(), &retry.TaskRetry{
-			TotalRetries: 0,
-			RetryTime:    t,
-			Backoff:      policy.Backoff,
-			Name:         mesosTask.GetName(),
-		})
-		return nil
+	if mesosTask == nil {
+		return errors.New("Nil mesos task passed in")
 	}
-	return errors.New("Nil mesos task passed in")
+
+	if policy == nil {
+		policy = DEFAULT_RETRY_POLICY
+	}
+
+	t, err := time.ParseDuration(policy.Time + "s")
+	if err != nil {
+		return errors.New("Invalid time given in policy.")
+	}
+
+	s.retries.Set(mesosTask.GetName(), &retry.TaskRetry{
+		TotalRetries: 0,
+		RetryTime:    t,
+		Backoff:      policy.Backoff,
+		Name:         mesosTask.GetName(),
+	})
+	return nil
 }
 
 // Runs the specified policy with a configurable backoff.
@@ -193,15 +203,15 @@ func (s *SprintTaskHandler) RunPolicy(policy *retry.TaskRetry, f func() error) e
 }
 
 // Checks whether a policy exists for a given task.
-func (s *SprintTaskHandler) CheckPolicy(mesosTask *mesos_v1.TaskInfo) (*retry.TaskRetry, error) {
+func (s *SprintTaskHandler) CheckPolicy(mesosTask *mesos_v1.TaskInfo) *retry.TaskRetry {
 	if mesosTask != nil {
 		policy := s.retries.Get(mesosTask.GetName())
 		if policy != nil {
-			return policy.(*retry.TaskRetry), nil
+			return policy.(*retry.TaskRetry)
 		}
 	}
 
-	return nil, errors.New("No policy exists for this task.")
+	return nil
 }
 
 // Removes an existing policy associated with the given task.
@@ -220,9 +230,7 @@ func (m *SprintTaskHandler) Add(t *mesos_v1.TaskInfo) error {
 	r := WriteResponse{task: t, reply: reply, op: ADD}
 	m.writeQueue <- r
 	response := <-r.reply
-	if response != nil {
-		return response
-	}
+
 	return response
 }
 
@@ -232,12 +240,14 @@ func (m *SprintTaskHandler) add(add WriteResponse) {
 	// Use a unique ID for storing in the map, taskid?
 	if _, ok := m.tasks[task.GetName()]; ok {
 		add.reply <- errors.New("Task " + task.GetName() + " already exists")
+		return
 	}
 
 	// Write forward.
 	encoded, err := m.encode(task, manager.UNKNOWN)
 	if err != nil {
 		add.reply <- err
+		return
 	}
 
 	id := task.TaskId.GetValue()
@@ -245,24 +255,13 @@ func (m *SprintTaskHandler) add(add WriteResponse) {
 	// TODO (tim): Policy should be set once for all storage operations and taken care of by storage class.
 	// Storage.Create() is called and it's default policy is run.
 
-	policy, _ := m.storage.CheckPolicy(nil)
+	policy := m.storage.CheckPolicy(nil)
 
-	err = m.storage.RunPolicy(policy, func() error {
-		err := m.storage.Create(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
-		if err != nil {
-			m.logger.Emit(
-				logging.ERROR,
-				"Failed to save task %s with name %s to persistent data store. Retrying...",
-				id,
-				task.GetName(),
-			)
-		}
-
-		return err
-	})
+	err = m.storage.RunPolicy(policy, m.storageWrite(id, encoded))
 
 	if err != nil {
 		add.reply <- err
+		return
 	}
 
 	m.tasks[task.GetName()] = manager.Task{
@@ -276,30 +275,32 @@ func (m *SprintTaskHandler) add(add WriteResponse) {
 // Deletes a task from memory and etcd, and clears any associated policy.
 func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) error {
 	reply := make(chan error)
-	r := WriteResponse{task: task, reply: reply, op: "delete"}
+	r := WriteResponse{task: task, reply: reply, op: DELETE}
 	m.writeQueue <- r
 	response := <-r.reply
 	close(r.reply)
-	if response != nil {
-		return response
-	}
+
 	return response
+}
+
+func (m *SprintTaskHandler) storageDelete(taskId string) func() error {
+	return func() error {
+		err := m.storage.Delete(TASK_DIRECTORY + taskId)
+		if err != nil {
+			m.logger.Emit(logging.ERROR, err.Error())
+		}
+		return err
+	}
 }
 
 func (m *SprintTaskHandler) delete(res WriteResponse) {
 	task := res.task
-	policy, _ := m.storage.CheckPolicy(nil)
-	err := m.storage.RunPolicy(policy, func() error {
-		err := m.storage.Delete(TASK_DIRECTORY + task.GetTaskId().GetValue())
-		if err != nil {
-			m.logger.Emit(logging.ERROR, err.Error())
-		}
-
-		return err
-	})
+	policy := m.storage.CheckPolicy(nil)
+	err := m.storage.RunPolicy(policy, m.storageDelete(task.GetTaskId().GetValue()))
 
 	if err != nil {
 		res.reply <- err
+		return
 	}
 	delete(m.tasks, task.GetName())
 	m.ClearPolicy(task)
@@ -333,7 +334,7 @@ func (m *SprintTaskHandler) GetById(id *mesos_v1.TaskID) (*mesos_v1.TaskInfo, er
 	r := ReadResponse{id: id.GetValue(), reply: reply, op: GETBYID}
 	m.readQueue <- r
 	response := <-r.reply
-	if response.TaskId == nil {
+	if response == nil {
 		return nil, errors.New("Could not find task by id: " + id.GetValue())
 	}
 	return response, nil
@@ -347,7 +348,7 @@ func (m *SprintTaskHandler) getById(ret ReadResponse) {
 			return
 		}
 	}
-	ret.reply <- &mesos_v1.TaskInfo{}
+	ret.reply <- nil
 }
 
 // Indicates whether or not the task manager holds the specified task.
@@ -359,11 +360,8 @@ func (m *SprintTaskHandler) HasTask(task *mesos_v1.TaskInfo) bool {
 	r := ReadResponse{name: task.GetName(), replyTask: reply, op: HASTASK}
 	m.readQueue <- r
 	response := <-r.replyTask
-	if response.Info == nil {
-		return false
-	}
-	return true
 
+	return response.Info != nil
 }
 
 func (m *SprintTaskHandler) hasTask(ret ReadResponse) {
@@ -399,31 +397,35 @@ func (m *SprintTaskHandler) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) 
 	return nil
 }
 
-func (m *SprintTaskHandler) set(ret WriteResponse) {
-	// Write forward.
-	encoded, err := m.encode(ret.task, ret.state)
-	if err != nil {
-		m.logger.Emit(logging.INFO, err.Error())
-	}
-
-	id := ret.task.TaskId.GetValue()
-
-	policy, _ := m.storage.CheckPolicy(nil)
-	err = m.storage.RunPolicy(policy, func() error {
+func (m *SprintTaskHandler) storageWrite(id string, encoded bytes.Buffer) func() error {
+	return func() error {
 		err := m.storage.Update(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
 		if err != nil {
 			m.logger.Emit(
 				logging.ERROR, "Failed to update task %s with name %s to persistent data store. Retrying...",
 				id,
-				ret.task.GetName(),
 			)
 		}
-
 		return err
-	})
+	}
+}
+
+func (m *SprintTaskHandler) set(ret WriteResponse) {
+	// Write forward.
+	encoded, err := m.encode(ret.task, ret.state)
+	if err != nil {
+		ret.reply <- err
+		return
+	}
+
+	id := ret.task.TaskId.GetValue()
+
+	policy := m.storage.CheckPolicy(nil)
+	err = m.storage.RunPolicy(policy, m.storageWrite(id, encoded))
 
 	if err != nil {
 		ret.reply <- err
+		return
 	}
 
 	m.tasks[ret.task.GetName()] = manager.Task{
@@ -458,9 +460,10 @@ func (m *SprintTaskHandler) AllByState(state mesos_v1.TaskState) ([]*mesos_v1.Ta
 
 	reply := make(chan *mesos_v1.TaskInfo)
 	r := ReadResponse{state: state, reply: reply, op: ALLBYSTATE}
-
 	m.readQueue <- r
+
 	tasks := make([]*mesos_v1.TaskInfo, 0)
+
 	for task := range r.reply {
 		tasks = append(tasks, task)
 	}

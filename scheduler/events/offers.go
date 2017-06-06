@@ -47,8 +47,25 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 			TaskId:    mesosTask.GetTaskId(),
 			AgentId:   offer.GetAgentId(),
 			Command:   mesosTask.GetCommand(),
+			Executor:  mesosTask.GetExecutor(),
 			Container: mesosTask.GetContainer(),
 			Resources: mesosTask.GetResources(),
+		}
+
+		// If we're using our custom executor then make sure we remove the original CommandInfo.
+		// Set up our ExecutorInfo and pass the user's command as data to the executor.
+		// The executor is responsible for taking this data and acting as expected.
+		if s.config.Executor.CustomExecutor && t.Executor == nil {
+			t.Executor = &mesos_v1.ExecutorInfo{
+				ExecutorId: &mesos_v1.ExecutorID{Value: &s.config.Executor.Name},
+				Type:       mesos_v1.ExecutorInfo_CUSTOM.Enum(),
+				Resources:  mesosTask.GetResources(),
+				Container:  mesosTask.GetContainer(),
+				Command:    mesosTask.GetCommand(),
+				Data:       []byte(mesosTask.GetCommand().GetValue()),
+			}
+			t.Executor.Command.Value = &s.config.Executor.Command
+			t.Command = nil
 		}
 
 		// TODO (aaron) investigate this state further as it might cause side effects.

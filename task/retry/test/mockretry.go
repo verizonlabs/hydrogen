@@ -13,8 +13,8 @@ func (r MockRetry) AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v1.TaskInf
 	return nil
 }
 
-func (r MockRetry) CheckPolicy(mesosTask *mesos_v1.TaskInfo) (*retry.TaskRetry, error) {
-	return nil, nil
+func (r MockRetry) CheckPolicy(mesosTask *mesos_v1.TaskInfo) *retry.TaskRetry  {
+	return nil
 }
 
 func (r MockRetry) ClearPolicy(mesosTask *mesos_v1.TaskInfo) error {
@@ -31,8 +31,8 @@ func (r MockBrokenRetry) AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v1.T
 	return errors.New("Broken")
 }
 
-func (r MockBrokenRetry) CheckPolicy(mesosTask *mesos_v1.TaskInfo) (*retry.TaskRetry, error) {
-	return nil, errors.New("Broken")
+func (r MockBrokenRetry) CheckPolicy(mesosTask *mesos_v1.TaskInfo) *retry.TaskRetry {
+	return nil
 }
 
 func (r MockBrokenRetry) ClearPolicy(mesosTask *mesos_v1.TaskInfo) error {

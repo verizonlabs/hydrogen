@@ -5,7 +5,6 @@ import (
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/task/manager"
-	apiManager "sprint/scheduler/api/manager"
 )
 
 //
@@ -105,9 +104,7 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 // Sets a task to be rescheduled.
 // Rescheduling can be done when there are various failures such as network errors.
 func (s *SprintEventController) reschedule(task *mesos_v1.TaskInfo) {
-
-	// If there's an error, fallback to the regular policy.
-	policy, err := s.taskmanager.CheckPolicy(task)
+	policy := s.taskmanager.CheckPolicy(task)
 	retryFunc := func() error {
 
 		// Check if the task has been deleted while waiting for a retry.
@@ -120,14 +117,7 @@ func (s *SprintEventController) reschedule(task *mesos_v1.TaskInfo) {
 
 		return nil
 	}
-	if err != nil {
-		s.logger.Emit(logging.INFO, err.Error())
-		// Set default policy, we should never get here, this would mean an error in serialization or our api.
-		s.taskmanager.AddPolicy(apiManager.DEFAULT_RETRY_POLICY, task)
-		policy, _ = s.taskmanager.CheckPolicy(task) // update policy reference
-	}
-
-	err = s.taskmanager.RunPolicy(policy, retryFunc)
+	err := s.taskmanager.RunPolicy(policy, retryFunc)
 	if err != nil {
 		s.logger.Emit(logging.ERROR, "Failed to run policy: %s", err.Error())
 	}
