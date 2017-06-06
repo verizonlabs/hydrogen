@@ -283,7 +283,7 @@ func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) error {
 	return response
 }
 
-func (m *SprintTaskHandler) storageDelete(taskId string) func() error{
+func (m *SprintTaskHandler) storageDelete(taskId string) func() error {
 	return func() error {
 		err := m.storage.Delete(TASK_DIRECTORY + taskId)
 		if err != nil {
