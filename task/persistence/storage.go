@@ -43,8 +43,8 @@ func (p Persistence) AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v1.TaskI
 
 // Returns the current policy that's used by the persistence engine.
 // There is only ever one policy used at a given time.
-func (p Persistence) CheckPolicy(mesosTask *mesos_v1.TaskInfo) (*retry.TaskRetry, error) {
-	return &p.policy, nil
+func (p Persistence) CheckPolicy(mesosTask *mesos_v1.TaskInfo) *retry.TaskRetry {
+	return &p.policy
 }
 
 // We're not storing policies constructed from user input in memory.
