@@ -10,7 +10,6 @@ import (
 	sdkTaskManager "mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
 	"os"
-
 	"os/signal"
 	sprintSched "sprint/scheduler"
 	sprintTask "sprint/task/manager"
@@ -182,10 +181,13 @@ func (s *SprintEventController) periodicReconcile() {
 		case <-ticker.C:
 			recon, err := s.TaskManager().AllByState(sdkTaskManager.RUNNING)
 			if err != nil {
-				s.logger.Emit(logging.ERROR, "Failed to reconcile all running tasks: %s", err.Error())
 				continue
 			}
-			s.Scheduler().Reconcile(recon)
+
+			_, err = s.Scheduler().Reconcile(recon)
+			if err != nil {
+				s.logger.Emit(logging.ERROR, "Failed to reconcile all running tasks: %s", err.Error())
+			}
 		}
 	}
 }

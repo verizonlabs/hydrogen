@@ -11,8 +11,7 @@ import (
 	sched "mesos-framework-sdk/scheduler"
 	"mesos-framework-sdk/server"
 	"mesos-framework-sdk/server/file"
-	"mesos-framework-sdk/structures"
-	"net/http"
+	t "mesos-framework-sdk/task/manager"
 	"sprint/scheduler"
 	"sprint/scheduler/api"
 	apiManager "sprint/scheduler/api/manager"
@@ -20,11 +19,6 @@ import (
 	sprintTaskManager "sprint/task/manager"
 	"sprint/task/persistence"
 	"strings"
-)
-
-const (
-	API_VERSION      = "v1"
-	DEFAULT_MAP_SIZE = 100
 )
 
 // Entry point for the scheduler.
@@ -72,7 +66,7 @@ func main() {
 
 	// Wire up dependencies for the event controller
 	t := sprintTaskManager.NewTaskManager(
-		structures.NewConcurrentMap(DEFAULT_MAP_SIZE),
+		make(map[string]t.Task),
 		p,
 		config,
 		logger,
@@ -89,14 +83,14 @@ func main() {
 	logger.Emit(logging.INFO, "Starting API server")
 
 	// Run our API in a go routine to listen for user requests.
-	apiSrvCfg := server.NewConfiguration(
+	config.APIServer.Server = server.NewConfiguration(
 		config.APIServer.Cert,
 		config.APIServer.Key,
 		"",
 		config.APIServer.Port,
 	)
 
-	apiSrv := api.NewApiServer(apiSrvCfg, m, http.NewServeMux(), API_VERSION, logger)
+	apiSrv := api.NewApiServer(config, m, logger)
 	go apiSrv.RunAPI(nil) // nil means to use default handlers.
 
 	// Run our event controller

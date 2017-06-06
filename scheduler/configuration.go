@@ -36,9 +36,11 @@ type LeaderConfiguration struct {
 
 // Holds configuration for the built-in REST API.
 type ApiConfiguration struct {
-	Cert string
-	Key  string
-	Port int
+	Server  server.Configuration
+	Version string
+	Cert    string
+	Key     string
+	Port    int
 }
 
 // Configuration for the file (executor) server.
@@ -110,6 +112,7 @@ func (c *LeaderConfiguration) initialize() *LeaderConfiguration {
 
 // Applies default configuration to our API server.
 func (c *ApiConfiguration) initialize() *ApiConfiguration {
+	flag.StringVar(&c.Version, "api.server.version", "v1", "The API server version to be used")
 	flag.StringVar(&c.Cert, "api.server.cert", "", "API server's TLS certificate")
 	flag.StringVar(&c.Key, "api.server.key", "", "API server's TLS key")
 	flag.IntVar(&c.Port, "api.server.port", 8080, "API server's port")

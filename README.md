@@ -29,9 +29,10 @@ This is not valid JSON to launch but an example enumeration of all options avail
 <pre><code>
 {
   "name": "Example-app",                 # Application Name.
-  "resources": { 
-    "cpu": 1.5,                          # Use float values
-    "mem": 128.25
+  "resources": {
+    "cpu": 1.5,                          # CPU shares
+    "mem": 128.25,                       # Memory
+    "disk": {"size": 1024.00}            # Disk
   },
   "filters": [                           # Used to filter mesos attributes
       {

@@ -2,6 +2,7 @@ package manager
 
 import (
 	"encoding/json"
+	"errors"
 	"mesos-framework-sdk/include/mesos_v1"
 	r "mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
@@ -9,6 +10,7 @@ import (
 	t "mesos-framework-sdk/task/manager"
 	"sprint/task/builder"
 	"sprint/task/manager"
+	"strconv"
 )
 
 var (
@@ -24,7 +26,7 @@ var (
 type (
 	ApiParser interface {
 		Deploy([]byte) (*mesos_v1.TaskInfo, error)
-		Kill([]byte) error
+		Kill([]byte) (string, error)
 		Update([]byte) (*mesos_v1.TaskInfo, error)
 		Status(string) (mesos_v1.TaskState, error)
 		AllTasks() ([]t.Task, error)
@@ -61,6 +63,7 @@ func (m *Parser) Deploy(decoded []byte) (*mesos_v1.TaskInfo, error) {
 		}
 	}
 
+	// Check for retry policy.
 	if appJson.Retry != nil {
 		err := m.taskManager.AddPolicy(appJson.Retry, mesosTask)
 		if err != nil {
@@ -73,8 +76,28 @@ func (m *Parser) Deploy(decoded []byte) (*mesos_v1.TaskInfo, error) {
 		}
 	}
 
-	if err := m.taskManager.Add(mesosTask); err != nil {
-		return nil, err
+	// Deployment strategy
+	if appJson.Instances == 1 {
+		if err := m.taskManager.Add(mesosTask); err != nil {
+			return nil, err
+		}
+	} else if appJson.Instances > 1 {
+		originalName := mesosTask.GetName()
+		taskId := mesosTask.GetTaskId().GetValue()
+		for i := 0; i < appJson.Instances-1; i++ {
+			var id *string
+			var name *string
+			*id = taskId + "-" + strconv.Itoa(i+1)
+			*name = originalName + "-" + strconv.Itoa(i+1)
+			duplicate := *mesosTask
+			duplicate.Name = name
+			duplicate.TaskId = &mesos_v1.TaskID{Value: id}
+			if err := m.taskManager.Add(&duplicate); err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		return nil, errors.New("0 instances passed in. Not launching any tasks.")
 	}
 
 	m.scheduler.Revive()
@@ -88,7 +111,6 @@ func (m *Parser) Update(decoded []byte) (*mesos_v1.TaskInfo, error) {
 		return nil, err
 	}
 
-	// Check if this task already exists
 	taskToKill, err := m.taskManager.Get(&appJson.Name)
 	if err != nil {
 		return nil, err
@@ -120,45 +142,45 @@ func (m *Parser) Update(decoded []byte) (*mesos_v1.TaskInfo, error) {
 	return mesosTask, nil
 }
 
-func (m *Parser) Kill(decoded []byte) error {
+func (m *Parser) Kill(decoded []byte) (string, error) {
 	var appJson task.KillJson
 	err := json.Unmarshal(decoded, &appJson)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// Make sure we have a name to look up
 	if appJson.Name == nil {
-		return nil
+		return "", errors.New("Task name is nil")
 	}
 
 	// Look up task in task manager
 	tsk, err := m.taskManager.Get(appJson.Name)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	state, err := m.taskManager.State(tsk.Name)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	err = m.taskManager.Delete(tsk)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	m.resourceManager.ClearFilters(tsk)
 	if *state == t.STAGING || *state == t.RUNNING || *state == t.STARTING {
 		_, err := m.scheduler.Kill(tsk.GetTaskId(), tsk.GetAgentId())
 		if err != nil {
-			return err
+			return "", err
 		}
 
-		return nil
+		return *appJson.Name, nil
 	}
 
-	return nil
+	return "", errors.New("Task isn't staging, starting, or running")
 }
 
 func (m *Parser) Status(name string) (mesos_v1.TaskState, error) {
