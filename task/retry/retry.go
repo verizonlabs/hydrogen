@@ -12,7 +12,7 @@ type (
 	// Also used extensively for testing with mocks.
 	Retry interface {
 		AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v1.TaskInfo) error
-		CheckPolicy(mesosTask *mesos_v1.TaskInfo) (*TaskRetry, error)
+		CheckPolicy(mesosTask *mesos_v1.TaskInfo) *TaskRetry
 		ClearPolicy(mesosTask *mesos_v1.TaskInfo) error
 		RunPolicy(policy *TaskRetry, f func() error) error
 	}
