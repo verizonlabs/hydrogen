@@ -10,6 +10,10 @@ import (
 // scheduler.
 //
 func (s *SprintEventController) declineOffers(offers []*mesos_v1.Offer, refuseSeconds float64) {
+	if len(offers) == 0 {
+		return
+	}
+
 	declineIDs := []*mesos_v1.OfferID{}
 
 	// Decline whatever offers are left over

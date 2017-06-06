@@ -5,29 +5,39 @@ import (
 	"encoding/base64"
 	"encoding/gob"
 	"errors"
+	"fmt"
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/structures"
 	"mesos-framework-sdk/task"
 	"mesos-framework-sdk/task/manager"
+	"mesos-framework-sdk/utils"
 	"sprint/scheduler"
 	"sprint/task/persistence"
 	"sprint/task/retry"
+	"strings"
 	"time"
 )
 
 const (
-	TASK_DIRECTORY    = "/tasks/"
-	DELETE         OP = "delete"
-	ADD            OP = "add"
-	GET            OP = "get"
-	GETBYID        OP = "getbyid"
-	HASTASK        OP = "hastask"
-	SET            OP = "set"
-	ALLBYSTATE     OP = "allbystate"
-	ALL            OP = "all"
-	STATE          OP = "state"
-	LEN            OP = "length"
+	GROUP_DIRECTORY    = "/taskgroup/"
+	TASK_DIRECTORY     = "/tasks/"
+	DELETE          OP = "delete"
+	ADD             OP = "add"
+	GET             OP = "get"
+	GETBYID         OP = "getbyid"
+	HASTASK         OP = "hastask"
+	SET             OP = "set"
+	ALLBYSTATE      OP = "allbystate"
+	ALL             OP = "all"
+	STATE           OP = "state"
+	LEN             OP = "length"
+	CREATEGROUP     OP = "creategroup"
+	DELGROUP        OP = "delgroup"
+	REMOVEFROMGROUP OP = "rmvFromGrp"
+	ADDTOGROUP      OP = "addToGrp"
+	READGROUP       OP = "readGrp"
+	ISINGROUP       OP = "isinGrp"
 )
 
 type (
@@ -36,6 +46,7 @@ type (
 	SprintTaskManager interface {
 		manager.TaskManager
 		retry.Retry
+		ScaleGrouping
 	}
 
 	// Our primary task handler that implements the above interface.
@@ -55,16 +66,21 @@ type (
 	OP string
 
 	WriteResponse struct {
-		task  *mesos_v1.TaskInfo
-		state mesos_v1.TaskState
-		reply chan error
-		op    OP
+		task    *mesos_v1.TaskInfo
+		group   string
+		agentID *mesos_v1.AgentID
+		state   mesos_v1.TaskState
+		reply   chan error
+		op      OP
 	}
 
 	ReadResponse struct {
 		name       string
 		id         string
 		state      mesos_v1.TaskState
+		taskInfo   *mesos_v1.TaskInfo
+		agents     chan []*mesos_v1.AgentID
+		isInGroup  chan bool
 		reply      chan *mesos_v1.TaskInfo
 		replyState chan mesos_v1.TaskState
 		replyTask  chan manager.Task
@@ -75,9 +91,9 @@ type (
 
 var (
 	DEFAULT_RETRY_POLICY = &task.TimeRetry{
-	Time:       "1.5",
-	Backoff:    true,
-	MaxRetries: 3,
+		Time:       "1.5",
+		Backoff:    true,
+		MaxRetries: 3,
 	}
 )
 
@@ -114,6 +130,14 @@ func (m *SprintTaskHandler) listen() {
 				m.delete(write)
 			case SET:
 				m.set(write)
+			case ADDTOGROUP:
+				m.addToGroup(write)
+			case DELGROUP:
+				m.deleteGroup(write)
+			case REMOVEFROMGROUP:
+				m.delFromGroup(write)
+			case CREATEGROUP:
+				m.createGroup(write)
 			}
 		case read := <-m.readQueue:
 			switch read.op {
@@ -131,6 +155,10 @@ func (m *SprintTaskHandler) listen() {
 				m.allByState(read)
 			case LEN:
 				m.totalTasks(read)
+			case READGROUP:
+				m.readGroup(read)
+			case ISINGROUP:
+				m.isInGroup(read)
 			}
 		}
 	}
@@ -150,6 +178,130 @@ func (m *SprintTaskHandler) encode(task *mesos_v1.TaskInfo, state mesos_v1.TaskS
 	}
 
 	return b, nil
+}
+
+func (m *SprintTaskHandler) IsInGroup(task *mesos_v1.TaskInfo) bool {
+	ch := make(chan bool, 1)
+	m.readQueue <- ReadResponse{isInGroup: ch, name: task.GetName(), op: ISINGROUP}
+	response := <-ch
+	return response
+}
+
+// Checks if there's a group
+func (m *SprintTaskHandler) isInGroup(read ReadResponse) {
+	_, err := m.storage.Read(GROUP_DIRECTORY + read.name)
+	if err != nil {
+		read.isInGroup <- false
+		return
+	}
+	read.isInGroup <- true
+}
+
+func (m *SprintTaskHandler) CreateGroup(name string) error {
+	// make our chan to write a group
+	ch := make(chan error, 1)
+	strippedName := strings.Split(name, "-")[0]
+	w := WriteResponse{reply: ch, group: strippedName, op: CREATEGROUP}
+	m.writeQueue <- w
+	response := <-w.reply
+	return response
+}
+
+func (m *SprintTaskHandler) createGroup(write WriteResponse) {
+	err := m.storage.Create(GROUP_DIRECTORY+write.group, "")
+	fmt.Printf("Create group...%v\n", err)
+	write.reply <- err
+}
+
+func (m *SprintTaskHandler) AddToGroup(name string, agentId *mesos_v1.AgentID) error {
+	ch := make(chan error)
+	strippedName := strings.Split(name, "-")[0]
+	m.writeQueue <- WriteResponse{reply: ch, group: strippedName, agentID: agentId, op: ADDTOGROUP}
+	response := <-ch
+	return response
+}
+
+func (m *SprintTaskHandler) addToGroup(write WriteResponse) {
+	var newValue string
+	currentValues, err := m.storage.Read(GROUP_DIRECTORY + write.group)
+	if err != nil {
+		write.reply <- err
+		return
+	}
+
+	if currentValues == "" {
+		newValue = write.agentID.GetValue()
+	} else {
+		newValue = currentValues + "," + write.agentID.GetValue()
+	}
+
+	err = m.storage.Update(GROUP_DIRECTORY+write.group, newValue)
+	if err != nil {
+		write.reply <- err
+		return
+	}
+	write.reply <- nil
+}
+
+func (m *SprintTaskHandler) ReadGroup(name string) []*mesos_v1.AgentID {
+	ch := make(chan []*mesos_v1.AgentID)
+	strippedName := strings.Split(name, "-")[0]
+	m.readQueue <- ReadResponse{agents: ch, name: strippedName, op: READGROUP}
+	response := <-ch
+	return response
+}
+
+func (m *SprintTaskHandler) readGroup(read ReadResponse) {
+	currentValue, err := m.storage.Read(GROUP_DIRECTORY + read.name)
+	if err != nil {
+		m.logger.Emit(logging.ERROR, "Unable to read group")
+		read.agents <- nil
+		return
+	}
+	var agents []*mesos_v1.AgentID
+	for _, i := range strings.Split(currentValue, ",") {
+		agents = append(agents, &mesos_v1.AgentID{Value: utils.ProtoString(i)})
+	}
+	read.agents <- agents
+}
+
+func (m *SprintTaskHandler) DelFromGroup(name string, agentID *mesos_v1.AgentID) error {
+	ch := make(chan error)
+	strippedName := strings.Split(name, "-")[0]
+	m.writeQueue <- WriteResponse{reply: ch, group: strippedName, agentID: agentID, op: REMOVEFROMGROUP}
+	response := <-ch
+	return response
+}
+
+func (m *SprintTaskHandler) delFromGroup(write WriteResponse) {
+	currentValues, err := m.storage.Read(GROUP_DIRECTORY + write.group)
+	if err != nil {
+		write.reply <- err
+	}
+	split := strings.Split(currentValues, ",")
+	var update []string
+	for _, i := range split {
+		if write.agentID.GetValue() != i {
+			update = append(update, i)
+		}
+	}
+	newValue := strings.Join(update, ",")
+	m.storage.Update(GROUP_DIRECTORY+write.group, newValue)
+	write.reply <- nil
+	return
+}
+
+func (m *SprintTaskHandler) DeleteGroup(name string) error {
+	ch := make(chan error)
+	strippedName := strings.Split(name, "-")[0]
+	m.writeQueue <- WriteResponse{reply: ch, group: strippedName, op: DELGROUP}
+	response := <-ch
+	return response
+}
+
+func (m *SprintTaskHandler) deleteGroup(write WriteResponse) {
+	err := m.storage.Delete(GROUP_DIRECTORY + write.group)
+	write.reply <- err
 }
 
 //
@@ -205,7 +357,7 @@ func (s *SprintTaskHandler) RunPolicy(policy *retry.TaskRetry, f func() error) e
 }
 
 // Checks whether a policy exists for a given task.
-func (s *SprintTaskHandler) CheckPolicy(mesosTask *mesos_v1.TaskInfo) *retry.TaskRetry{
+func (s *SprintTaskHandler) CheckPolicy(mesosTask *mesos_v1.TaskInfo) *retry.TaskRetry {
 	if mesosTask != nil {
 		policy := s.retries.Get(mesosTask.GetName())
 		if policy != nil {
@@ -286,7 +438,7 @@ func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) error {
 	return response
 }
 
-func (m *SprintTaskHandler) storageDelete(taskId string) func() error{
+func (m *SprintTaskHandler) storageDelete(taskId string) func() error {
 	return func() error {
 		err := m.storage.Delete(TASK_DIRECTORY + taskId)
 		if err != nil {

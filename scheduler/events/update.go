@@ -47,6 +47,7 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 	case mesos_v1.TaskState_TASK_ERROR:
 		s.logger.Emit(logging.ERROR, "Error with task %s: %s", taskIdVal, message)
 	case mesos_v1.TaskState_TASK_FINISHED:
+		s.taskmanager.DelFromGroup(task.GetName(), agentId)
 		s.logger.Emit(
 			logging.INFO,
 			"Task %s finished on agent %s: %s",

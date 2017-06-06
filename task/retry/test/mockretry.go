@@ -13,7 +13,7 @@ func (r MockRetry) AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v1.TaskInf
 	return nil
 }
 
-func (r MockRetry) CheckPolicy(mesosTask *mesos_v1.TaskInfo) *retry.TaskRetry  {
+func (r MockRetry) CheckPolicy(mesosTask *mesos_v1.TaskInfo) *retry.TaskRetry {
 	return nil
 }
 
