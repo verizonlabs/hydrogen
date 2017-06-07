@@ -864,3 +864,109 @@ func BenchmarkSprintTaskHandler_AllByState(b *testing.B) {
 	}
 	b.StopTimer()
 }
+
+func BenchmarkSprintTaskHandler_CreateGroup(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.CreateGroup("Some Group")
+	}
+	b.StopTimer()
+}
+
+func BenchmarkSprintTaskHandler_AddToGroup(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.AddToGroup("Some Group",  &mesos_v1.AgentID{Value:utils.ProtoString("Some Agent")})
+	}
+	b.StopTimer()
+}
+
+func BenchmarkSprintTaskHandler_DelFromGroup(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.DelFromGroup("Some Group", &mesos_v1.AgentID{Value:utils.ProtoString("Some Agent")})
+	}
+	b.StopTimer()
+}
+
+func BenchmarkSprintTaskHandler_ReadGroup(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.ReadGroup("Some Group")
+	}
+	b.StopTimer()
+}
+
+func BenchmarkSprintTaskHandler_IsInGroup(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.IsInGroup(&mesos_v1.TaskInfo{Name:utils.ProtoString("Some Task")})
+	}
+	b.StopTimer()
+}
+
+
+func BenchmarkSprintTaskHandler_DeleteGroup(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.DeleteGroup("Some Group")
+	}
+	b.StopTimer()
+}
+
+
+
