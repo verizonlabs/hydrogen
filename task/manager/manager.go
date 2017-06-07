@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/gob"
 	"errors"
-	"fmt"
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/structures"
@@ -209,7 +208,6 @@ func (m *SprintTaskHandler) CreateGroup(name string) error {
 
 func (m *SprintTaskHandler) createGroup(write WriteResponse) {
 	err := m.storage.Create(GROUP_DIRECTORY+write.group, "")
-	fmt.Printf("Create group...%v\n", err)
 	write.reply <- err
 }
 

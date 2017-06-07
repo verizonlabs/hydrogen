@@ -12,6 +12,13 @@ import (
 
 type MockTaskManager struct{}
 
+func (m MockTaskManager) CreateGroup(string) error                     { return nil }
+func (m MockTaskManager) AddToGroup(string, *mesos_v1.AgentID) error   { return nil }
+func (m MockTaskManager) ReadGroup(string) []*mesos_v1.AgentID         { return []*mesos_v1.AgentID{} }
+func (m MockTaskManager) DelFromGroup(string, *mesos_v1.AgentID) error { return nil }
+func (m MockTaskManager) DeleteGroup(string) error                     { return nil }
+func (m MockTaskManager) IsInGroup(*mesos_v1.TaskInfo) bool            { return true }
+
 func (m MockTaskManager) AddPolicy(*task.TimeRetry, *mesos_v1.TaskInfo) error {
 	return nil
 }
@@ -77,6 +84,16 @@ func (m MockTaskManager) AllByState(state mesos_v1.TaskState) ([]*mesos_v1.TaskI
 //
 type MockBrokenTaskManager struct{}
 
+var (
+	broken error = errors.New("Broken")
+)
+func (m MockBrokenTaskManager) CreateGroup(string) error                     { return broken}
+func (m MockBrokenTaskManager) AddToGroup(string, *mesos_v1.AgentID) error   { return broken }
+func (m MockBrokenTaskManager) ReadGroup(string) []*mesos_v1.AgentID         { return nil }
+func (m MockBrokenTaskManager) DelFromGroup(string, *mesos_v1.AgentID) error { return broken }
+func (m MockBrokenTaskManager) DeleteGroup(string) error                     { return broken }
+func (m MockBrokenTaskManager) IsInGroup(*mesos_v1.TaskInfo) bool            { return false }
+
 func (m MockBrokenTaskManager) AddPolicy(*task.TimeRetry, *mesos_v1.TaskInfo) error {
 	return nil
 }
@@ -135,6 +152,14 @@ func (m MockBrokenTaskManager) AllByState(state mesos_v1.TaskState) ([]*mesos_v1
 }
 
 type MockTaskManagerQueued struct{}
+
+
+func (m MockTaskManagerQueued) CreateGroup(string) error                     { return nil }
+func (m MockTaskManagerQueued) AddToGroup(string, *mesos_v1.AgentID) error   { return nil }
+func (m MockTaskManagerQueued) ReadGroup(string) []*mesos_v1.AgentID         { return []*mesos_v1.AgentID{} }
+func (m MockTaskManagerQueued) DelFromGroup(string, *mesos_v1.AgentID) error { return nil }
+func (m MockTaskManagerQueued) DeleteGroup(string) error                     { return nil }
+func (m MockTaskManagerQueued) IsInGroup(*mesos_v1.TaskInfo) bool            { return true }
 
 func (m MockTaskManagerQueued) AddPolicy(*task.TimeRetry, *mesos_v1.TaskInfo) error {
 	return nil
