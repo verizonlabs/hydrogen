@@ -7,7 +7,7 @@ import (
 
 type (
 	ScaleGrouping interface {
-		CreateGroup(string) error
+		CreateGroup(string, int) error
 		AddToGroup(string, *mesos_v1.AgentID) error
 		ReadGroup(string) []*mesos_v1.AgentID
 		DelFromGroup(string, *mesos_v1.AgentID) error

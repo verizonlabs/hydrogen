@@ -14,11 +14,13 @@ import (
 	"sprint/scheduler"
 	"sprint/task/persistence"
 	"sprint/task/retry"
+	"strconv"
 	"strings"
 	"time"
 )
 
 const (
+	GROUP_SIZE         = "/size/"
 	GROUP_DIRECTORY    = "/taskgroup/"
 	TASK_DIRECTORY     = "/tasks/"
 	DELETE          OP = "delete"
@@ -67,6 +69,7 @@ type (
 	WriteResponse struct {
 		task    *mesos_v1.TaskInfo
 		group   string
+		size    int
 		agentID *mesos_v1.AgentID
 		state   mesos_v1.TaskState
 		reply   chan error
@@ -196,11 +199,11 @@ func (m *SprintTaskHandler) isInGroup(read ReadResponse) {
 	read.isInGroup <- true
 }
 
-func (m *SprintTaskHandler) CreateGroup(name string) error {
+func (m *SprintTaskHandler) CreateGroup(name string, size int) error {
 	// make our chan to write a group
 	ch := make(chan error, 1)
 	strippedName := strings.Split(name, "-")[0]
-	w := WriteResponse{reply: ch, group: strippedName, op: CREATEGROUP}
+	w := WriteResponse{reply: ch, group: strippedName, size: size, op: CREATEGROUP}
 	m.writeQueue <- w
 	response := <-w.reply
 	return response
@@ -208,6 +211,7 @@ func (m *SprintTaskHandler) CreateGroup(name string) error {
 
 func (m *SprintTaskHandler) createGroup(write WriteResponse) {
 	err := m.storage.Create(GROUP_DIRECTORY+write.group, "")
+	err = m.storage.Create(GROUP_DIRECTORY+write.group+GROUP_SIZE, strconv.Itoa(write.size))
 	write.reply <- err
 }
 
@@ -272,6 +276,7 @@ func (m *SprintTaskHandler) DelFromGroup(name string, agentID *mesos_v1.AgentID)
 }
 
 func (m *SprintTaskHandler) delFromGroup(write WriteResponse) {
+	// Update values
 	currentValues, err := m.storage.Read(GROUP_DIRECTORY + write.group)
 	if err != nil {
 		write.reply <- err
@@ -285,6 +290,18 @@ func (m *SprintTaskHandler) delFromGroup(write WriteResponse) {
 	}
 	newValue := strings.Join(update, ",")
 	m.storage.Update(GROUP_DIRECTORY+write.group, newValue)
+
+	// Update size path
+	size, err := m.storage.Read(GROUP_DIRECTORY + write.group + GROUP_SIZE)
+	if err != nil {
+		write.reply <- err
+	}
+
+	s, err := strconv.Atoi(size)
+	if err != nil {
+		write.reply <- err
+	}
+	m.storage.Update(GROUP_DIRECTORY+write.group+GROUP_SIZE, strconv.Itoa(s - 1))
 	write.reply <- nil
 	return
 }
@@ -298,7 +315,18 @@ func (m *SprintTaskHandler) DeleteGroup(name string) error {
 }
 
 func (m *SprintTaskHandler) deleteGroup(write WriteResponse) {
-	err := m.storage.Delete(GROUP_DIRECTORY + write.group)
+	size, err := m.storage.Read(GROUP_DIRECTORY + write.group + GROUP_SIZE)
+	if err != nil {
+		write.reply <- err
+		return
+	}
+	if s, _ := strconv.Atoi(size); s == 0 {
+		err := m.storage.Delete(GROUP_DIRECTORY + write.group)
+		if err != nil {
+			write.reply <- err
+		}
+		err = m.storage.Delete(GROUP_DIRECTORY + write.group + GROUP_SIZE)
+	}
 	write.reply <- err
 }
 

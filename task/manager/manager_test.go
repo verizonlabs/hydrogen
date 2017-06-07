@@ -486,7 +486,7 @@ func TestSprintTaskHandler_CreateGroup(t *testing.T) {
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 
-	if err := taskManager.CreateGroup("Test Group"); err != nil {
+	if err := taskManager.CreateGroup("Test Group", 0); err != nil {
 		t.Logf("Failed to create a group %v\n", err.Error())
 		t.Failed()
 	}
@@ -877,7 +877,7 @@ func BenchmarkSprintTaskHandler_CreateGroup(b *testing.B) {
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		taskManager.CreateGroup("Some Group")
+		taskManager.CreateGroup("Some Group", 0)
 	}
 	b.StopTimer()
 }

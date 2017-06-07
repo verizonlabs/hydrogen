@@ -71,7 +71,7 @@ func (m *Parser) Deploy(decoded []byte) (*mesos_v1.TaskInfo, error) {
 		}
 	} else if appJson.Instances > 1 {
 		originalName := mesosTask.GetName()
-		if err := m.taskManager.CreateGroup(originalName); err != nil {
+		if err := m.taskManager.CreateGroup(originalName, appJson.Instances); err != nil {
 			return nil, err
 		} // Create our new group.
 		taskId := mesosTask.GetTaskId().GetValue()
