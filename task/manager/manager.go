@@ -253,11 +253,7 @@ func (m *SprintTaskHandler) ReadGroup(name string) []*mesos_v1.AgentID {
 }
 
 func (m *SprintTaskHandler) readGroup(read ReadResponse) {
-	if _, ok := m.groups[read.name]; ok {
-		read.agents <- m.groups[read.name]
-		return
-	}
-	read.agents <- nil
+	read.agents <- m.groups[read.name]
 }
 
 // Link an agentID to a group name.
