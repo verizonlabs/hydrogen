@@ -179,11 +179,8 @@ func (m *SprintTaskHandler) encode(task *mesos_v1.TaskInfo, state mesos_v1.TaskS
 		Info:  task,
 		State: state,
 	})
-	if err != nil {
-		return b, err
-	}
 
-	return b, nil
+	return b, err
 }
 
 func (m *SprintTaskHandler) IsInGroup(task *mesos_v1.TaskInfo) bool {
@@ -354,6 +351,7 @@ func (s *SprintTaskHandler) AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v
 			policy = &task.TimeRetry{
 				Time:    "1.5",
 				Backoff: true,
+				MaxRetries: 3,
 			}
 		}
 
@@ -428,9 +426,7 @@ func (m *SprintTaskHandler) Add(t *mesos_v1.TaskInfo) error {
 	r := WriteResponse{task: t, reply: reply, op: ADD}
 	m.writeQueue <- r
 	response := <-r.reply
-	if response != nil {
-		return response
-	}
+
 	return response
 }
 
@@ -440,12 +436,14 @@ func (m *SprintTaskHandler) add(add WriteResponse) {
 	// Use a unique ID for storing in the map, taskid?
 	if _, ok := m.tasks[task.GetName()]; ok {
 		add.reply <- errors.New("Task " + task.GetName() + " already exists")
+		return
 	}
 
 	// Write forward.
 	encoded, err := m.encode(task, manager.UNKNOWN)
 	if err != nil {
 		add.reply <- err
+		return
 	}
 
 	id := task.TaskId.GetValue()
@@ -459,6 +457,7 @@ func (m *SprintTaskHandler) add(add WriteResponse) {
 
 	if err != nil {
 		add.reply <- err
+		return
 	}
 
 	m.tasks[task.GetName()] = manager.Task{
@@ -476,9 +475,7 @@ func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) error {
 	m.writeQueue <- r
 	response := <-r.reply
 	close(r.reply)
-	if response != nil {
-		return response
-	}
+
 	return response
 }
 
@@ -499,6 +496,7 @@ func (m *SprintTaskHandler) delete(res WriteResponse) {
 
 	if err != nil {
 		res.reply <- err
+		return
 	}
 	delete(m.tasks, task.GetName())
 	m.ClearPolicy(task)
@@ -532,7 +530,7 @@ func (m *SprintTaskHandler) GetById(id *mesos_v1.TaskID) (*mesos_v1.TaskInfo, er
 	r := ReadResponse{id: id.GetValue(), reply: reply, op: GETBYID}
 	m.readQueue <- r
 	response := <-r.reply
-	if response.TaskId == nil {
+	if response == nil {
 		return nil, errors.New("Could not find task by id: " + id.GetValue())
 	}
 	return response, nil
@@ -546,7 +544,7 @@ func (m *SprintTaskHandler) getById(ret ReadResponse) {
 			return
 		}
 	}
-	ret.reply <- &mesos_v1.TaskInfo{}
+	ret.reply <- nil
 }
 
 // Indicates whether or not the task manager holds the specified task.
@@ -558,11 +556,8 @@ func (m *SprintTaskHandler) HasTask(task *mesos_v1.TaskInfo) bool {
 	r := ReadResponse{name: task.GetName(), replyTask: reply, op: HASTASK}
 	m.readQueue <- r
 	response := <-r.replyTask
-	if response.Info == nil {
-		return false
-	}
-	return true
 
+	return response.Info != nil
 }
 
 func (m *SprintTaskHandler) hasTask(ret ReadResponse) {
@@ -615,7 +610,8 @@ func (m *SprintTaskHandler) set(ret WriteResponse) {
 	// Write forward.
 	encoded, err := m.encode(ret.task, ret.state)
 	if err != nil {
-		m.logger.Emit(logging.INFO, err.Error())
+		ret.reply <- err
+		return
 	}
 
 	id := ret.task.TaskId.GetValue()
@@ -625,6 +621,7 @@ func (m *SprintTaskHandler) set(ret WriteResponse) {
 
 	if err != nil {
 		ret.reply <- err
+		return
 	}
 
 	m.tasks[ret.task.GetName()] = manager.Task{
@@ -659,10 +656,9 @@ func (m *SprintTaskHandler) AllByState(state mesos_v1.TaskState) ([]*mesos_v1.Ta
 
 	reply := make(chan *mesos_v1.TaskInfo)
 	r := ReadResponse{state: state, reply: reply, op: ALLBYSTATE}
+
 	m.readQueue <- r
-
 	tasks := make([]*mesos_v1.TaskInfo, 0)
-
 	for task := range r.reply {
 		tasks = append(tasks, task)
 	}
