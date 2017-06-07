@@ -12,7 +12,10 @@ import (
 
 type MockTaskManager struct{}
 
-func (m MockTaskManager) CreateGroup(string, int) error                     { return nil }
+func (m MockTaskManager) CreateGroup(string) error                     { return nil }
+func (m MockTaskManager) Unlink(string, *mesos_v1.AgentID) error       { return nil }
+func (m MockTaskManager) SetSize(string, int) error                    { return nil }
+func (m MockTaskManager) Link(string, *mesos_v1.AgentID) error         { return nil }
 func (m MockTaskManager) AddToGroup(string, *mesos_v1.AgentID) error   { return nil }
 func (m MockTaskManager) ReadGroup(string) []*mesos_v1.AgentID         { return []*mesos_v1.AgentID{} }
 func (m MockTaskManager) DelFromGroup(string, *mesos_v1.AgentID) error { return nil }
@@ -87,7 +90,11 @@ type MockBrokenTaskManager struct{}
 var (
 	broken error = errors.New("Broken")
 )
-func (m MockBrokenTaskManager) CreateGroup(string, int) error                     { return broken}
+
+func (m MockBrokenTaskManager) CreateGroup(string) error                     { return broken }
+func (m MockBrokenTaskManager) Unlink(string, *mesos_v1.AgentID) error       { return broken }
+func (m MockBrokenTaskManager) SetSize(string, int) error                    { return broken }
+func (m MockBrokenTaskManager) Link(string, *mesos_v1.AgentID) error         { return broken }
 func (m MockBrokenTaskManager) AddToGroup(string, *mesos_v1.AgentID) error   { return broken }
 func (m MockBrokenTaskManager) ReadGroup(string) []*mesos_v1.AgentID         { return nil }
 func (m MockBrokenTaskManager) DelFromGroup(string, *mesos_v1.AgentID) error { return broken }
@@ -153,8 +160,10 @@ func (m MockBrokenTaskManager) AllByState(state mesos_v1.TaskState) ([]*mesos_v1
 
 type MockTaskManagerQueued struct{}
 
-
-func (m MockTaskManagerQueued) CreateGroup(string, int) error                     { return nil }
+func (m MockTaskManagerQueued) CreateGroup(string) error                     { return nil }
+func (m MockTaskManagerQueued) Unlink(string, *mesos_v1.AgentID) error       { return nil }
+func (m MockTaskManagerQueued) SetSize(string, int) error                    { return nil }
+func (m MockTaskManagerQueued) Link(string, *mesos_v1.AgentID) error         { return nil }
 func (m MockTaskManagerQueued) AddToGroup(string, *mesos_v1.AgentID) error   { return nil }
 func (m MockTaskManagerQueued) ReadGroup(string) []*mesos_v1.AgentID         { return []*mesos_v1.AgentID{} }
 func (m MockTaskManagerQueued) DelFromGroup(string, *mesos_v1.AgentID) error { return nil }

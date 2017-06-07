@@ -75,7 +75,7 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 		// for example other parts of the codebase may check for STAGING and this would cause it to be set too early.
 		s.TaskManager().Set(manager.STAGING, t)
 		if InGroup {
-			s.TaskManager().AddToGroup(mesosTask.GetName(), offer.GetAgentId())
+			s.TaskManager().Link(mesosTask.GetName(), offer.GetAgentId())
 		}
 		accepts[offer.Id] = append(accepts[offer.Id], resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
 	}

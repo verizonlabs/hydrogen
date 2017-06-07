@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"testing"
 	"time"
-
 )
 
 func CreateTestTask(name string) *mesos_v1.TaskInfo {
@@ -486,13 +485,13 @@ func TestSprintTaskHandler_CreateGroup(t *testing.T) {
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 
-	if err := taskManager.CreateGroup("Test Group", 0); err != nil {
+	if err := taskManager.CreateGroup("Test Group"); err != nil {
 		t.Logf("Failed to create a group %v\n", err.Error())
 		t.Failed()
 	}
 }
 
-func TestSprintTaskHandler_AddToGroup(t *testing.T) {
+func TestSprintTaskHandler_SetSize(t *testing.T) {
 	cmap := make(map[string]manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
@@ -502,10 +501,9 @@ func TestSprintTaskHandler_AddToGroup(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-
-	if err := taskManager.AddToGroup("Test Group", &mesos_v1.AgentID{Value: utils.ProtoString("someAgentId")}); err != nil {
+	if err := taskManager.SetSize("Test Group-1", 1); err != nil {
 		t.Logf("Failed to add to group %v\n", err.Error())
-		t.Failed()
+		t.Fail()
 	}
 }
 
@@ -520,8 +518,8 @@ func TestSprintTaskHandler_ReadGroup(t *testing.T) {
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 
-	if err := taskManager.DelFromGroup("Test Group", &mesos_v1.AgentID{Value: utils.ProtoString("someAgentId")}); err != nil {
-		t.Logf("Failed to delete from group %v\n", err.Error())
+	if group := taskManager.ReadGroup("Test Group"); group == nil {
+		t.Log("Did not pass back a valid group, was nil")
 		t.Failed()
 	}
 }
@@ -572,12 +570,11 @@ func TestSprintTaskHandler_IsInGroup(t *testing.T) {
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 
-	if ok := taskManager.IsInGroup(&mesos_v1.TaskInfo{Name:utils.ProtoString("Some Task")}); !ok {
+	if ok := taskManager.IsInGroup(&mesos_v1.TaskInfo{Name: utils.ProtoString("Some Task")}); !ok {
 		t.Log("Failed to find task in a group")
 		t.Failed()
 	}
 }
-
 
 func BenchmarkSprintTaskHandler_Add(b *testing.B) {
 	cmap := make(map[string]manager.Task)
@@ -877,12 +874,12 @@ func BenchmarkSprintTaskHandler_CreateGroup(b *testing.B) {
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		taskManager.CreateGroup("Some Group", 0)
+		taskManager.CreateGroup("Some Group")
 	}
 	b.StopTimer()
 }
 
-func BenchmarkSprintTaskHandler_AddToGroup(b *testing.B) {
+func BenchmarkSprintTaskHandler_Link(b *testing.B) {
 	cmap := make(map[string]manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
@@ -894,12 +891,12 @@ func BenchmarkSprintTaskHandler_AddToGroup(b *testing.B) {
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		taskManager.AddToGroup("Some Group",  &mesos_v1.AgentID{Value:utils.ProtoString("Some Agent")})
+		taskManager.Link("Some Group", &mesos_v1.AgentID{Value: utils.ProtoString("Some Agent")})
 	}
 	b.StopTimer()
 }
 
-func BenchmarkSprintTaskHandler_DelFromGroup(b *testing.B) {
+func BenchmarkSprintTaskHandler_Unlink(b *testing.B) {
 	cmap := make(map[string]manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
@@ -911,7 +908,7 @@ func BenchmarkSprintTaskHandler_DelFromGroup(b *testing.B) {
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		taskManager.DelFromGroup("Some Group", &mesos_v1.AgentID{Value:utils.ProtoString("Some Agent")})
+		taskManager.Unlink("Some Group", &mesos_v1.AgentID{Value: utils.ProtoString("Some Agent")})
 	}
 	b.StopTimer()
 }
@@ -945,11 +942,10 @@ func BenchmarkSprintTaskHandler_IsInGroup(b *testing.B) {
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		taskManager.IsInGroup(&mesos_v1.TaskInfo{Name:utils.ProtoString("Some Task")})
+		taskManager.IsInGroup(&mesos_v1.TaskInfo{Name: utils.ProtoString("Some Task")})
 	}
 	b.StopTimer()
 }
-
 
 func BenchmarkSprintTaskHandler_DeleteGroup(b *testing.B) {
 	cmap := make(map[string]manager.Task)
@@ -967,6 +963,3 @@ func BenchmarkSprintTaskHandler_DeleteGroup(b *testing.B) {
 	}
 	b.StopTimer()
 }
-
-
-
