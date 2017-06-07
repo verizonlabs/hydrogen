@@ -183,6 +183,7 @@ func (m *SprintTaskHandler) encode(task *mesos_v1.TaskInfo, state mesos_v1.TaskS
 	return b, err
 }
 
+// Checks if a task is in a grouping.
 func (m *SprintTaskHandler) IsInGroup(task *mesos_v1.TaskInfo) bool {
 	ch := make(chan bool, 1)
 	strippedName := strings.Split(task.GetName(), "-")[0]
@@ -191,13 +192,9 @@ func (m *SprintTaskHandler) IsInGroup(task *mesos_v1.TaskInfo) bool {
 	return response
 }
 
-// Checks if there's a group
 func (m *SprintTaskHandler) isInGroup(read ReadResponse) {
-	if _, ok := m.groups[read.name]; ok {
-		read.isInGroup <- true
-		return
-	}
-	read.isInGroup <- false
+	_, exists := m.groups[read.name]
+	read.isInGroup <- exists
 }
 
 // Creates a group for the given name.
@@ -230,11 +227,14 @@ func (m *SprintTaskHandler) setSize(write WriteResponse) {
 	size, err := m.storage.Read(GROUP_DIRECTORY + write.group + GROUP_SIZE)
 	if err != nil {
 		write.reply <- err
+		return
 	}
 
+	// There's not a number stored here, fail.
 	s, err := strconv.Atoi(size)
 	if err != nil {
 		write.reply <- err
+		return
 	}
 
 	// Increment or decrement by the given size.
@@ -243,6 +243,7 @@ func (m *SprintTaskHandler) setSize(write WriteResponse) {
 	write.reply <- nil
 }
 
+// Read the agents tied to a grouping.
 func (m *SprintTaskHandler) ReadGroup(name string) []*mesos_v1.AgentID {
 	ch := make(chan []*mesos_v1.AgentID)
 	strippedName := strings.Split(name, "-")[0]
@@ -259,6 +260,7 @@ func (m *SprintTaskHandler) readGroup(read ReadResponse) {
 	read.agents <- nil
 }
 
+// Link an agentID to a group name.
 func (m *SprintTaskHandler) Link(name string, agent *mesos_v1.AgentID) error {
 	ch := make(chan error)
 	strippedName := strings.Split(name, "-")[0]
@@ -286,7 +288,6 @@ func (m *SprintTaskHandler) link(write WriteResponse) {
 		write.reply <- err
 	}
 	write.reply <- nil
-	return
 }
 
 // Unlink removes an task/agent mapping.
@@ -303,6 +304,7 @@ func (m *SprintTaskHandler) unlink(write WriteResponse) {
 	currentValues, err := m.storage.Read(GROUP_DIRECTORY + write.group)
 	if err != nil {
 		write.reply <- err
+		return
 	}
 	split := strings.Split(currentValues, ",")
 	var update []string
@@ -314,7 +316,6 @@ func (m *SprintTaskHandler) unlink(write WriteResponse) {
 	newValue := strings.Join(update, ",")
 	m.storage.Update(GROUP_DIRECTORY+write.group, newValue)
 	write.reply <- nil
-	return
 }
 
 func (m *SprintTaskHandler) DeleteGroup(name string) error {
@@ -335,10 +336,16 @@ func (m *SprintTaskHandler) deleteGroup(write WriteResponse) {
 		err := m.storage.Delete(GROUP_DIRECTORY + write.group)
 		if err != nil {
 			write.reply <- err
+			return
 		}
 		err = m.storage.Delete(GROUP_DIRECTORY + write.group + GROUP_SIZE)
+		if err != nil {
+			write.reply <- err
+			return
+		}
+		delete(m.groups, write.group)
 	}
-	delete(m.groups, write.group)
+
 	write.reply <- err
 }
 
@@ -475,7 +482,6 @@ func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) error {
 	m.writeQueue <- r
 	response := <-r.reply
 	close(r.reply)
-
 	return response
 }
 
