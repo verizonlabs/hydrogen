@@ -517,10 +517,10 @@ func TestSprintTaskHandler_ReadGroup(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-
+	taskManager.CreateGroup("Test Group")
 	if group := taskManager.ReadGroup("Test Group"); group == nil {
 		t.Log("Did not pass back a valid group, was nil")
-		t.Failed()
+		t.Fail()
 	}
 }
 
@@ -551,7 +551,7 @@ func TestSprintTaskHandler_DelFromGroup(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-
+	taskManager.CreateGroup("Test Group")
 	grouping := taskManager.ReadGroup("Test Group")
 	if grouping == nil {
 		t.Log("ReadGroup failed.")
@@ -569,7 +569,7 @@ func TestSprintTaskHandler_IsInGroup(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-
+	taskManager.CreateGroup("Some Task")
 	if ok := taskManager.IsInGroup(&mesos_v1.TaskInfo{Name: utils.ProtoString("Some Task")}); !ok {
 		t.Log("Failed to find task in a group")
 		t.Failed()

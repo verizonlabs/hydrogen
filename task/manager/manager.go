@@ -10,7 +10,6 @@ import (
 	"mesos-framework-sdk/structures"
 	"mesos-framework-sdk/task"
 	"mesos-framework-sdk/task/manager"
-	"mesos-framework-sdk/utils"
 	"sprint/scheduler"
 	"sprint/task/persistence"
 	"sprint/task/retry"
@@ -114,6 +113,7 @@ func NewTaskManager(
 		retries:    structures.NewConcurrentMap(),
 		config:     config,
 		task:       make(chan *mesos_v1.TaskInfo),
+		groups:     make(map[string][]*mesos_v1.AgentID),
 		logger:     logger,
 		writeQueue: make(chan WriteResponse, 100),
 		readQueue:  make(chan ReadResponse, 100),
@@ -188,19 +188,19 @@ func (m *SprintTaskHandler) encode(task *mesos_v1.TaskInfo, state mesos_v1.TaskS
 
 func (m *SprintTaskHandler) IsInGroup(task *mesos_v1.TaskInfo) bool {
 	ch := make(chan bool, 1)
-	m.readQueue <- ReadResponse{isInGroup: ch, name: task.GetName(), op: ISINGROUP}
+	strippedName := strings.Split(task.GetName(), "-")[0]
+	m.readQueue <- ReadResponse{isInGroup: ch, name: strippedName, op: ISINGROUP}
 	response := <-ch
 	return response
 }
 
 // Checks if there's a group
 func (m *SprintTaskHandler) isInGroup(read ReadResponse) {
-	_, err := m.storage.Read(GROUP_DIRECTORY + read.name)
-	if err != nil {
-		read.isInGroup <- false
+	if _, ok := m.groups[read.name]; ok {
+		read.isInGroup <- true
 		return
 	}
-	read.isInGroup <- true
+	read.isInGroup <- false
 }
 
 // Creates a group for the given name.
@@ -215,6 +215,7 @@ func (m *SprintTaskHandler) CreateGroup(name string) error {
 func (m *SprintTaskHandler) createGroup(write WriteResponse) {
 	err := m.storage.Create(GROUP_DIRECTORY+write.group, "")
 	err = m.storage.Create(GROUP_DIRECTORY+write.group+GROUP_SIZE, strconv.Itoa(0))
+	m.groups[write.group] = make([]*mesos_v1.AgentID, 0)
 	write.reply <- err
 }
 
@@ -254,17 +255,11 @@ func (m *SprintTaskHandler) ReadGroup(name string) []*mesos_v1.AgentID {
 }
 
 func (m *SprintTaskHandler) readGroup(read ReadResponse) {
-	currentValue, err := m.storage.Read(GROUP_DIRECTORY + read.name)
-	if err != nil {
-		read.agents <- nil
+	if _, ok := m.groups[read.name]; ok {
+		read.agents <- m.groups[read.name]
 		return
 	}
-	var agents []*mesos_v1.AgentID
-	for _, i := range strings.Split(currentValue, ",") {
-		agents = append(agents, &mesos_v1.AgentID{Value: utils.ProtoString(i)})
-	}
-	read.agents <- agents
-	return
+	read.agents <- nil
 }
 
 func (m *SprintTaskHandler) Link(name string, agent *mesos_v1.AgentID) error {
@@ -346,6 +341,7 @@ func (m *SprintTaskHandler) deleteGroup(write WriteResponse) {
 		}
 		err = m.storage.Delete(GROUP_DIRECTORY + write.group + GROUP_SIZE)
 	}
+	delete(m.groups, write.group)
 	write.reply <- err
 }
 
