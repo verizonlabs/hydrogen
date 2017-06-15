@@ -352,8 +352,8 @@ func (s *SprintTaskHandler) AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v
 	if mesosTask != nil {
 		if policy == nil {
 			policy = &task.TimeRetry{
-				Time:    "1.5",
-				Backoff: true,
+				Time:       "1.5",
+				Backoff:    true,
 				MaxRetries: 3,
 			}
 		}

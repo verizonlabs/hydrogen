@@ -107,11 +107,11 @@ func TestHandlers_Tasks(t *testing.T) {
 	}
 }
 
-// Makes sure that the endpoint to get all tasks gives an error when it should.
-func TestHandlers_TasksError(t *testing.T) {
+// Tests that we get an OK response to an empty task manager.
+func TestHandlers_TasksEmpty(t *testing.T) {
 	h := NewHandlers(brokenApiMgr)
 	rr := requestFixture(h.Tasks, "GET", "/tasks", nil)
-	if rr.Code == http.StatusOK {
+	if rr.Code != http.StatusOK {
 		t.Fatalf("Wrong status code: want %d but got %d", rr.Code, http.StatusOK)
 	}
 }

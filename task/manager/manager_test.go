@@ -409,13 +409,13 @@ func TestTaskManager_AddManyTasks(t *testing.T) {
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	tasks := make([]*mesos_v1.TaskInfo, 0)
-	for i := 0; i <= 1000; i++ {
+	for i := 0; i <= 3; i++ {
 		tasks = append(tasks, CreateTestTask("testTask"+strconv.Itoa(i)))
 	}
 	for _, k := range tasks {
 		taskManager.Set(manager.UNKNOWN, k)
 	}
-	if taskManager.TotalTasks() == 1000 {
+	if taskManager.TotalTasks() == 3 {
 		t.Log(taskManager.TotalTasks())
 	}
 }
@@ -431,14 +431,14 @@ func TestTaskManager_AddManyTasksAndDelete(t *testing.T) {
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	tasks := make([]*mesos_v1.TaskInfo, 0)
-	for i := 0; i <= 1000; i++ {
+	for i := 0; i <= 3; i++ {
 		tasks = append(tasks, CreateTestTask("testTask"+strconv.Itoa(i)))
 	}
 	for _, k := range tasks {
 		taskManager.Add(k)
 		taskManager.Set(manager.UNKNOWN, k)
 	}
-	if taskManager.TotalTasks() == 1000 {
+	if taskManager.TotalTasks() == 3 {
 		t.Log(taskManager.TotalTasks())
 	}
 	for _, k := range tasks {
@@ -456,8 +456,8 @@ func TestTaskManager_DoubleAdd(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	tasks := make([]*mesos_v1.TaskInfo, 1000)
-	for i := 0; i < 1000; i++ {
+	tasks := make([]*mesos_v1.TaskInfo, 3)
+	for i := 0; i < 3; i++ {
 		tasks[i] = CreateTestTask("testTask" + strconv.Itoa(i))
 	}
 	for _, k := range tasks {
@@ -469,7 +469,7 @@ func TestTaskManager_DoubleAdd(t *testing.T) {
 		taskManager.Set(manager.UNKNOWN, k)
 	}
 
-	if taskManager.TotalTasks() != 1000 {
+	if taskManager.TotalTasks() != 3{
 		t.Log("Expecting 1000 tasks in total, got " + strconv.Itoa(taskManager.TotalTasks()))
 	}
 }
