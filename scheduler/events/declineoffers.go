@@ -14,7 +14,7 @@ func (s *SprintEventController) declineOffers(offers []*mesos_v1.Offer, refuseSe
 		return
 	}
 
-	declineIDs := []*mesos_v1.OfferID{}
+	declineIDs := make([]*mesos_v1.OfferID, 0, len(offers))
 
 	// Decline whatever offers are left over
 	for _, id := range offers {

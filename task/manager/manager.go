@@ -5,39 +5,40 @@ import (
 	"encoding/base64"
 	"encoding/gob"
 	"errors"
-	"fmt"
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/structures"
 	"mesos-framework-sdk/task"
 	"mesos-framework-sdk/task/manager"
-	"mesos-framework-sdk/utils"
 	"sprint/scheduler"
 	"sprint/task/persistence"
 	"sprint/task/retry"
+	"strconv"
 	"strings"
 	"time"
 )
 
 const (
+	GROUP_SIZE         = "/size/"
 	GROUP_DIRECTORY    = "/taskgroup/"
 	TASK_DIRECTORY     = "/tasks/"
-	DELETE          OP = "delete"
-	ADD             OP = "add"
-	GET             OP = "get"
-	GETBYID         OP = "getbyid"
-	HASTASK         OP = "hastask"
-	SET             OP = "set"
-	ALLBYSTATE      OP = "allbystate"
-	ALL             OP = "all"
-	STATE           OP = "state"
-	LEN             OP = "length"
-	CREATEGROUP     OP = "creategroup"
-	DELGROUP        OP = "delgroup"
-	REMOVEFROMGROUP OP = "rmvFromGrp"
-	ADDTOGROUP      OP = "addToGrp"
-	READGROUP       OP = "readGrp"
-	ISINGROUP       OP = "isinGrp"
+	UNLINK          OP = 0
+	LINK            OP = 1
+	DELETE          OP = 2
+	ADD             OP = 3
+	GET             OP = 4
+	GETBYID         OP = 5
+	HASTASK         OP = 6
+	SET             OP = 7
+	ALLBYSTATE      OP = 8
+	ALL             OP = 9
+	STATE           OP = 10
+	LEN             OP = 11
+	CREATEGROUP     OP = 12
+	DELGROUP        OP = 13
+	SETGROUPSIZE    OP = 14
+	READGROUP       OP = 15
+	ISINGROUP       OP = 16
 )
 
 type (
@@ -54,6 +55,7 @@ type (
 	// Offers from Mesos are matched up with user-submitted tasks, and those tasks are updated via event callbacks.
 	SprintTaskHandler struct {
 		tasks      map[string]manager.Task
+		groups     map[string][]*mesos_v1.AgentID
 		storage    persistence.Storage
 		retries    structures.DistributedMap
 		config     *scheduler.Configuration
@@ -63,12 +65,13 @@ type (
 		readQueue  chan ReadResponse
 	}
 
-	OP string
+	OP uint8
 
 	WriteResponse struct {
 		task    *mesos_v1.TaskInfo
 		group   string
 		agentID *mesos_v1.AgentID
+		size    int
 		state   mesos_v1.TaskState
 		reply   chan error
 		op      OP
@@ -110,6 +113,7 @@ func NewTaskManager(
 		retries:    structures.NewConcurrentMap(),
 		config:     config,
 		task:       make(chan *mesos_v1.TaskInfo),
+		groups:     make(map[string][]*mesos_v1.AgentID),
 		logger:     logger,
 		writeQueue: make(chan WriteResponse, 100),
 		readQueue:  make(chan ReadResponse, 100),
@@ -130,14 +134,16 @@ func (m *SprintTaskHandler) listen() {
 				m.delete(write)
 			case SET:
 				m.set(write)
-			case ADDTOGROUP:
-				m.addToGroup(write)
+			case SETGROUPSIZE:
+				m.setSize(write)
 			case DELGROUP:
 				m.deleteGroup(write)
-			case REMOVEFROMGROUP:
-				m.delFromGroup(write)
 			case CREATEGROUP:
 				m.createGroup(write)
+			case UNLINK:
+				m.unlink(write)
+			case LINK:
+				m.link(write)
 			}
 		case read := <-m.readQueue:
 			switch read.op {
@@ -173,35 +179,28 @@ func (m *SprintTaskHandler) encode(task *mesos_v1.TaskInfo, state mesos_v1.TaskS
 		Info:  task,
 		State: state,
 	})
-	if err != nil {
-		return b, err
-	}
 
-	return b, nil
+	return b, err
 }
 
+// Checks if a task is in a grouping.
 func (m *SprintTaskHandler) IsInGroup(task *mesos_v1.TaskInfo) bool {
 	ch := make(chan bool, 1)
-	m.readQueue <- ReadResponse{isInGroup: ch, name: task.GetName(), op: ISINGROUP}
+	strippedName := strings.Split(task.GetName(), "-")[0]
+	m.readQueue <- ReadResponse{isInGroup: ch, name: strippedName, op: ISINGROUP}
 	response := <-ch
 	return response
 }
 
-// Checks if there's a group
 func (m *SprintTaskHandler) isInGroup(read ReadResponse) {
-	_, err := m.storage.Read(GROUP_DIRECTORY + read.name)
-	if err != nil {
-		read.isInGroup <- false
-		return
-	}
-	read.isInGroup <- true
+	_, exists := m.groups[read.name]
+	read.isInGroup <- exists
 }
 
+// Creates a group for the given name.
 func (m *SprintTaskHandler) CreateGroup(name string) error {
-	// make our chan to write a group
 	ch := make(chan error, 1)
-	strippedName := strings.Split(name, "-")[0]
-	w := WriteResponse{reply: ch, group: strippedName, op: CREATEGROUP}
+	w := WriteResponse{reply: ch, group: name, op: CREATEGROUP}
 	m.writeQueue <- w
 	response := <-w.reply
 	return response
@@ -209,19 +208,64 @@ func (m *SprintTaskHandler) CreateGroup(name string) error {
 
 func (m *SprintTaskHandler) createGroup(write WriteResponse) {
 	err := m.storage.Create(GROUP_DIRECTORY+write.group, "")
-	fmt.Printf("Create group...%v\n", err)
+	err = m.storage.Create(GROUP_DIRECTORY+write.group+GROUP_SIZE, strconv.Itoa(0))
+	m.groups[write.group] = make([]*mesos_v1.AgentID, 0)
 	write.reply <- err
 }
 
-func (m *SprintTaskHandler) AddToGroup(name string, agentId *mesos_v1.AgentID) error {
+// Increment or decrement a group size by the given amount on the group given name.
+func (m *SprintTaskHandler) SetSize(name string, amount int) error {
 	ch := make(chan error)
 	strippedName := strings.Split(name, "-")[0]
-	m.writeQueue <- WriteResponse{reply: ch, group: strippedName, agentID: agentId, op: ADDTOGROUP}
+	m.writeQueue <- WriteResponse{reply: ch, group: strippedName, size: amount, op: SETGROUPSIZE}
 	response := <-ch
 	return response
 }
 
-func (m *SprintTaskHandler) addToGroup(write WriteResponse) {
+func (m *SprintTaskHandler) setSize(write WriteResponse) {
+	// Update size in etcd.
+	size, err := m.storage.Read(GROUP_DIRECTORY + write.group + GROUP_SIZE)
+	if err != nil {
+		write.reply <- err
+		return
+	}
+
+	// There's not a number stored here, fail.
+	s, err := strconv.Atoi(size)
+	if err != nil {
+		write.reply <- err
+		return
+	}
+
+	// Increment or decrement by the given size.
+	m.storage.Update(GROUP_DIRECTORY+write.group+GROUP_SIZE, strconv.Itoa(s+write.size))
+
+	write.reply <- nil
+}
+
+// Read the agents tied to a grouping.
+func (m *SprintTaskHandler) ReadGroup(name string) []*mesos_v1.AgentID {
+	ch := make(chan []*mesos_v1.AgentID)
+	strippedName := strings.Split(name, "-")[0]
+	m.readQueue <- ReadResponse{agents: ch, name: strippedName, op: READGROUP}
+	response := <-ch
+	return response
+}
+
+func (m *SprintTaskHandler) readGroup(read ReadResponse) {
+	read.agents <- m.groups[read.name]
+}
+
+// Link an agentID to a group name.
+func (m *SprintTaskHandler) Link(name string, agent *mesos_v1.AgentID) error {
+	ch := make(chan error)
+	strippedName := strings.Split(name, "-")[0]
+	m.writeQueue <- WriteResponse{reply: ch, group: strippedName, agentID: agent, op: LINK}
+	response := <-ch
+	return response
+}
+
+func (m *SprintTaskHandler) link(write WriteResponse) {
 	var newValue string
 	currentValues, err := m.storage.Read(GROUP_DIRECTORY + write.group)
 	if err != nil {
@@ -238,45 +282,25 @@ func (m *SprintTaskHandler) addToGroup(write WriteResponse) {
 	err = m.storage.Update(GROUP_DIRECTORY+write.group, newValue)
 	if err != nil {
 		write.reply <- err
-		return
 	}
 	write.reply <- nil
 }
 
-func (m *SprintTaskHandler) ReadGroup(name string) []*mesos_v1.AgentID {
-	ch := make(chan []*mesos_v1.AgentID)
-	strippedName := strings.Split(name, "-")[0]
-	m.readQueue <- ReadResponse{agents: ch, name: strippedName, op: READGROUP}
-	response := <-ch
-	return response
-}
-
-func (m *SprintTaskHandler) readGroup(read ReadResponse) {
-	currentValue, err := m.storage.Read(GROUP_DIRECTORY + read.name)
-	if err != nil {
-		m.logger.Emit(logging.ERROR, "Unable to read group")
-		read.agents <- nil
-		return
-	}
-	var agents []*mesos_v1.AgentID
-	for _, i := range strings.Split(currentValue, ",") {
-		agents = append(agents, &mesos_v1.AgentID{Value: utils.ProtoString(i)})
-	}
-	read.agents <- agents
-}
-
-func (m *SprintTaskHandler) DelFromGroup(name string, agentID *mesos_v1.AgentID) error {
+// Unlink removes an task/agent mapping.
+func (m *SprintTaskHandler) Unlink(name string, agent *mesos_v1.AgentID) error {
 	ch := make(chan error)
 	strippedName := strings.Split(name, "-")[0]
-	m.writeQueue <- WriteResponse{reply: ch, group: strippedName, agentID: agentID, op: REMOVEFROMGROUP}
+	m.writeQueue <- WriteResponse{reply: ch, group: strippedName, agentID: agent, op: UNLINK}
 	response := <-ch
 	return response
 }
 
-func (m *SprintTaskHandler) delFromGroup(write WriteResponse) {
+func (m *SprintTaskHandler) unlink(write WriteResponse) {
+	// Update values
 	currentValues, err := m.storage.Read(GROUP_DIRECTORY + write.group)
 	if err != nil {
 		write.reply <- err
+		return
 	}
 	split := strings.Split(currentValues, ",")
 	var update []string
@@ -288,7 +312,6 @@ func (m *SprintTaskHandler) delFromGroup(write WriteResponse) {
 	newValue := strings.Join(update, ",")
 	m.storage.Update(GROUP_DIRECTORY+write.group, newValue)
 	write.reply <- nil
-	return
 }
 
 func (m *SprintTaskHandler) DeleteGroup(name string) error {
@@ -300,7 +323,25 @@ func (m *SprintTaskHandler) DeleteGroup(name string) error {
 }
 
 func (m *SprintTaskHandler) deleteGroup(write WriteResponse) {
-	err := m.storage.Delete(GROUP_DIRECTORY + write.group)
+	size, err := m.storage.Read(GROUP_DIRECTORY + write.group + GROUP_SIZE)
+	if err != nil {
+		write.reply <- err
+		return
+	}
+	if s, _ := strconv.Atoi(size); s == 0 {
+		err := m.storage.Delete(GROUP_DIRECTORY + write.group)
+		if err != nil {
+			write.reply <- err
+			return
+		}
+		err = m.storage.Delete(GROUP_DIRECTORY + write.group + GROUP_SIZE)
+		if err != nil {
+			write.reply <- err
+			return
+		}
+		delete(m.groups, write.group)
+	}
+
 	write.reply <- err
 }
 
@@ -309,13 +350,17 @@ func (m *SprintTaskHandler) deleteGroup(write WriteResponse) {
 //
 func (s *SprintTaskHandler) AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v1.TaskInfo) error {
 	if mesosTask != nil {
+		if policy == nil {
+			policy = &task.TimeRetry{
+				Time:    "1.5",
+				Backoff: true,
+				MaxRetries: 3,
+			}
+		}
+
 		t, err := time.ParseDuration(policy.Time + "s")
 		if err != nil {
 			return errors.New("Invalid time given in policy.")
-		}
-
-		if policy == nil {
-			policy = DEFAULT_RETRY_POLICY
 		}
 
 		s.retries.Set(mesosTask.GetName(), &retry.TaskRetry{
@@ -384,9 +429,7 @@ func (m *SprintTaskHandler) Add(t *mesos_v1.TaskInfo) error {
 	r := WriteResponse{task: t, reply: reply, op: ADD}
 	m.writeQueue <- r
 	response := <-r.reply
-	if response != nil {
-		return response
-	}
+
 	return response
 }
 
@@ -396,12 +439,14 @@ func (m *SprintTaskHandler) add(add WriteResponse) {
 	// Use a unique ID for storing in the map, taskid?
 	if _, ok := m.tasks[task.GetName()]; ok {
 		add.reply <- errors.New("Task " + task.GetName() + " already exists")
+		return
 	}
 
 	// Write forward.
 	encoded, err := m.encode(task, manager.UNKNOWN)
 	if err != nil {
 		add.reply <- err
+		return
 	}
 
 	id := task.TaskId.GetValue()
@@ -415,6 +460,7 @@ func (m *SprintTaskHandler) add(add WriteResponse) {
 
 	if err != nil {
 		add.reply <- err
+		return
 	}
 
 	m.tasks[task.GetName()] = manager.Task{
@@ -428,13 +474,10 @@ func (m *SprintTaskHandler) add(add WriteResponse) {
 // Deletes a task from memory and etcd, and clears any associated policy.
 func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) error {
 	reply := make(chan error)
-	r := WriteResponse{task: task, reply: reply, op: "delete"}
+	r := WriteResponse{task: task, reply: reply, op: DELETE}
 	m.writeQueue <- r
 	response := <-r.reply
 	close(r.reply)
-	if response != nil {
-		return response
-	}
 	return response
 }
 
@@ -455,6 +498,7 @@ func (m *SprintTaskHandler) delete(res WriteResponse) {
 
 	if err != nil {
 		res.reply <- err
+		return
 	}
 	delete(m.tasks, task.GetName())
 	m.ClearPolicy(task)
@@ -488,7 +532,7 @@ func (m *SprintTaskHandler) GetById(id *mesos_v1.TaskID) (*mesos_v1.TaskInfo, er
 	r := ReadResponse{id: id.GetValue(), reply: reply, op: GETBYID}
 	m.readQueue <- r
 	response := <-r.reply
-	if response.TaskId == nil {
+	if response == nil {
 		return nil, errors.New("Could not find task by id: " + id.GetValue())
 	}
 	return response, nil
@@ -502,7 +546,7 @@ func (m *SprintTaskHandler) getById(ret ReadResponse) {
 			return
 		}
 	}
-	ret.reply <- &mesos_v1.TaskInfo{}
+	ret.reply <- nil
 }
 
 // Indicates whether or not the task manager holds the specified task.
@@ -514,11 +558,8 @@ func (m *SprintTaskHandler) HasTask(task *mesos_v1.TaskInfo) bool {
 	r := ReadResponse{name: task.GetName(), replyTask: reply, op: HASTASK}
 	m.readQueue <- r
 	response := <-r.replyTask
-	if response.Info == nil {
-		return false
-	}
-	return true
 
+	return response.Info != nil
 }
 
 func (m *SprintTaskHandler) hasTask(ret ReadResponse) {
@@ -571,7 +612,8 @@ func (m *SprintTaskHandler) set(ret WriteResponse) {
 	// Write forward.
 	encoded, err := m.encode(ret.task, ret.state)
 	if err != nil {
-		m.logger.Emit(logging.INFO, err.Error())
+		ret.reply <- err
+		return
 	}
 
 	id := ret.task.TaskId.GetValue()
@@ -581,6 +623,7 @@ func (m *SprintTaskHandler) set(ret WriteResponse) {
 
 	if err != nil {
 		ret.reply <- err
+		return
 	}
 
 	m.tasks[ret.task.GetName()] = manager.Task{
@@ -615,10 +658,9 @@ func (m *SprintTaskHandler) AllByState(state mesos_v1.TaskState) ([]*mesos_v1.Ta
 
 	reply := make(chan *mesos_v1.TaskInfo)
 	r := ReadResponse{state: state, reply: reply, op: ALLBYSTATE}
+
 	m.readQueue <- r
-
 	tasks := make([]*mesos_v1.TaskInfo, 0)
-
 	for task := range r.reply {
 		tasks = append(tasks, task)
 	}

@@ -56,17 +56,13 @@ func (m *Parser) Deploy(decoded []byte) (*mesos_v1.TaskInfo, error) {
 		}
 	}
 
-	// Check for retry policy.
-	if appJson.Retry != nil {
-		err := m.taskManager.AddPolicy(appJson.Retry, mesosTask)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	// Deployment strategy
 	if appJson.Instances == 1 {
 		if err := m.taskManager.Add(mesosTask); err != nil {
+			return nil, err
+		}
+		err := m.taskManager.AddPolicy(appJson.Retry, mesosTask)
+		if err != nil {
 			return nil, err
 		}
 	} else if appJson.Instances > 1 {
@@ -74,12 +70,19 @@ func (m *Parser) Deploy(decoded []byte) (*mesos_v1.TaskInfo, error) {
 		if err := m.taskManager.CreateGroup(originalName); err != nil {
 			return nil, err
 		} // Create our new group.
+		if err := m.taskManager.SetSize(originalName, appJson.Instances); err != nil {
+			return nil, err
+		}
 		taskId := mesosTask.GetTaskId().GetValue()
 		for i := 0; i < appJson.Instances; i++ {
 			duplicate := *mesosTask
 			duplicate.Name = utils.ProtoString(originalName + "-" + strconv.Itoa(i+1))
 			duplicate.TaskId = &mesos_v1.TaskID{Value: utils.ProtoString(taskId + "-" + strconv.Itoa(i+1))}
 			if err := m.taskManager.Add(&duplicate); err != nil {
+				return nil, err
+			}
+			err := m.taskManager.AddPolicy(appJson.Retry, &duplicate)
+			if err != nil {
 				return nil, err
 			}
 		}
