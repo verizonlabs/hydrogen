@@ -469,7 +469,7 @@ func TestTaskManager_DoubleAdd(t *testing.T) {
 		taskManager.Set(manager.UNKNOWN, k)
 	}
 
-	if taskManager.TotalTasks() != 3{
+	if taskManager.TotalTasks() != 3 {
 		t.Log("Expecting 1000 tasks in total, got " + strconv.Itoa(taskManager.TotalTasks()))
 	}
 }

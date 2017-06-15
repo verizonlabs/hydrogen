@@ -98,7 +98,7 @@ func (h *Handlers) Tasks(w http.ResponseWriter, r *http.Request) {
 	tasks, err := h.manager.AllTasks()
 	if err != nil {
 		// This isn't an error since it's expected the task manager can be empty.
-		Success(w, Response{Message: "No tasks available."})
+		Success(w, Response{Message: err.Error()})
 		return
 	}
 
