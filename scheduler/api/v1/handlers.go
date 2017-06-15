@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	apiManager "sprint/scheduler/api/manager"
@@ -18,7 +17,20 @@ func NewHandlers(mgr apiManager.ApiParser) *Handlers {
 }
 
 // Deploy handler launches a given application from parsed JSON.
-func (h *Handlers) Deploy(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) Application(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodPost:
+		h.deployApplication(w,r)
+	case http.MethodDelete:
+		h.killApplication(w,r)
+	case http.MethodPut:
+		h.updateApplication(w,r)
+	case http.MethodGet:
+		h.applicationState(w,r)
+	}
+}
+
+func (h *Handlers) deployApplication(w http.ResponseWriter, r *http.Request) {
 	dec, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		BadRequest(w, Response{Message: err.Error()})
@@ -37,7 +49,7 @@ func (h *Handlers) Deploy(w http.ResponseWriter, r *http.Request) {
 }
 
 // Update handler allows for updates to an existing/running task.
-func (h *Handlers) Update(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) updateApplication(w http.ResponseWriter, r *http.Request) {
 	dec, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		BadRequest(w, Response{Message: err.Error()})
@@ -58,7 +70,7 @@ func (h *Handlers) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // Kill handler allows users to stop their running task.
-func (h *Handlers) Kill(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) killApplication(w http.ResponseWriter, r *http.Request) {
 	dec, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		BadRequest(w, Response{Message: err.Error()})
@@ -77,7 +89,7 @@ func (h *Handlers) Kill(w http.ResponseWriter, r *http.Request) {
 }
 
 // State handler provides the given task's current execution status.
-func (h *Handlers) State(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) applicationState(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Query().Get("name")
 	if name == "" {
 		BadRequest(w, Response{Message: "No name was found in URL params."})
@@ -109,6 +121,5 @@ func (h *Handlers) Tasks(w http.ResponseWriter, r *http.Request) {
 			TaskName: t.Info.GetName(),
 		})
 	}
-
-	json.NewEncoder(w).Encode(data)
+	MultiSuccess(w, data)
 }

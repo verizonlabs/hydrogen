@@ -14,25 +14,13 @@ type Route struct {
 // Returns a mapping of routes to their respective handlers.
 func MapRoutes(h *Handlers) map[string]Route {
 	return map[string]Route{
-		baseUrl + "/deploy": {
-			h.Deploy,
-			[]string{"POST"},
+		baseUrl + "/app": {
+			h.Application,
+			[]string{"POST", "DELETE", "PUT", "GET"},
 		},
-		baseUrl + "/state": {
-			h.State,
-			[]string{"GET"},
-		},
-		baseUrl + "/tasks": {
+		baseUrl + "/app/all": {
 			h.Tasks,
 			[]string{"GET"},
-		},
-		baseUrl + "/kill": {
-			h.Kill,
-			[]string{"DELETE"},
-		},
-		baseUrl + "/update": {
-			h.Update,
-			[]string{"PUT"},
 		},
 	}
 }

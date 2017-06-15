@@ -25,14 +25,23 @@ type Response struct {
 }
 
 var (
-	InternalServerError func(http.ResponseWriter, Response) = responseFactory(http.StatusInternalServerError)
-	BadRequest          func(http.ResponseWriter, Response) = responseFactory(http.StatusBadRequest)
-	Success             func(http.ResponseWriter, Response) = responseFactory(http.StatusOK)
+	InternalServerError func(http.ResponseWriter, Response)   = responseFactory(http.StatusInternalServerError)
+	BadRequest          func(http.ResponseWriter, Response)   = responseFactory(http.StatusBadRequest)
+	Success             func(http.ResponseWriter, Response)   = responseFactory(http.StatusOK)
+	MultiSuccess        func(http.ResponseWriter, []Response) = multiResponseFactory(http.StatusOK)
 )
 
 // Creates a response function.
 func responseFactory(statusCode int) func(w http.ResponseWriter, r Response) {
 	return func(w http.ResponseWriter, r Response) {
+		w.WriteHeader(statusCode)
+		json.NewEncoder(w).Encode(r)
+	}
+}
+
+// Creates a response function that handles multiple responses.
+func multiResponseFactory(statusCode int) func(w http.ResponseWriter, r []Response) {
+	return func(w http.ResponseWriter, r []Response) {
 		w.WriteHeader(statusCode)
 		json.NewEncoder(w).Encode(r)
 	}
