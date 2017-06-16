@@ -27,9 +27,12 @@ func (h *Handlers) Application(w http.ResponseWriter, r *http.Request) {
 		h.updateApplication(w,r)
 	case http.MethodGet:
 		h.applicationState(w,r)
+	default:
+		MethodNotAllowed(w,Response{Message:r.Method + " is not allowed on this endpoint."})
 	}
 }
 
+// Deploys an application.
 func (h *Handlers) deployApplication(w http.ResponseWriter, r *http.Request) {
 	dec, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -81,7 +84,7 @@ func (h *Handlers) killApplication(w http.ResponseWriter, r *http.Request) {
 
 	name, err := h.manager.Kill(dec)
 	if err != nil {
-		InternalServerError(w, Response{Message: err.Error()})
+		BadRequest(w, Response{Message: err.Error()})
 		return
 	}
 
@@ -107,6 +110,16 @@ func (h *Handlers) applicationState(w http.ResponseWriter, r *http.Request) {
 
 // Tasks handler provides a list of all tasks known to the scheduler.
 func (h *Handlers) Tasks(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		h.getAllTasks(w, r)
+	default:
+		MethodNotAllowed(w, Response{Message:r.Method + " is not allowed on this endpoint."})
+	}
+}
+
+// Gathers all tasks known to the scheduler.
+func (h *Handlers) getAllTasks(w http.ResponseWriter, r *http.Request){
 	tasks, err := h.manager.AllTasks()
 	if err != nil {
 		// This isn't an error since it's expected the task manager can be empty.

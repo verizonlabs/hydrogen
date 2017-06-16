@@ -5,18 +5,6 @@ import (
 	"net/http"
 )
 
-// v1 API statuses.
-const (
-	ACCEPTED = "Accepted"
-	LAUNCHED = "Launched"
-	FAILED   = "Failed"
-	RUNNING  = "Running"
-	KILLED   = "Killed"
-	NOTFOUND = "Not Found"
-	QUEUED   = "Queued"
-	UPDATE   = "Updated"
-)
-
 // v1 API response format.
 type Response struct {
 	TaskName string `json:"taskname,omitempty"`
@@ -27,6 +15,7 @@ type Response struct {
 var (
 	InternalServerError func(http.ResponseWriter, Response)   = responseFactory(http.StatusInternalServerError)
 	BadRequest          func(http.ResponseWriter, Response)   = responseFactory(http.StatusBadRequest)
+	MethodNotAllowed    func(http.ResponseWriter, Response) = responseFactory(http.StatusMethodNotAllowed)
 	Success             func(http.ResponseWriter, Response)   = responseFactory(http.StatusOK)
 	MultiSuccess        func(http.ResponseWriter, []Response) = multiResponseFactory(http.StatusOK)
 )
