@@ -151,8 +151,8 @@ curl -X GET sprint.marathon.mesos:8080/v1/api/app?name=test-app
 #### Get All Tasks ####
 Get all tasks known to the scheduler
 <pre><code>Method: GET
-/tasks
+/app/all
 
 # Example
-curl -X GET sprint.marathon.mesos:8080/v1/api/tasks
+curl -X GET sprint.marathon.mesos:8080/v1/api/app/all
 </pre></code>

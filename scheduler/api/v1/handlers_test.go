@@ -41,7 +41,7 @@ func TestNewHandlers(t *testing.T) {
 // Validates the deployment endpoint.
 func TestHandlers_Deploy(t *testing.T) {
 	h := NewHandlers(apiMgr)
-	rr := requestFixture(h.Application, "POST", "/deploy", strings.NewReader(validJSON))
+	rr := requestFixture(h.Application, "POST", "/app", strings.NewReader(validJSON))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("Wrong status code: want %d but got %d", http.StatusOK, rr.Code)
 	}
@@ -50,7 +50,7 @@ func TestHandlers_Deploy(t *testing.T) {
 // Makes sure the deployment endpoint gives an error when it should.
 func TestHandlers_DeployError(t *testing.T) {
 	h := NewHandlers(brokenApiMgr)
-	rr := requestFixture(h.Application, "POST", "/deploy", strings.NewReader(junkJSON))
+	rr := requestFixture(h.Application, "POST", "/app", strings.NewReader(junkJSON))
 	if rr.Code == http.StatusOK {
 		t.Fatalf("Wrong status code: want %d but got %d", rr.Code, http.StatusOK)
 	}
@@ -59,7 +59,7 @@ func TestHandlers_DeployError(t *testing.T) {
 // Validates the endpoint to kill tasks.
 func TestHandlers_Kill(t *testing.T) {
 	h := NewHandlers(apiMgr)
-	rr := requestFixture(h.killApplication, "DELETE", "/kill", strings.NewReader(killJSON))
+	rr := requestFixture(h.killApplication, "DELETE", "/app", strings.NewReader(killJSON))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("Wrong status code: want %d but got %d", http.StatusOK, rr.Code)
 	}
@@ -68,7 +68,7 @@ func TestHandlers_Kill(t *testing.T) {
 // Makes sure the endpoint to kill tasks gives an error when it should.
 func TestHandlers_KillError(t *testing.T) {
 	h := NewHandlers(brokenApiMgr)
-	rr := requestFixture(h.Application, "DELETE", "/kill", strings.NewReader(killJSON))
+	rr := requestFixture(h.Application, "DELETE", "/app", strings.NewReader(killJSON))
 	if rr.Code == http.StatusOK {
 		t.Fatalf("Wrong status code: want %d but got %d", rr.Code, http.StatusOK)
 	}
@@ -77,7 +77,7 @@ func TestHandlers_KillError(t *testing.T) {
 // Validates the endpoint to get task state.
 func TestHandlers_State(t *testing.T) {
 	h := NewHandlers(apiMgr)
-	rr := requestFixture(h.Application, "GET", "/status?name=test", nil)
+	rr := requestFixture(h.Application, "GET", "/app?name=test", nil)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("Wrong status code: want %d but got %d", http.StatusOK, rr.Code)
 	}
@@ -86,13 +86,13 @@ func TestHandlers_State(t *testing.T) {
 // Makes sure the endpoint to get task state gives an error when it should.
 func TestHandlers_StateError(t *testing.T) {
 	h := NewHandlers(brokenApiMgr)
-	rr := requestFixture(h.Application, "GET", "/status?name=test", nil)
+	rr := requestFixture(h.Application, "GET", "/app?name=test", nil)
 	if rr.Code == http.StatusOK {
 		t.Fatalf("Wrong status code: want %d but got %d", rr.Code, http.StatusOK)
 	}
 
 	h = NewHandlers(apiMgr)
-	rr = requestFixture(h.Application, "GET", "/status", nil)
+	rr = requestFixture(h.Application, "GET", "/app", nil)
 	if rr.Code == http.StatusOK {
 		t.Fatalf("Wrong status code: want %d but got %d", rr.Code, http.StatusOK)
 	}
@@ -101,7 +101,7 @@ func TestHandlers_StateError(t *testing.T) {
 // Validates the endpoint to get all tasks.
 func TestHandlers_Tasks(t *testing.T) {
 	h := NewHandlers(apiMgr)
-	rr := requestFixture(h.Tasks, "GET", "/tasks", nil)
+	rr := requestFixture(h.Tasks, "GET", "/app/all", nil)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("Wrong status code: want %d but got %d", http.StatusOK, rr.Code)
 	}
@@ -110,7 +110,7 @@ func TestHandlers_Tasks(t *testing.T) {
 // Tests that we get an OK response to an empty task manager.
 func TestHandlers_TasksEmpty(t *testing.T) {
 	h := NewHandlers(brokenApiMgr)
-	rr := requestFixture(h.Tasks, "GET", "/tasks", nil)
+	rr := requestFixture(h.Tasks, "GET", "/app/all", nil)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("Wrong status code: want %d but got %d", rr.Code, http.StatusOK)
 	}
@@ -119,7 +119,7 @@ func TestHandlers_TasksEmpty(t *testing.T) {
 // Validates the endpoint to update a task.
 func TestHandlers_Update(t *testing.T) {
 	h := NewHandlers(apiMgr)
-	rr := requestFixture(h.Application, "PUT", "/update", strings.NewReader(validJSON))
+	rr := requestFixture(h.Application, "PUT", "/app", strings.NewReader(validJSON))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("Wrong status code: want %d but got %d", http.StatusOK, rr.Code)
 	}
@@ -128,7 +128,7 @@ func TestHandlers_Update(t *testing.T) {
 // Makes sure our endpoint to update a task gives an error when it should.
 func TestHandlers_UpdateError(t *testing.T) {
 	h := NewHandlers(brokenApiMgr)
-	rr := requestFixture(h.Application, "PUT", "/update", strings.NewReader(junkJSON))
+	rr := requestFixture(h.Application, "PUT", "/app", strings.NewReader(junkJSON))
 	if rr.Code == http.StatusOK {
 		t.Fatalf("Wrong status code: want %d but got %d", rr.Code, http.StatusOK)
 	}
