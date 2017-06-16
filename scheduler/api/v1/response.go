@@ -15,7 +15,7 @@ type Response struct {
 var (
 	InternalServerError func(http.ResponseWriter, Response)   = responseFactory(http.StatusInternalServerError)
 	BadRequest          func(http.ResponseWriter, Response)   = responseFactory(http.StatusBadRequest)
-	MethodNotAllowed    func(http.ResponseWriter, Response) = responseFactory(http.StatusMethodNotAllowed)
+	MethodNotAllowed    func(http.ResponseWriter, Response)   = responseFactory(http.StatusMethodNotAllowed)
 	Success             func(http.ResponseWriter, Response)   = responseFactory(http.StatusOK)
 	MultiSuccess        func(http.ResponseWriter, []Response) = multiResponseFactory(http.StatusOK)
 )

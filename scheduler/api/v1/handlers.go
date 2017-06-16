@@ -20,15 +20,15 @@ func NewHandlers(mgr apiManager.ApiParser) *Handlers {
 func (h *Handlers) Application(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
-		h.deployApplication(w,r)
+		h.deployApplication(w, r)
 	case http.MethodDelete:
-		h.killApplication(w,r)
+		h.killApplication(w, r)
 	case http.MethodPut:
-		h.updateApplication(w,r)
+		h.updateApplication(w, r)
 	case http.MethodGet:
-		h.applicationState(w,r)
+		h.applicationState(w, r)
 	default:
-		MethodNotAllowed(w,Response{Message:r.Method + " is not allowed on this endpoint."})
+		MethodNotAllowed(w, Response{Message: r.Method + " is not allowed on this endpoint."})
 	}
 }
 
@@ -114,12 +114,12 @@ func (h *Handlers) Tasks(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		h.getAllTasks(w, r)
 	default:
-		MethodNotAllowed(w, Response{Message:r.Method + " is not allowed on this endpoint."})
+		MethodNotAllowed(w, Response{Message: r.Method + " is not allowed on this endpoint."})
 	}
 }
 
 // Gathers all tasks known to the scheduler.
-func (h *Handlers) getAllTasks(w http.ResponseWriter, r *http.Request){
+func (h *Handlers) getAllTasks(w http.ResponseWriter, r *http.Request) {
 	tasks, err := h.manager.AllTasks()
 	if err != nil {
 		// This isn't an error since it's expected the task manager can be empty.
