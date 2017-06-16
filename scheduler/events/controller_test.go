@@ -60,6 +60,25 @@ func workingEventControllerFactory() EventController {
 	return NewSprintEventController(cfg, sh, m, rm, c, s, l)
 }
 
+func brokenSchedulerEventControllerFactory() EventController {
+	var (
+		cfg *scheduler.Configuration = &scheduler.Configuration{
+			Leader:    &scheduler.LeaderConfiguration{},
+			Executor:  &scheduler.ExecutorConfiguration{},
+			Scheduler: &scheduler.SchedulerConfiguration{ReconcileInterval: time.Nanosecond},
+			Persistence: &scheduler.PersistenceConfiguration{
+				MaxRetries: 0,
+			},
+		}
+		sh sdkScheduler.Scheduler             = sched.MockBrokenScheduler{}
+		m  sprintTask.SprintTaskManager       = &mockTaskManager.MockTaskManager{}
+		rm sdkResourceManager.ResourceManager = &mockResourceManager.MockResourceManager{}
+		s  persistence.Storage                = &mockStorage.MockStorage{}
+		l  logging.Logger                     = &mockLogger.MockLogger{}
+	)
+	return NewSprintEventController(cfg, sh, m, rm, c, s, l)
+}
+
 func TestNewSprintEventController(t *testing.T) {
 	ctrl := workingEventControllerFactory()
 	if ctrl == nil {
@@ -90,6 +109,7 @@ func TestSprintEventController_Run(t *testing.T) {
 	}
 }
 
+// This should utilize the broken factory
 func TestSprintEventController_FailureToRun(t *testing.T) {
 	ctrl := workingEventControllerFactory()
 

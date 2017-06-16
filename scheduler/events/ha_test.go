@@ -13,3 +13,8 @@ func TestSprintEventController_CreateAndGetLeader(t *testing.T) {
 	ctrl.CreateLeader()
 	ctrl.GetLeader()
 }
+
+func TestSprintEventController_Election(t *testing.T) {
+	ctrl := workingEventControllerFactory()
+	ctrl.Election()
+}
