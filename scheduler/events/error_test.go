@@ -7,8 +7,16 @@ import (
 )
 
 func TestSprintEventController_Error(t *testing.T) {
-	ctrl := workingEventControllerFactory()
+	ctrl := workingEventController()
 	ctrl.Error(&mesos_v1_scheduler.Event_Error{
 		Message: utils.ProtoString("message"),
 	})
+}
+
+func TestSprintEventController_ErrorWithNoMessage(t *testing.T) {
+	ctrl := workingEventController()
+	ctrl.Error(&mesos_v1_scheduler.Event_Error{
+		Message: nil,
+	})
+	ctrl.Error(nil)
 }

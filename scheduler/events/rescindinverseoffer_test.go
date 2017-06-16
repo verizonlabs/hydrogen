@@ -8,7 +8,7 @@ import (
 )
 
 func TestSprintEventController_RescindInverseOffer(t *testing.T) {
-	ctrl := workingEventControllerFactory()
+	ctrl := workingEventController()
 	ctrl.RescindInverseOffer(&mesos_v1_scheduler.Event_RescindInverseOffer{
 		InverseOfferId: &mesos_v1.OfferID{Value: utils.ProtoString("id")},
 	})

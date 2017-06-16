@@ -28,7 +28,7 @@ func (s *SprintEventController) Status() (ha.Status, error) {
 //
 func (s *SprintEventController) Communicate() {
 	// NOTE (tim): Using a generic Listener might be better so we don't have to assume TCP
-	// for all implementations in future?
+	// for all implementations in future.
 	addr, err := net.ResolveTCPAddr(s.config.Leader.AddressFamily, "["+s.config.Leader.IP+"]:"+
 		strconv.Itoa(s.config.Leader.ServerPort))
 	if err != nil {

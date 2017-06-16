@@ -8,7 +8,7 @@ import (
 )
 
 func TestSprintEventController_Offers(t *testing.T) {
-	ctrl := workingEventControllerFactory()
+	ctrl := workingEventController()
 
 	// Test empty offers.
 	offers := []*mesos_v1.Offer{}
@@ -40,7 +40,7 @@ func TestSprintEventController_Offers(t *testing.T) {
 }
 
 func TestSprintEventController_OffersWithQueuedTasks(t *testing.T) {
-	ctrl := workingEventControllerFactory()
+	ctrl := workingEventController()
 	// Test empty offers.
 	offers := []*mesos_v1.Offer{}
 	ctrl.Offers(&mesos_v1_scheduler.Event_Offers{

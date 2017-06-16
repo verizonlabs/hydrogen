@@ -8,7 +8,7 @@ import (
 )
 
 func TestSprintEventController_InverseOffer(t *testing.T) {
-	ctrl := workingEventControllerFactory()
+	ctrl := workingEventController()
 	ctrl.InverseOffer(&mesos_v1_scheduler.Event_InverseOffers{
 		InverseOffers: []*mesos_v1.InverseOffer{
 			{
@@ -18,4 +18,10 @@ func TestSprintEventController_InverseOffer(t *testing.T) {
 			},
 		},
 	})
+}
+
+func TestSprintEventController_InverseOfferWithNilOffer(t *testing.T) {
+	ctrl := workingEventController()
+	ctrl.InverseOffer(&mesos_v1_scheduler.Event_InverseOffers{InverseOffers: nil})
+	ctrl.InverseOffer(nil)
 }
