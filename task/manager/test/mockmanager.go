@@ -104,8 +104,8 @@ func (m MockBrokenTaskManager) IsInGroup(*mesos_v1.TaskInfo) bool            { r
 func (m MockBrokenTaskManager) AddPolicy(*task.TimeRetry, *mesos_v1.TaskInfo) error {
 	return nil
 }
-func (m MockBrokenTaskManager) CheckPolicy(*mesos_v1.TaskInfo) (*retry.TaskRetry, error) {
-	return nil, nil
+func (m MockBrokenTaskManager) CheckPolicy(*mesos_v1.TaskInfo) *retry.TaskRetry {
+	return nil
 }
 func (m MockBrokenTaskManager) ClearPolicy(*mesos_v1.TaskInfo) error {
 	return nil
