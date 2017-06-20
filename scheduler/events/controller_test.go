@@ -3,146 +3,25 @@ package events
 import (
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
+	"mesos-framework-sdk/logging"
 	mockLogger "mesos-framework-sdk/logging/test"
+	sdkResourceManager "mesos-framework-sdk/resources/manager"
 	mockResourceManager "mesos-framework-sdk/resources/manager/test"
+	sdkScheduler "mesos-framework-sdk/scheduler"
 	sched "mesos-framework-sdk/scheduler/test"
 	"mesos-framework-sdk/utils"
+	"os"
 	"sprint/scheduler"
+	sprintTask "sprint/task/manager"
 	mockTaskManager "sprint/task/manager/test"
+	"sprint/task/persistence"
 	mockStorage "sprint/task/persistence/test"
 	"testing"
+	"time"
 )
 
-func TestNewSprintEventController(t *testing.T) {
-	rm := mockResourceManager.MockResourceManager{}
-	mg := mockTaskManager.MockTaskManager{}
-	sh := sched.MockScheduler{}
-	cfg := &scheduler.Configuration{}
-	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockStorage.MockStorage{}
-	lg := mockLogger.MockLogger{}
-
-	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
-	if ctrl == nil {
-		t.FailNow()
-	}
-}
-
-func TestSprintEventController_Offers(t *testing.T) {
-	rm := mockResourceManager.MockResourceManager{}
-	mg := mockTaskManager.MockTaskManager{}
-	sh := sched.MockScheduler{}
-	cfg := &scheduler.Configuration{
-		Leader:   &scheduler.LeaderConfiguration{},
-		Executor: &scheduler.ExecutorConfiguration{},
-	}
-	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockStorage.MockStorage{}
-	lg := mockLogger.MockLogger{}
-
-	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
-	// Test empty offers.
-	offers := []*mesos_v1.Offer{}
-	ctrl.Offers(&mesos_v1_scheduler.Event_Offers{
-		Offers: offers,
-	})
-
-	// Test a single offer
-	offers = []*mesos_v1.Offer{}
-	resources := []*mesos_v1.Resource{}
-	resources = append(resources, &mesos_v1.Resource{
-		Name: utils.ProtoString("cpu"),
-		Type: mesos_v1.Value_SCALAR.Enum(),
-		Scalar: &mesos_v1.Value_Scalar{
-			Value: utils.ProtoFloat64(10.0),
-		},
-	})
-	offers = append(offers, &mesos_v1.Offer{
-		Id:          &mesos_v1.OfferID{Value: utils.ProtoString("id")},
-		FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString(utils.UuidAsString())},
-		AgentId:     &mesos_v1.AgentID{Value: utils.ProtoString(utils.UuidAsString())},
-		Hostname:    utils.ProtoString("Some host"),
-		Resources:   resources,
-	})
-	ctrl.Offers(&mesos_v1_scheduler.Event_Offers{
-		Offers: offers,
-	})
-
-}
-
-func TestSprintEventController_OffersWithQueuedTasks(t *testing.T) {
-	rm := mockResourceManager.MockResourceManager{}
-	mg := mockTaskManager.MockTaskManagerQueued{}
-	sh := sched.MockScheduler{}
-	cfg := &scheduler.Configuration{
-		Leader:   &scheduler.LeaderConfiguration{},
-		Executor: &scheduler.ExecutorConfiguration{},
-	}
-	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockStorage.MockStorage{}
-	lg := mockLogger.MockLogger{}
-
-	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
-	// Test empty offers.
-	offers := []*mesos_v1.Offer{}
-	ctrl.Offers(&mesos_v1_scheduler.Event_Offers{
-		Offers: offers,
-	})
-
-	// Test a single offer
-	offers = []*mesos_v1.Offer{}
-	resources := []*mesos_v1.Resource{}
-	resources = append(resources, &mesos_v1.Resource{
-		Name: utils.ProtoString("cpu"),
-		Type: mesos_v1.Value_SCALAR.Enum(),
-		Scalar: &mesos_v1.Value_Scalar{
-			Value: utils.ProtoFloat64(10.0),
-		},
-	})
-	offers = append(offers, &mesos_v1.Offer{
-		Id:          &mesos_v1.OfferID{Value: utils.ProtoString("id")},
-		FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString(utils.UuidAsString())},
-		AgentId:     &mesos_v1.AgentID{Value: utils.ProtoString(utils.UuidAsString())},
-		Hostname:    utils.ProtoString("Some host"),
-		Resources:   resources,
-	})
-	ctrl.Offers(&mesos_v1_scheduler.Event_Offers{
-		Offers: offers,
-	})
-
-}
-
-func TestSprintEventController_Name(t *testing.T) {
-	rm := mockResourceManager.MockResourceManager{}
-	mg := mockTaskManager.MockTaskManagerQueued{}
-	sh := sched.MockScheduler{}
-	cfg := &scheduler.Configuration{
-		Leader: &scheduler.LeaderConfiguration{},
-	}
-	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockStorage.MockStorage{}
-	lg := mockLogger.MockLogger{}
-
-	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
-	_, err := ctrl.Name()
-	if err != nil {
-		t.Log(err)
-		t.FailNow()
-	}
-}
-
-func TestSprintEventController_Update(t *testing.T) {
-	rm := mockResourceManager.MockResourceManager{}
-	mg := mockTaskManager.MockTaskManagerQueued{}
-	sh := sched.MockScheduler{}
-	cfg := &scheduler.Configuration{
-		Leader: &scheduler.LeaderConfiguration{},
-	}
-	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockStorage.MockStorage{}
-	lg := mockLogger.MockLogger{}
-
-	states := []*mesos_v1.TaskState{
+var (
+	states []*mesos_v1.TaskState = []*mesos_v1.TaskState{
 		mesos_v1.TaskState_TASK_RUNNING.Enum(),
 		mesos_v1.TaskState_TASK_STARTING.Enum(),
 		mesos_v1.TaskState_TASK_FINISHED.Enum(),
@@ -159,152 +38,125 @@ func TestSprintEventController_Update(t *testing.T) {
 		mesos_v1.TaskState_TASK_ERROR.Enum(),
 		mesos_v1.TaskState_TASK_LOST.Enum(),
 	}
-	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
-	for _, state := range states {
-		ctrl.Update(&mesos_v1_scheduler.Event_Update{Status: &mesos_v1.TaskStatus{
-			TaskId: &mesos_v1.TaskID{Value: utils.ProtoString("id")},
-			State:  state,
-		}})
-	}
-}
+)
 
-func TestSprintEventController_Subscribe(t *testing.T) {
-	rm := mockResourceManager.MockResourceManager{}
-	mg := mockTaskManager.MockTaskManagerQueued{}
-	sh := sched.MockScheduler{}
-	cfg := &scheduler.Configuration{
-		Persistence: &scheduler.PersistenceConfiguration{
-			MaxRetries: 0,
-		},
-		Leader: &scheduler.LeaderConfiguration{},
-	}
-	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockStorage.MockStorage{}
-	lg := mockLogger.MockLogger{}
-	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
-	ctrl.Subscribed(&mesos_v1_scheduler.Event_Subscribed{FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString("id")}})
-}
+// TODO (tim): Factory function that takes in a list of broken items,
+// generates an event controller with those items broken.
 
-func TestSprintEventController_CreateAndGetLeader(t *testing.T) {
-	rm := mockResourceManager.MockResourceManager{}
-	mg := mockTaskManager.MockTaskManagerQueued{}
-	sh := sched.MockScheduler{}
-	cfg := &scheduler.Configuration{
-		Persistence: &scheduler.PersistenceConfiguration{
-			MaxRetries: 0,
-		},
-		Leader: &scheduler.LeaderConfiguration{},
-	}
-	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockStorage.MockStorage{}
-	lg := mockLogger.MockLogger{}
-	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
-	ctrl.CreateLeader()
-	ctrl.GetLeader()
-}
-
-func TestSprintEventController_Communicate(t *testing.T) {
-	rm := mockResourceManager.MockResourceManager{}
-	mg := mockTaskManager.MockTaskManagerQueued{}
-	sh := sched.MockScheduler{}
-	cfg := &scheduler.Configuration{
-		Persistence: &scheduler.PersistenceConfiguration{
-			MaxRetries: 0,
-		},
-		Leader: &scheduler.LeaderConfiguration{},
-	}
-	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockStorage.MockStorage{}
-	lg := mockLogger.MockLogger{}
-	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
-	go ctrl.Communicate() // this never gets covered since this test closes too fast
-	ctrl.Election()
-}
-
-func TestSprintEventController_Message(t *testing.T) {
-	rm := mockResourceManager.MockResourceManager{}
-	mg := mockTaskManager.MockTaskManagerQueued{}
-	sh := sched.MockScheduler{}
-	cfg := &scheduler.Configuration{
-		Leader: &scheduler.LeaderConfiguration{},
-	}
-	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockStorage.MockStorage{}
-	lg := mockLogger.MockLogger{}
-	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
-	ctrl.Message(&mesos_v1_scheduler.Event_Message{
-		AgentId:    &mesos_v1.AgentID{Value: utils.ProtoString("agent")},
-		ExecutorId: &mesos_v1.ExecutorID{Value: utils.ProtoString("id")},
-		Data:       []byte(`some message`),
-	})
-}
-
-func TestSprintEventController_Failure(t *testing.T) {
-	rm := mockResourceManager.MockResourceManager{}
-	mg := mockTaskManager.MockTaskManagerQueued{}
-	sh := sched.MockScheduler{}
-	cfg := &scheduler.Configuration{
-		Leader: &scheduler.LeaderConfiguration{},
-	}
-	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockStorage.MockStorage{}
-	lg := mockLogger.MockLogger{}
-	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
-	ctrl.Failure(&mesos_v1_scheduler.Event_Failure{
-		AgentId: &mesos_v1.AgentID{Value: utils.ProtoString("agent")},
-	})
-}
-
-func TestSprintEventController_InverseOffer(t *testing.T) {
-	rm := mockResourceManager.MockResourceManager{}
-	mg := mockTaskManager.MockTaskManagerQueued{}
-	sh := sched.MockScheduler{}
-	cfg := &scheduler.Configuration{
-		Leader: &scheduler.LeaderConfiguration{},
-	}
-	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockStorage.MockStorage{}
-	lg := mockLogger.MockLogger{}
-	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
-	ctrl.InverseOffer(&mesos_v1_scheduler.Event_InverseOffers{
-		InverseOffers: []*mesos_v1.InverseOffer{
-			{
-				Id:             &mesos_v1.OfferID{Value: utils.ProtoString("id")},
-				FrameworkId:    &mesos_v1.FrameworkID{Value: utils.ProtoString("id")},
-				Unavailability: &mesos_v1.Unavailability{Start: &mesos_v1.TimeInfo{Nanoseconds: utils.ProtoInt64(0)}},
+// Creates a new working event controller.
+func workingEventController() *SprintEventController {
+	var (
+		cfg *scheduler.Configuration = &scheduler.Configuration{
+			Leader:    &scheduler.LeaderConfiguration{},
+			Executor:  &scheduler.ExecutorConfiguration{},
+			Scheduler: &scheduler.SchedulerConfiguration{ReconcileInterval: time.Nanosecond},
+			Persistence: &scheduler.PersistenceConfiguration{
+				MaxRetries: 0,
 			},
+		}
+		c  chan *mesos_v1_scheduler.Event     = make(chan *mesos_v1_scheduler.Event)
+		sh sdkScheduler.Scheduler             = sched.MockScheduler{}
+		m  sprintTask.SprintTaskManager       = &mockTaskManager.MockTaskManager{}
+		rm sdkResourceManager.ResourceManager = &mockResourceManager.MockResourceManager{}
+		s  persistence.Storage                = &mockStorage.MockStorage{}
+		l  logging.Logger                     = &mockLogger.MockLogger{}
+	)
+	return &SprintEventController{
+		config:          cfg,
+		scheduler:       sh,
+		taskmanager:     m,
+		resourcemanager: rm,
+		events:          c,
+		storage:         s,
+		logger:          l,
+	}
+}
+
+func brokenSchedulerEventController() *SprintEventController {
+	var (
+		cfg *scheduler.Configuration = &scheduler.Configuration{
+			Leader:    &scheduler.LeaderConfiguration{},
+			Executor:  &scheduler.ExecutorConfiguration{},
+			Scheduler: &scheduler.SchedulerConfiguration{ReconcileInterval: time.Nanosecond},
+			Persistence: &scheduler.PersistenceConfiguration{
+				MaxRetries: 0,
+			},
+		}
+		c  chan *mesos_v1_scheduler.Event     = make(chan *mesos_v1_scheduler.Event)
+		sh sdkScheduler.Scheduler             = sched.MockBrokenScheduler{}
+		m  sprintTask.SprintTaskManager       = &mockTaskManager.MockTaskManager{}
+		rm sdkResourceManager.ResourceManager = &mockResourceManager.MockResourceManager{}
+		s  persistence.Storage                = &mockStorage.MockStorage{}
+		l  logging.Logger                     = &mockLogger.MockLogger{}
+	)
+	return &SprintEventController{
+		config:          cfg,
+		scheduler:       sh,
+		taskmanager:     m,
+		resourcemanager: rm,
+		events:          c,
+		storage:         s,
+		logger:          l,
+	}
+}
+
+func TestNewSprintEventController(t *testing.T) {
+	ctrl := workingEventController()
+	if ctrl == nil {
+		t.FailNow()
+	}
+}
+
+func TestSprintEventController_Name(t *testing.T) {
+	ctrl := workingEventController()
+	_, err := ctrl.Name()
+	if err != nil {
+		t.Log(err)
+		t.FailNow()
+	}
+}
+
+func TestSprintEventController_Run(t *testing.T) {
+	ctrl := workingEventController()
+
+	go ctrl.Run()
+
+	// Subscribe.
+	ctrl.events <- &mesos_v1_scheduler.Event{
+		Type: mesos_v1_scheduler.Event_SUBSCRIBED.Enum(),
+		Subscribed: &mesos_v1_scheduler.Event_Subscribed{
+			FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString("Test")},
 		},
-	})
+	}
 }
 
-func TestSprintEventController_RescindInverseOffer(t *testing.T) {
-	rm := mockResourceManager.MockResourceManager{}
-	mg := mockTaskManager.MockTaskManagerQueued{}
-	sh := sched.MockScheduler{}
-	cfg := &scheduler.Configuration{
-		Leader: &scheduler.LeaderConfiguration{},
+// This should utilize the broken factory
+func TestSprintEventController_FailureToRun(t *testing.T) {
+	ctrl := workingEventController()
+
+	go ctrl.Run()
+
+	// Subscribe.
+	ctrl.events <- &mesos_v1_scheduler.Event{
+		Type: mesos_v1_scheduler.Event_SUBSCRIBED.Enum(),
+		Subscribed: &mesos_v1_scheduler.Event_Subscribed{
+			FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString("Test")},
+		},
 	}
-	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockStorage.MockStorage{}
-	lg := mockLogger.MockLogger{}
-	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
-	ctrl.RescindInverseOffer(&mesos_v1_scheduler.Event_RescindInverseOffer{
-		InverseOfferId: &mesos_v1.OfferID{Value: utils.ProtoString("id")},
-	})
 }
 
-func TestSprintEventController_Error(t *testing.T) {
-	rm := mockResourceManager.MockResourceManager{}
-	mg := mockTaskManager.MockTaskManagerQueued{}
-	sh := sched.MockScheduler{}
-	cfg := &scheduler.Configuration{
-		Leader: &scheduler.LeaderConfiguration{},
-	}
-	eventChan := make(chan *mesos_v1_scheduler.Event)
-	kv := mockStorage.MockStorage{}
-	lg := mockLogger.MockLogger{}
-	ctrl := NewSprintEventController(cfg, sh, mg, rm, eventChan, kv, lg)
-	ctrl.Error(&mesos_v1_scheduler.Event_Error{
-		Message: utils.ProtoString("message"),
-	})
+func TestSprintEventController_SignalHandler(t *testing.T) {
+	ctrl := workingEventController()
+	ctrl.registerShutdownHandlers()
+	p, _ := os.FindProcess(os.Getpid())
+	p.Signal(os.Interrupt)
+	p.Wait()
+}
+
+func TestNewSprintEventController_periodicReconcile(t *testing.T) {
+	ctrl := workingEventController()
+	go ctrl.periodicReconcile()
+	broken := brokenSchedulerEventController()
+	go broken.periodicReconcile()
+
 }
