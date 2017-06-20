@@ -10,6 +10,7 @@ import (
 	sdkScheduler "mesos-framework-sdk/scheduler"
 	sched "mesos-framework-sdk/scheduler/test"
 	"mesos-framework-sdk/utils"
+	"os"
 	"sprint/scheduler"
 	sprintTask "sprint/task/manager"
 	mockTaskManager "sprint/task/manager/test"
@@ -144,13 +145,13 @@ func TestSprintEventController_FailureToRun(t *testing.T) {
 	}
 }
 
-/*
-// TODO (tim): Expose the signal channel to listen for events so we can test it.
 func TestSprintEventController_SignalHandler(t *testing.T) {
 	ctrl := workingEventController()
-	signal.Notify()
+	ctrl.registerShutdownHandlers()
+	p, _ := os.FindProcess(os.Getpid())
+	p.Signal(os.Interrupt)
+	p.Wait()
 }
-*/
 
 func TestNewSprintEventController_periodicReconcile(t *testing.T) {
 	ctrl := workingEventController()
