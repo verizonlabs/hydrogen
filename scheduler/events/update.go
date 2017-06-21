@@ -99,6 +99,7 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 		// Task is in the process of catching a SIGNAL and shutting down.
 		s.logger.Emit(logging.INFO, "Killing task %s: %s", taskIdVal, message)
 	case mesos_v1.TaskState_TASK_LOST:
+		// A task can be lost if it never got to the master.
 		if s.taskmanager.IsInGroup(task) {
 			s.taskmanager.Unlink(task.GetName(), agentId)
 		}
