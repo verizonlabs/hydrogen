@@ -84,6 +84,7 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 				Data:       []byte(mesosTask.GetCommand().GetValue()),
 			}
 			t.Executor.Command.Value = &s.config.Executor.Command
+			t.Executor.Command.Shell = &s.config.Executor.Shell
 			t.Command = nil
 		}
 
