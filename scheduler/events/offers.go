@@ -85,6 +85,7 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 			}
 			t.Executor.Command.Value = &s.config.Executor.Command
 			t.Executor.Command.Shell = &s.config.Executor.Shell
+			t.Executor.Command.Arguments = []string{s.config.Executor.Command}
 			t.Command = nil
 		}
 
