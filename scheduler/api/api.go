@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"mesos-framework-sdk/logging"
 	"net/http"
 	"os"
@@ -36,14 +35,7 @@ func (a *ApiServer) applyRoute(path string, route v1.Route) {
 		for _, method := range route.Methods {
 			if method == r.Method {
 				route.Handler(w, r)
-				return
 			}
-
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			json.NewEncoder(w).Encode(v1.Response{
-				Status:  v1.FAILED,
-				Message: r.Method + " is not allowed on this endpoint.",
-			})
 		}
 	}))
 }

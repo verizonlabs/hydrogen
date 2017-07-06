@@ -11,5 +11,9 @@ import (
 // timeout period.
 //
 func (s *SprintEventController) Rescind(rescindEvent *mesos_v1_scheduler.Event_Rescind) {
-	s.logger.Emit(logging.INFO, "Rescind event recieved: %v", *rescindEvent)
+	if rescindEvent != nil {
+		s.logger.Emit(logging.INFO, "Rescind event recieved: %v", *rescindEvent)
+	} else {
+		s.logger.Emit(logging.INFO, "Rescind event recieved was nil!")
+	}
 }

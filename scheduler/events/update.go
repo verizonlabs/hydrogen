@@ -35,18 +35,34 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 
 	switch state {
 	case mesos_v1.TaskState_TASK_FAILED:
+		if s.taskmanager.IsInGroup(task) {
+			s.taskmanager.Unlink(task.GetName(), agentId)
+		}
 		s.logger.Emit(logging.ERROR, "Task %s failed: %s", taskIdVal, message)
 		s.reschedule(task)
 	case mesos_v1.TaskState_TASK_STAGING:
 		// NOP, keep task set to "launched".
 		s.logger.Emit(logging.INFO, "Task %s is staging: %s", taskIdVal, message)
 	case mesos_v1.TaskState_TASK_DROPPED:
+		if s.taskmanager.IsInGroup(task) {
+			s.taskmanager.Unlink(task.GetName(), agentId)
+		}
 		// Transient error, we should retry launching. Taskinfo is fine.
 		s.logger.Emit(logging.INFO, "Task %s dropped: %s", taskIdVal, message)
 		s.reschedule(task)
 	case mesos_v1.TaskState_TASK_ERROR:
+		if s.taskmanager.IsInGroup(task) {
+			s.taskmanager.Unlink(task.GetName(), agentId)
+		}
 		s.logger.Emit(logging.ERROR, "Error with task %s: %s", taskIdVal, message)
+		s.reschedule(task)
 	case mesos_v1.TaskState_TASK_FINISHED:
+		if s.taskmanager.IsInGroup(task) {
+			s.taskmanager.Unlink(task.GetName(), agentId)
+			s.taskmanager.SetSize(task.GetName(), -1)
+			// We only delete the entire group if the size is 0.
+			s.taskmanager.DeleteGroup(task.GetName())
+		}
 		s.logger.Emit(
 			logging.INFO,
 			"Task %s finished on agent %s: %s",
@@ -56,12 +72,21 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 		)
 		s.taskmanager.Delete(task)
 	case mesos_v1.TaskState_TASK_GONE:
+		if s.taskmanager.IsInGroup(task) {
+			s.taskmanager.Unlink(task.GetName(), agentId)
+		}
 		// Agent is dead and task is lost.
 		s.logger.Emit(logging.ERROR, "Task %s is gone: %s", taskIdVal, message)
+		s.reschedule(task)
 	case mesos_v1.TaskState_TASK_GONE_BY_OPERATOR:
 		// Agent might be dead, master is unsure. Will return to RUNNING state possibly or die.
 		s.logger.Emit(logging.ERROR, "Task %s gone by operator: %s", taskIdVal, message)
 	case mesos_v1.TaskState_TASK_KILLED:
+		if s.taskmanager.IsInGroup(task) {
+			s.taskmanager.Unlink(task.GetName(), agentId)
+			s.taskmanager.SetSize(task.GetName(), -1)
+			s.taskmanager.DeleteGroup(task.GetName())
+		}
 		// Task was killed.
 		s.logger.Emit(
 			logging.INFO,
@@ -74,6 +99,10 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 		// Task is in the process of catching a SIGNAL and shutting down.
 		s.logger.Emit(logging.INFO, "Killing task %s: %s", taskIdVal, message)
 	case mesos_v1.TaskState_TASK_LOST:
+		// A task can be lost if it never got to the master.
+		if s.taskmanager.IsInGroup(task) {
+			s.taskmanager.Unlink(task.GetName(), agentId)
+		}
 		// Task is unknown to the master and lost. Should reschedule.
 		s.logger.Emit(logging.ALARM, "Task %s was lost", taskIdVal)
 		s.reschedule(task)
@@ -95,7 +124,6 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 		// Should we reschedule after waiting a certain period of time?
 		s.logger.Emit(logging.INFO, "Task %s is unreachable: %s", taskIdVal, message)
 	default:
-		// Somewhere in here the universe started.
 	}
 
 	s.scheduler.Acknowledge(agentId, taskId, status.GetUuid())

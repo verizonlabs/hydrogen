@@ -409,13 +409,13 @@ func TestTaskManager_AddManyTasks(t *testing.T) {
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	tasks := make([]*mesos_v1.TaskInfo, 0)
-	for i := 0; i <= 1000; i++ {
+	for i := 0; i <= 3; i++ {
 		tasks = append(tasks, CreateTestTask("testTask"+strconv.Itoa(i)))
 	}
 	for _, k := range tasks {
 		taskManager.Set(manager.UNKNOWN, k)
 	}
-	if taskManager.TotalTasks() == 1000 {
+	if taskManager.TotalTasks() == 3 {
 		t.Log(taskManager.TotalTasks())
 	}
 }
@@ -431,14 +431,14 @@ func TestTaskManager_AddManyTasksAndDelete(t *testing.T) {
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	tasks := make([]*mesos_v1.TaskInfo, 0)
-	for i := 0; i <= 1000; i++ {
+	for i := 0; i <= 3; i++ {
 		tasks = append(tasks, CreateTestTask("testTask"+strconv.Itoa(i)))
 	}
 	for _, k := range tasks {
 		taskManager.Add(k)
 		taskManager.Set(manager.UNKNOWN, k)
 	}
-	if taskManager.TotalTasks() == 1000 {
+	if taskManager.TotalTasks() == 3 {
 		t.Log(taskManager.TotalTasks())
 	}
 	for _, k := range tasks {
@@ -456,8 +456,8 @@ func TestTaskManager_DoubleAdd(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	tasks := make([]*mesos_v1.TaskInfo, 1000)
-	for i := 0; i < 1000; i++ {
+	tasks := make([]*mesos_v1.TaskInfo, 3)
+	for i := 0; i < 3; i++ {
 		tasks[i] = CreateTestTask("testTask" + strconv.Itoa(i))
 	}
 	for _, k := range tasks {
@@ -469,8 +469,110 @@ func TestTaskManager_DoubleAdd(t *testing.T) {
 		taskManager.Set(manager.UNKNOWN, k)
 	}
 
-	if taskManager.TotalTasks() != 1000 {
+	if taskManager.TotalTasks() != 3 {
 		t.Log("Expecting 1000 tasks in total, got " + strconv.Itoa(taskManager.TotalTasks()))
+	}
+}
+
+func TestSprintTaskHandler_CreateGroup(t *testing.T) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+
+	if err := taskManager.CreateGroup("Test Group"); err != nil {
+		t.Logf("Failed to create a group %v\n", err.Error())
+		t.Failed()
+	}
+}
+
+func TestSprintTaskHandler_SetSize(t *testing.T) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	if err := taskManager.SetSize("Test Group-1", 1); err != nil {
+		t.Logf("Failed to add to group %v\n", err.Error())
+		t.Fail()
+	}
+}
+
+func TestSprintTaskHandler_ReadGroup(t *testing.T) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	taskManager.CreateGroup("Test Group")
+	if group := taskManager.ReadGroup("Test Group"); group == nil {
+		t.Log("Did not pass back a valid group, was nil")
+		t.Fail()
+	}
+}
+
+func TestSprintTaskHandler_DeleteGroup(t *testing.T) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+
+	if err := taskManager.DeleteGroup("Test Group"); err != nil {
+		t.Logf("Failed to delete group %v\n", err.Error())
+		t.Failed()
+	}
+}
+
+func TestSprintTaskHandler_DelFromGroup(t *testing.T) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	taskManager.CreateGroup("Test Group")
+	grouping := taskManager.ReadGroup("Test Group")
+	if grouping == nil {
+		t.Log("ReadGroup failed.")
+		t.Failed()
+	}
+}
+
+func TestSprintTaskHandler_IsInGroup(t *testing.T) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	taskManager.CreateGroup("Some Task")
+	if ok := taskManager.IsInGroup(&mesos_v1.TaskInfo{Name: utils.ProtoString("Some Task")}); !ok {
+		t.Log("Failed to find task in a group")
+		t.Failed()
 	}
 }
 
@@ -756,6 +858,108 @@ func BenchmarkSprintTaskHandler_AllByState(b *testing.B) {
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		taskManager.AllByState(manager.UNKNOWN)
+	}
+	b.StopTimer()
+}
+
+func BenchmarkSprintTaskHandler_CreateGroup(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.CreateGroup("Some Group")
+	}
+	b.StopTimer()
+}
+
+func BenchmarkSprintTaskHandler_Link(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.Link("Some Group", &mesos_v1.AgentID{Value: utils.ProtoString("Some Agent")})
+	}
+	b.StopTimer()
+}
+
+func BenchmarkSprintTaskHandler_Unlink(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.Unlink("Some Group", &mesos_v1.AgentID{Value: utils.ProtoString("Some Agent")})
+	}
+	b.StopTimer()
+}
+
+func BenchmarkSprintTaskHandler_ReadGroup(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.ReadGroup("Some Group")
+	}
+	b.StopTimer()
+}
+
+func BenchmarkSprintTaskHandler_IsInGroup(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.IsInGroup(&mesos_v1.TaskInfo{Name: utils.ProtoString("Some Task")})
+	}
+	b.StopTimer()
+}
+
+func BenchmarkSprintTaskHandler_DeleteGroup(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.DeleteGroup("Some Group")
 	}
 	b.StopTimer()
 }

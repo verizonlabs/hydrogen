@@ -10,5 +10,9 @@ import (
 // We log the failure here with the logger.
 //
 func (s *SprintEventController) Failure(fail *mesos_v1_scheduler.Event_Failure) {
-	s.logger.Emit(logging.ERROR, "Executor %s failed with status %d", fail.GetExecutorId().GetValue(), fail.GetStatus())
+	if fail != nil {
+		s.logger.Emit(logging.ERROR, "Executor %s failed with status %d", fail.GetExecutorId().GetValue(), fail.GetStatus())
+	} else {
+		s.logger.Emit(logging.ERROR, "Recieved an nil failure message!")
+	}
 }
