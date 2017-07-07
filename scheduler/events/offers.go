@@ -6,6 +6,7 @@ import (
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/resources"
 	"mesos-framework-sdk/task/manager"
+	"mesos-framework-sdk/utils"
 )
 
 //
@@ -62,13 +63,14 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 		}
 
 		t := &mesos_v1.TaskInfo{
-			Name:      mesosTask.Name,
-			TaskId:    mesosTask.GetTaskId(),
-			AgentId:   offer.GetAgentId(),
-			Command:   mesosTask.GetCommand(),
-			Executor:  mesosTask.GetExecutor(),
-			Container: mesosTask.GetContainer(),
-			Resources: mesosTask.GetResources(),
+			Name:        mesosTask.Name,
+			TaskId:      mesosTask.GetTaskId(),
+			AgentId:     offer.GetAgentId(),
+			Command:     mesosTask.GetCommand(),
+			Executor:    mesosTask.GetExecutor(),
+			Container:   mesosTask.GetContainer(),
+			Resources:   mesosTask.GetResources(),
+			HealthCheck: mesosTask.GetHealthCheck(),
 		}
 
 		// If we're using our custom executor then make sure we remove the original CommandInfo.
@@ -83,11 +85,22 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 				Command:    mesosTask.GetCommand(),
 				Data:       []byte(mesosTask.GetCommand().GetValue()),
 			}
+			// This executor command should simply be ./executor
 			t.Executor.Command.Value = &s.config.Executor.Command
+			t.Executor.Command.Uris = []*mesos_v1.CommandInfo_URI{
+				{
+					Value:      &s.config.FileServer.Path,
+					Executable: utils.ProtoBool(true),
+					Extract:    utils.ProtoBool(false),
+					Cache:      utils.ProtoBool(false),
+				},
+			}
+			// TODO (tim): change the default to true for now until we have support for shell-less executors.
 			t.Executor.Command.Shell = &s.config.Executor.Shell
+			// NOTE: Tell users in README about how custom executors work? How do we support users with custom
+			// commands with an executor? Can run executor && <user_command>...
 			t.Command = nil
 		}
-
 		// TODO (aaron) investigate this state further as it might cause side effects.
 		// this is artificially set to STAGING, it does not correspond to when Mesos sets this task as STAGING.
 		// for example other parts of the codebase may check for STAGING and this would cause it to be set too early.
