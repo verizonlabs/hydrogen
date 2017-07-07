@@ -95,7 +95,6 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 					Cache:      utils.ProtoBool(false),
 				},
 			}
-			// TODO (tim): change the default to true for now until we have support for shell-less executors.
 			t.Executor.Command.Shell = &s.config.Executor.Shell
 			t.Executor.Command.Arguments = []string{s.config.Executor.Command}
 			t.Command = nil
