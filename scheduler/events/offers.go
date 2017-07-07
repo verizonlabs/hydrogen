@@ -6,6 +6,7 @@ import (
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/resources"
 	"mesos-framework-sdk/task/manager"
+	"mesos-framework-sdk/utils"
 )
 
 //
@@ -62,13 +63,14 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 		}
 
 		t := &mesos_v1.TaskInfo{
-			Name:      mesosTask.Name,
-			TaskId:    mesosTask.GetTaskId(),
-			AgentId:   offer.GetAgentId(),
-			Command:   mesosTask.GetCommand(),
-			Executor:  mesosTask.GetExecutor(),
-			Container: mesosTask.GetContainer(),
-			Resources: mesosTask.GetResources(),
+			Name:        mesosTask.Name,
+			TaskId:      mesosTask.GetTaskId(),
+			AgentId:     offer.GetAgentId(),
+			Command:     mesosTask.GetCommand(),
+			Executor:    mesosTask.GetExecutor(),
+			Container:   mesosTask.GetContainer(),
+			Resources:   mesosTask.GetResources(),
+			HealthCheck: mesosTask.GetHealthCheck(),
 		}
 
 		// If we're using our custom executor then make sure we remove the original CommandInfo.
@@ -83,7 +85,16 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 				Command:    mesosTask.GetCommand(),
 				Data:       []byte(mesosTask.GetCommand().GetValue()),
 			}
+			// This executor command should simply be ./executor
 			t.Executor.Command.Value = &s.config.Executor.Command
+			t.Executor.Command.Uris = []*mesos_v1.CommandInfo_URI{
+				{
+					Value:      &s.config.FileServer.Path,
+					Executable: utils.ProtoBool(true),
+					Extract:    utils.ProtoBool(false),
+					Cache:      utils.ProtoBool(false),
+				},
+			}
 			t.Executor.Command.Shell = &s.config.Executor.Shell
 			t.Executor.Command.Arguments = []string{s.config.Executor.Command}
 			t.Command = nil
