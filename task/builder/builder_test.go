@@ -23,7 +23,19 @@ func TestApplication(t *testing.T) {
 			Cmd: utils.ProtoString("/bin/sleep 1"),
 		},
 		Container:   &task.ContainerJSON{},
-		HealthCheck: &task.HealthCheckJSON{},
+		HealthCheck: &task.HealthCheckJSON{
+			Type: utils.ProtoString("http"),
+			Http: &task.HTTPHealthCheck{
+				Scheme: utils.ProtoString("http"),
+				Port: utils.ProtoInt32(9090),
+				Path: utils.ProtoString("/somepath"),
+				Statuses: []uint32{
+					200,
+					202,
+				},
+			},
+			DelaySeconds: utils.ProtoFloat64(1.0),
+		},
 		Labels:      a,
 		Filters:     b,
 	}
@@ -150,7 +162,19 @@ func TestApplicationWithDockerContainer(t *testing.T) {
 			ImageName:     utils.ProtoString("debian:latest"),
 			ContainerType: utils.ProtoString("docker"),
 		},
-		HealthCheck: &task.HealthCheckJSON{},
+		HealthCheck: &task.HealthCheckJSON{
+			Type: utils.ProtoString("http"),
+			Http: &task.HTTPHealthCheck{
+				Scheme: utils.ProtoString("http"),
+				Port: utils.ProtoInt32(9090),
+				Path: utils.ProtoString("/somepath"),
+				Statuses: []uint32{
+					200,
+					202,
+				},
+			},
+			DelaySeconds: utils.ProtoFloat64(1.0),
+		},
 		Labels:      a,
 		Filters:     b,
 	}
@@ -214,6 +238,47 @@ func TestApplicationFailLabels(t *testing.T) {
 	_, err := Application(test)
 
 	if err == nil {
+		t.FailNow()
+	}
+}
+
+func TestApplicationHealthChecks(t *testing.T) {
+	a := make([]map[string]string, 0)
+	b := make([]task.Filter, 0)
+
+	// Test
+	test := &task.ApplicationJSON{
+		Name: "Test Task",
+		Resources: &task.ResourceJSON{
+			Cpu: 0.5,
+			Mem: 128.0,
+			Disk: task.Disk{
+				Size: 1024.0,
+			},
+		},
+		Command: &task.CommandJSON{
+			Cmd: utils.ProtoString("/bin/sleep 1"),
+		},
+		Container:   &task.ContainerJSON{},
+		HealthCheck: &task.HealthCheckJSON{
+			Type: utils.ProtoString("http"),
+			Http: &task.HTTPHealthCheck{
+				Scheme: utils.ProtoString("http"),
+				Port: utils.ProtoInt32(9090),
+				Path: utils.ProtoString("/somepath"),
+				Statuses: []uint32{
+					200,
+					202,
+				},
+			},
+			DelaySeconds: utils.ProtoFloat64(1.0),
+		},
+		Labels:      a,
+		Filters:     b,
+	}
+	_, err := Application(test)
+	if err != nil {
+		t.Log(err.Error())
 		t.FailNow()
 	}
 }
