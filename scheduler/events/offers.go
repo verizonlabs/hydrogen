@@ -97,10 +97,10 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 			}
 			// TODO (tim): change the default to true for now until we have support for shell-less executors.
 			t.Executor.Command.Shell = &s.config.Executor.Shell
-			// NOTE: Tell users in README about how custom executors work? How do we support users with custom
-			// commands with an executor? Can run executor && <user_command>...
+			t.Executor.Command.Arguments = []string{s.config.Executor.Command}
 			t.Command = nil
 		}
+
 		// TODO (aaron) investigate this state further as it might cause side effects.
 		// this is artificially set to STAGING, it does not correspond to when Mesos sets this task as STAGING.
 		// for example other parts of the codebase may check for STAGING and this would cause it to be set too early.
