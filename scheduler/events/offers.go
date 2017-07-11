@@ -123,6 +123,18 @@ func (s *SprintEventController) setupExecutor(t *mesos_v1.TaskInfo) {
 		}
 		t.Executor.Command.Shell = &s.config.Executor.Shell
 		t.Executor.Command.Arguments = []string{s.config.Executor.Command}
+
+		protocol := "http"
+		if s.config.Executor.TLS {
+			protocol = "https"
+		}
+
+		t.Executor.Command.Environment = &mesos_v1.Environment{Variables: []*mesos_v1.Environment_Variable{
+			{
+				Name:  utils.ProtoString("PROTOCOL"),
+				Value: utils.ProtoString(protocol),
+			},
+		}}
 		t.Command = nil
 	}
 }
