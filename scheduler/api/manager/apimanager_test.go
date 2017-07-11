@@ -5,7 +5,16 @@ import (
 	k "mesos-framework-sdk/resources/manager/test"
 	s "mesos-framework-sdk/scheduler/test"
 	"sprint/task/manager/test"
+	"mesos-framework-sdk/include/mesos_v1"
 )
+
+func TestNewApiParser(t *testing.T) {
+	api := NewApiParser(k.MockResourceManager{}, test.MockTaskManager{}, s.MockScheduler{})
+	if api.resourceManager == nil || api.scheduler != nil || api.taskManager != nil {
+		t.Logf("Expected instances to be set %v\n", api)
+		t.Fail()
+	}
+}
 
 func TestParser_DeployNoHealthCheck(t *testing.T) {
 	api := NewApiParser(k.MockResourceManager{}, test.MockTaskManager{}, s.MockScheduler{})
@@ -196,6 +205,35 @@ func TestParser_AllTasks(t *testing.T) {
 	}
 	if len(tasks) != 1 {
 		t.Logf("Tasks length should be 1, found %v", len(tasks))
+		t.Fail()
+	}
+}
+
+func TestParser_Update(t *testing.T) {
+	api := NewApiParser(k.MockResourceManager{}, test.MockTaskManager{}, s.MockScheduler{})
+	validJSON := `{"name": "test",
+	"instances": 1,
+	"resources": {"cpu": 0.5, "mem": 128.0, "disk": {"size": 1024.0}},
+	"command": {"cmd": "echo hello"}}`
+	task, err := api.Update([]byte(validJSON))
+	if err != nil {
+		t.Logf("Failed %v\n", err)
+		t.Fail()
+	}
+	if task.GetName() != "test" {
+		t.Logf("Task updated came back with different name %v, should be the same", task.GetName())
+	}
+}
+
+func TestParser_Status(t *testing.T) {
+	api := NewApiParser(k.MockResourceManager{}, test.MockTaskManager{}, s.MockScheduler{})
+	state, err := api.Status("test")
+	if err != nil {
+		t.Logf("Failed on status update %v\n", state)
+		t.Fail()
+	}
+	if state.String() != mesos_v1.TaskState_TASK_STARTING.String() {
+		t.Logf("Expected task running, got %v", state.String())
 		t.Fail()
 	}
 }
