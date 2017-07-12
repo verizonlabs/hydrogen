@@ -73,31 +73,8 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 			HealthCheck: mesosTask.GetHealthCheck(),
 		}
 
-		// If we're using our custom executor then make sure we remove the original CommandInfo.
-		// Set up our ExecutorInfo and pass the user's command as data to the executor.
-		// The executor is responsible for taking this data and acting as expected.
 		if s.config.Executor.CustomExecutor && t.Executor == nil {
-			t.Executor = &mesos_v1.ExecutorInfo{
-				ExecutorId: &mesos_v1.ExecutorID{Value: &s.config.Executor.Name},
-				Type:       mesos_v1.ExecutorInfo_CUSTOM.Enum(),
-				Resources:  mesosTask.GetResources(),
-				Container:  mesosTask.GetContainer(),
-				Command:    mesosTask.GetCommand(),
-				Data:       []byte(mesosTask.GetCommand().GetValue()),
-			}
-			// This executor command should simply be ./executor
-			t.Executor.Command.Value = &s.config.Executor.Command
-			t.Executor.Command.Uris = []*mesos_v1.CommandInfo_URI{
-				{
-					Value:      &s.config.FileServer.Path,
-					Executable: utils.ProtoBool(true),
-					Extract:    utils.ProtoBool(false),
-					Cache:      utils.ProtoBool(false),
-				},
-			}
-			t.Executor.Command.Shell = &s.config.Executor.Shell
-			t.Executor.Command.Arguments = []string{s.config.Executor.Command}
-			t.Command = nil
+			s.setupExecutor(t)
 		}
 
 		// TODO (aaron) investigate this state further as it might cause side effects.
@@ -119,6 +96,47 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 	// Resource manager pops offers when they are accepted
 	// Offers() returns a list of what is left, therefore whatever is left is to be rejected.
 	s.declineOffers(s.ResourceManager().Offers(), refuseSeconds)
+}
+
+func (s *SprintEventController) setupExecutor(t *mesos_v1.TaskInfo) {
+
+	// If we're using our custom executor then make sure we remove the original CommandInfo.
+	// Set up our ExecutorInfo and pass the user's command as data to the executor.
+	// The executor is responsible for taking this data and acting as expected.
+	t.Executor = &mesos_v1.ExecutorInfo{
+		ExecutorId: &mesos_v1.ExecutorID{Value: &s.config.Executor.Name},
+		Type:       mesos_v1.ExecutorInfo_CUSTOM.Enum(),
+		Resources:  t.GetResources(),
+		Container:  t.GetContainer(),
+		Command:    t.GetCommand(),
+		Data:       []byte(t.GetCommand().GetValue()),
+	}
+	t.Executor.Command.Value = &s.config.Executor.Command
+	t.Executor.Command.Uris = []*mesos_v1.CommandInfo_URI{
+		{
+			// TODO this config currently expects a path to a file.
+			// Need to adjust if we want to use a URL here.
+			Value:      &s.config.FileServer.Path,
+			Executable: utils.ProtoBool(true),
+			Extract:    utils.ProtoBool(false),
+			Cache:      utils.ProtoBool(false),
+		},
+	}
+	t.Executor.Command.Shell = &s.config.Executor.Shell
+	t.Executor.Command.Arguments = []string{s.config.Executor.Command}
+
+	protocol := "http"
+	if s.config.Executor.TLS {
+		protocol = "https"
+	}
+
+	t.Executor.Command.Environment = &mesos_v1.Environment{Variables: []*mesos_v1.Environment_Variable{
+		{
+			Name:  utils.ProtoString("PROTOCOL"),
+			Value: utils.ProtoString(protocol),
+		},
+	}}
+	t.Command = nil
 }
 
 func (s *SprintEventController) isRedundantOffer(agentId string, agents []*mesos_v1.AgentID) bool {
