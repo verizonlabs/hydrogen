@@ -8,9 +8,11 @@ import (
 	"mesos-framework-sdk/include/mesos_v1"
 )
 
+// Generate valid and invalid JSON
+
 func TestNewApiParser(t *testing.T) {
 	api := NewApiParser(k.MockResourceManager{}, test.MockTaskManager{}, s.MockScheduler{})
-	if api.resourceManager == nil || api.scheduler != nil || api.taskManager != nil {
+	if api.resourceManager == nil || api.scheduler == nil || api.taskManager == nil {
 		t.Logf("Expected instances to be set %v\n", api)
 		t.Fail()
 	}
@@ -28,12 +30,8 @@ func TestParser_DeployNoHealthCheck(t *testing.T) {
 		t.Logf("Failure to parse JSON %v\n", err)
 		t.Fail()
 	}
-	if task.HealthCheck == nil {
-		t.Log("Healthcheck field was supposed to be set as an empty healthcheck, was nil instead.")
-		t.Fail()
-	}
-	if task.HealthCheck.String() != "" {
-		t.Log("Health check has values even though no configuration was passed in.")
+	if task.HealthCheck != nil {
+		t.Log("Healthcheck field was supposed to be set as nil, was non-nil instead.")
 		t.Fail()
 	}
 }
@@ -236,4 +234,18 @@ func TestParser_Status(t *testing.T) {
 		t.Logf("Expected task running, got %v", state.String())
 		t.Fail()
 	}
+}
+
+func TestParser_DeployMultiInstance(t *testing.T) {
+	api := NewApiParser(k.MockResourceManager{}, test.MockTaskManager{}, s.MockScheduler{})
+	multiInstance := `{"name": "test",
+	"instances": 5,
+	"resources": {"cpu": 0.5, "mem": 128.0, "disk": {"size": 1024.0}},
+	"command": {"cmd": "echo hello"}}`
+	task, err := api.Deploy([]byte(multiInstance))
+	if err != nil {
+		t.Logf("Deploying multiple instances failed %v", task)
+		t.Fail()
+	}
+
 }
