@@ -3,7 +3,6 @@ package manager
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/gob"
 	"errors"
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/logging"
@@ -16,15 +15,13 @@ import (
 
 // Encodes task data to a small, efficient payload that can be transmitted across the wire.
 func (m *SprintTaskHandler) encode(task *mesos_v1.TaskInfo, state mesos_v1.TaskState) (bytes.Buffer, error) {
-	var b bytes.Buffer
-	e := gob.NewEncoder(&b)
 	// Panics on nil values.
-	err := e.Encode(manager.Task{
+	err := m.encoder.Encode(manager.Task{
 		Info:  task,
 		State: state,
 	})
-
-	return b, err
+	// NOTE (tim): Since this is inside our struct, we don't need to return it, do we want to change the sig?
+	return m.buffer, err
 }
 
 // Checks if a task is in a group
