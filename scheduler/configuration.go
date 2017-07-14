@@ -22,6 +22,7 @@ type ExecutorConfiguration struct {
 	Name           string
 	Command        string
 	Shell          bool
+	TLS            bool
 }
 
 // Persistence connection configuration.
@@ -96,6 +97,7 @@ func (c *ExecutorConfiguration) initialize() *ExecutorConfiguration {
 	flag.StringVar(&c.Name, "executor.name", "Sprinter", "The executor's name")
 	flag.StringVar(&c.Command, "executor.command", "executor", "Command to run the executor")
 	flag.BoolVar(&c.Shell, "executor.shell", false, "Whether or not the executor should be launched under a shell")
+	flag.BoolVar(&c.TLS, "executor.tls", false, "Use TLS when connecting to Mesos")
 
 	return c
 }

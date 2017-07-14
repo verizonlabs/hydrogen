@@ -14,11 +14,12 @@ import (
 func main() {
 	logger := logging.NewDefaultLogger()
 
-	// Always implicitly set and provided by the Mesos agent.
+	// Environment vars are implicitly set and provided by the Mesos agent.
 	fwId := &mesos_v1.FrameworkID{Value: utils.ProtoString(os.Getenv("MESOS_FRAMEWORK_ID"))}
 	execId := &mesos_v1.ExecutorID{Value: utils.ProtoString(os.Getenv("MESOS_EXECUTOR_ID"))}
-	endpoint := "http://" + os.Getenv("MESOS_AGENT_ENDPOINT") + "/api/v1/executor" // TODO support both HTTP and HTTPS.
-	auth := "Bearer " + os.Getenv("MESOS_EXECUTOR_AUTHENTICATION_TOKEN")
+	protocol := os.Getenv("PROTOCOL")
+	endpoint := protocol + "://" + os.Getenv("MESOS_AGENT_ENDPOINT") + "/api/v1/executor"
+	auth := "Bearer " + os.Getenv("MESOS_EXECUTOR_AUTHENTICATION_TOKEN") // Passed to us by the agent.
 
 	c := client.NewClient(endpoint, auth, logger)
 	ex := executor.NewDefaultExecutor(fwId, execId, c, logger)
