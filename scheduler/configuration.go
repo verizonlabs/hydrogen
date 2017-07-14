@@ -68,6 +68,7 @@ type SchedulerConfiguration struct {
 	Role              string
 	Checkpointing     bool
 	Principal         string
+	Secret            string
 	ExecutorSrvCfg    server.Configuration
 	ExecutorName      string
 	ExecutorCmd       string
@@ -163,6 +164,7 @@ func (c *SchedulerConfiguration) initialize() *SchedulerConfiguration {
 	flag.StringVar(&c.Role, "role", "*", "Framework role")
 	flag.BoolVar(&c.Checkpointing, "checkpointing", true, "Enable or disable checkpointing")
 	flag.StringVar(&c.Principal, "principal", "Sprint", "Framework principal")
+	flag.StringVar(&c.Secret, "secret", "", "Used when Mesos requires authentication")
 	flag.Float64Var(&c.Failover, "failover", 168*time.Hour.Seconds(), "Framework failover timeout") // 1 week is recommended
 	flag.StringVar(&c.Hostname, "hostname", "", "The framework's hostname")
 	flag.DurationVar(&c.SubscribeRetry, "subscribe.retry", 2*time.Second, `Controls the interval at which subscribe

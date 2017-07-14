@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"flag"
 	"mesos-framework-sdk/client"
 	"mesos-framework-sdk/include/mesos_v1"
@@ -72,10 +73,15 @@ func main() {
 		logger,
 	) // Manages our tasks
 
-	r := manager.NewDefaultResourceManager()                      // Manages resources from the cluster
-	c := client.NewClient(config.Scheduler.MesosEndpoint, logger) // Manages HTTP calls
-	s := sched.NewDefaultScheduler(c, frameworkInfo, logger)      // Manages how to route and schedule tasks.
-	m := apiManager.NewApiParser(r, t, s)                         // Middleware for our API.
+	var auth string
+	if config.Scheduler.Secret != "" {
+		auth = base64.StdEncoding.EncodeToString([]byte(config.Scheduler.Principal + ":" + config.Scheduler.Secret))
+	}
+
+	r := manager.NewDefaultResourceManager()                            // Manages resources from the cluster
+	c := client.NewClient(config.Scheduler.MesosEndpoint, auth, logger) // Manages HTTP calls
+	s := sched.NewDefaultScheduler(c, frameworkInfo, logger)            // Manages how to route and schedule tasks.
+	m := apiManager.NewApiParser(r, t, s)                               // Middleware for our API.
 
 	// Event controller manages scheduler events and how they are handled.
 	e := events.NewSprintEventController(config, s, t, r, eventChan, p, logger)
