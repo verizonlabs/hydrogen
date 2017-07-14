@@ -65,18 +65,17 @@ func main() {
 		config.Persistence.KeepaliveTimeout,
 	), config)
 
-	// Wire up dependencies for the event controller
+	// Manages our tasks.
 	t := sprintTaskManager.NewTaskManager(
 		make(map[string]t.Task),
 		p,
 		config,
 		logger,
-	) // Manages our tasks
+	)
 
-	var auth string
-	if config.Scheduler.Secret != "" {
-		auth = base64.StdEncoding.EncodeToString([]byte(config.Scheduler.Principal + ":" + config.Scheduler.Secret))
-	}
+	auth := "Basic " + base64.StdEncoding.EncodeToString(
+		[]byte(config.Scheduler.Principal+":"+config.Scheduler.Secret),
+	)
 
 	r := manager.NewDefaultResourceManager()                            // Manages resources from the cluster
 	c := client.NewClient(config.Scheduler.MesosEndpoint, auth, logger) // Manages HTTP calls
@@ -101,6 +100,6 @@ func main() {
 
 	// Run our event controller
 	// Runs an election for the leader
-	// and then subscribes to mesos master to start listening for events.
+	// and then subscribes to Mesos master to start listening for events.
 	e.Run()
 }

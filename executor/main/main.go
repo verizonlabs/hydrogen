@@ -18,8 +18,9 @@ func main() {
 	fwId := &mesos_v1.FrameworkID{Value: utils.ProtoString(os.Getenv("MESOS_FRAMEWORK_ID"))}
 	execId := &mesos_v1.ExecutorID{Value: utils.ProtoString(os.Getenv("MESOS_EXECUTOR_ID"))}
 	endpoint := "http://" + os.Getenv("MESOS_AGENT_ENDPOINT") + "/api/v1/executor" // TODO support both HTTP and HTTPS.
+	auth := "Bearer " + os.Getenv("MESOS_EXECUTOR_AUTHENTICATION_TOKEN")
 
-	c := client.NewClient(endpoint, logger)
+	c := client.NewClient(endpoint, auth, logger)
 	ex := executor.NewDefaultExecutor(fwId, execId, c, logger)
 	e := events.NewSprintExecutorEventController(ex, logger)
 	e.Run()
