@@ -158,9 +158,14 @@ func (s *SprintEventController) Run() {
 				os.Exit(1)
 			}
 
-			_, err = s.scheduler.Subscribe(s.events)
+			resp, err := s.scheduler.Subscribe(s.events)
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to subscribe: %s", err.Error())
+				if resp != nil && resp.StatusCode == 401 {
+					// TODO define constants and clean up all areas that currently exit with a hardcoded value.
+					os.Exit(8)
+				}
+
 				time.Sleep(time.Duration(s.config.Scheduler.SubscribeRetry))
 			}
 		}
