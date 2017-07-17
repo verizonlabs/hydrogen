@@ -77,10 +77,13 @@ func main() {
 		[]byte(config.Scheduler.Principal+":"+config.Scheduler.Secret),
 	)
 
-	r := manager.NewDefaultResourceManager()                            // Manages resources from the cluster
-	c := client.NewClient(config.Scheduler.MesosEndpoint, auth, logger) // Manages HTTP calls
-	s := sched.NewDefaultScheduler(c, frameworkInfo, logger)            // Manages how to route and schedule tasks.
-	m := apiManager.NewApiParser(r, t, s)                               // Middleware for our API.
+	r := manager.NewDefaultResourceManager() // Manages resources from the cluster
+	c := client.NewClient(client.ClientData{
+		Endpoint: config.Scheduler.MesosEndpoint,
+		Auth:     auth,
+	}, logger) // Manages scheduler/executor HTTP calls, authorization, and new master detection.
+	s := sched.NewDefaultScheduler(c, frameworkInfo, logger) // Manages how to route and schedule tasks.
+	m := apiManager.NewApiParser(r, t, s)                    // Middleware for our API.
 
 	// Event controller manages scheduler events and how they are handled.
 	e := events.NewSprintEventController(config, s, t, r, eventChan, p, logger)

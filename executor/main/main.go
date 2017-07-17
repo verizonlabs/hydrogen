@@ -21,7 +21,10 @@ func main() {
 	endpoint := protocol + "://" + os.Getenv("MESOS_AGENT_ENDPOINT") + "/api/v1/executor"
 	auth := "Bearer " + os.Getenv("MESOS_EXECUTOR_AUTHENTICATION_TOKEN") // Passed to us by the agent.
 
-	c := client.NewClient(endpoint, auth, logger)
+	c := client.NewClient(client.ClientData{
+		Endpoint: endpoint,
+		Auth:     auth,
+	}, logger)
 	ex := executor.NewDefaultExecutor(fwId, execId, c, logger)
 	e := events.NewSprintExecutorEventController(ex, logger)
 	e.Run()
