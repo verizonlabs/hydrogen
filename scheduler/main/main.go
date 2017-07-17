@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"flag"
 	"mesos-framework-sdk/client"
 	"mesos-framework-sdk/include/mesos_v1"
@@ -64,18 +65,25 @@ func main() {
 		config.Persistence.KeepaliveTimeout,
 	), config)
 
-	// Wire up dependencies for the event controller
+	// Manages our tasks.
 	t := sprintTaskManager.NewTaskManager(
 		make(map[string]t.Task),
 		p,
 		config,
 		logger,
-	) // Manages our tasks
+	)
 
-	r := manager.NewDefaultResourceManager()                      // Manages resources from the cluster
-	c := client.NewClient(config.Scheduler.MesosEndpoint, logger) // Manages HTTP calls
-	s := sched.NewDefaultScheduler(c, frameworkInfo, logger)      // Manages how to route and schedule tasks.
-	m := apiManager.NewApiParser(r, t, s)                         // Middleware for our API.
+	auth := "Basic " + base64.StdEncoding.EncodeToString(
+		[]byte(config.Scheduler.Principal+":"+config.Scheduler.Secret),
+	)
+
+	r := manager.NewDefaultResourceManager() // Manages resources from the cluster
+	c := client.NewClient(client.ClientData{
+		Endpoint: config.Scheduler.MesosEndpoint,
+		Auth:     auth,
+	}, logger) // Manages scheduler/executor HTTP calls, authorization, and new master detection.
+	s := sched.NewDefaultScheduler(c, frameworkInfo, logger) // Manages how to route and schedule tasks.
+	m := apiManager.NewApiParser(r, t, s)                    // Middleware for our API.
 
 	// Event controller manages scheduler events and how they are handled.
 	e := events.NewSprintEventController(config, s, t, r, eventChan, p, logger)
@@ -95,6 +103,6 @@ func main() {
 
 	// Run our event controller
 	// Runs an election for the leader
-	// and then subscribes to mesos master to start listening for events.
+	// and then subscribes to Mesos master to start listening for events.
 	e.Run()
 }
