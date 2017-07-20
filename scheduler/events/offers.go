@@ -114,9 +114,7 @@ func (s *SprintEventController) setupExecutor(t *mesos_v1.TaskInfo) {
 	t.Executor.Command.Value = &s.config.Executor.Command
 	t.Executor.Command.Uris = []*mesos_v1.CommandInfo_URI{
 		{
-			// TODO this config currently expects a path to a file.
-			// Need to adjust if we want to use a URL here.
-			Value:      &s.config.FileServer.Path,
+			Value:      &s.config.Executor.URI,
 			Executable: utils.ProtoBool(true),
 			Extract:    utils.ProtoBool(false),
 			Cache:      utils.ProtoBool(false),
