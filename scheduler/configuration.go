@@ -19,6 +19,7 @@ type Configuration struct {
 
 type ExecutorConfiguration struct {
 	CustomExecutor bool
+	URI            string
 	Name           string
 	Command        string
 	Shell          bool
@@ -94,6 +95,7 @@ func (c *Configuration) Initialize() *Configuration {
 // Configuration for the custom executor
 func (c *ExecutorConfiguration) initialize() *ExecutorConfiguration {
 	flag.BoolVar(&c.CustomExecutor, "executor.enable", false, "Enable/disable usage of the custom executor")
+	flag.StringVar(&c.URI, "executor.uri", "http://127.0.0.1:8081/executor", "URI for Mesos to fetch the custom executor")
 	flag.StringVar(&c.Name, "executor.name", "Sprinter", "The executor's name")
 	flag.StringVar(&c.Command, "executor.command", "executor", "Command to run the executor")
 	flag.BoolVar(&c.Shell, "executor.shell", false, "Whether or not the executor should be launched under a shell")
