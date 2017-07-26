@@ -21,7 +21,6 @@ func (m *SprintTaskHandler) encode(task *mesos_v1.TaskInfo, state mesos_v1.TaskS
 		State: state,
 	})
 
-	// NOTE (tim): Since this is inside our struct, we don't need to return it, do we want to change the sig?
 	return err
 }
 
