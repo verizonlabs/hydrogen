@@ -108,8 +108,8 @@ func (m *SprintTaskHandler) unlink(write Write) {
 		return
 	}
 
-	newValue := strings.Replace(currentValues, write.agentID.GetValue(), "", -1)
-	newValue = strings.Replace(newValue, ",,", ",", -1)
+	newValue := strings.Replace(currentValues, write.agentID.GetValue(), "", 1)
+	newValue = strings.Replace(newValue, ",,", ",", 1)
 	err = m.storage.Update(GROUP_DIRECTORY+write.group, newValue)
 	if err != nil {
 		write.reply <- err
