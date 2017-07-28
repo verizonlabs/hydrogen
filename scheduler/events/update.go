@@ -13,13 +13,24 @@ import (
 //
 func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Update) {
 	status := updateEvent.GetStatus()
-	agentId := status.GetAgentId()
-	taskId := status.GetTaskId()
+	agentID := status.GetAgentId()
+	taskID := status.GetTaskId()
 
 	// Always acknowledge that we've recieved the message from Mesos.
-	defer s.scheduler.Acknowledge(agentId, taskId, status.GetUuid())
+	defer func() {
+		_, err := s.scheduler.Acknowledge(agentID, taskID, status.GetUuid())
+		if err != nil {
+			s.logger.Emit(
+				logging.ERROR,
+				"Failed to acknowledge event from agent %s for task ID %s: %s",
+				agentID.GetValue(),
+				taskID.GetValue(),
+				err.Error(),
+			)
+		}
+	}()
 
-	task, err := s.taskmanager.GetById(taskId)
+	task, err := s.taskmanager.GetById(taskID)
 	if err != nil {
 		// The event is from a task that has been deleted from the task manager,
 		// ignore updates.
@@ -31,8 +42,8 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 
 	state := status.GetState()
 	message := status.GetMessage()
-	taskIdVal := taskId.GetValue()
-	agentIdVal := agentId.GetValue()
+	taskIdVal := taskID.GetValue()
+	agentIdVal := agentID.GetValue()
 
 	err = s.taskmanager.Set(state, task)
 	if err != nil {
@@ -44,7 +55,7 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 	case mesos_v1.TaskState_TASK_FAILED:
 		s.logger.Emit(logging.ERROR, "Task %s failed: %s", taskIdVal, message)
 		if s.taskmanager.IsInGroup(task) {
-			err := s.taskmanager.Unlink(task.GetName(), agentId)
+			err := s.taskmanager.Unlink(task.GetName(), agentID)
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to remove task %s from group: %s", taskIdVal, err.Error())
 				return
@@ -60,7 +71,7 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 		// Transient error, we should retry launching. Taskinfo is fine.
 		s.logger.Emit(logging.INFO, "Task %s dropped: %s", taskIdVal, message)
 		if s.taskmanager.IsInGroup(task) {
-			err := s.taskmanager.Unlink(task.GetName(), agentId)
+			err := s.taskmanager.Unlink(task.GetName(), agentID)
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to remove task %s from group: %s", taskIdVal, err.Error())
 				return
@@ -71,7 +82,7 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 	case mesos_v1.TaskState_TASK_ERROR:
 		s.logger.Emit(logging.ERROR, "Error with task %s: %s", taskIdVal, message)
 		if s.taskmanager.IsInGroup(task) {
-			err := s.taskmanager.Unlink(task.GetName(), agentId)
+			err := s.taskmanager.Unlink(task.GetName(), agentID)
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to remove task %s from group: %s", taskIdVal, err.Error())
 				return
@@ -88,7 +99,7 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 			message,
 		)
 		if s.taskmanager.IsInGroup(task) {
-			err := s.taskmanager.Unlink(task.GetName(), agentId)
+			err := s.taskmanager.Unlink(task.GetName(), agentID)
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to remove task %s from group: %s", taskIdVal, err.Error())
 				return
@@ -114,7 +125,7 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 		// Agent is dead and task is lost.
 		s.logger.Emit(logging.ERROR, "Task %s is gone: %s", taskIdVal, message)
 		if s.taskmanager.IsInGroup(task) {
-			err := s.taskmanager.Unlink(task.GetName(), agentId)
+			err := s.taskmanager.Unlink(task.GetName(), agentID)
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to remove task %s from group: %s", taskIdVal, err.Error())
 				return
@@ -136,7 +147,7 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 			agentIdVal,
 		)
 		if s.taskmanager.IsInGroup(task) {
-			err := s.taskmanager.Unlink(task.GetName(), agentId)
+			err := s.taskmanager.Unlink(task.GetName(), agentID)
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to remove task %s from group: %s", taskIdVal, err.Error())
 				return
@@ -167,7 +178,7 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 
 		// A task can be lost if it never got to the master.
 		if s.taskmanager.IsInGroup(task) {
-			err := s.taskmanager.Unlink(task.GetName(), agentId)
+			err := s.taskmanager.Unlink(task.GetName(), agentID)
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to remove task %s from group: %s", taskIdVal, err.Error())
 				return
