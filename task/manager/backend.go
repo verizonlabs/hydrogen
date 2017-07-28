@@ -38,7 +38,7 @@ func (m *SprintTaskHandler) createGroup(write Write) {
 		return
 	}
 
-	err = m.storage.Create(GROUP_DIRECTORY+write.group+GROUP_SIZE, strconv.Itoa(0))
+	err = m.storage.Create(GROUP_DIRECTORY+write.group+GROUP_SIZE, "0")
 	if err != nil {
 		write.reply <- err
 		return
