@@ -22,7 +22,7 @@ func (r MockRetry) ClearPolicy(mesosTask *mesos_v1.TaskInfo) error {
 }
 
 func (r MockRetry) RunPolicy(policy *retry.TaskRetry, f func() error) error {
-	return nil
+	return f()
 }
 
 type MockBrokenRetry struct{}
