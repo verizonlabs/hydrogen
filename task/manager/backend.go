@@ -138,12 +138,6 @@ func (m *SprintTaskHandler) deleteGroup(write Write) {
 		return
 	}
 
-	err = m.storage.Delete(GROUP_DIRECTORY + write.group + GROUP_SIZE)
-	if err != nil {
-		write.reply <- err
-		return
-	}
-
 	delete(m.groups, write.group)
 }
 
