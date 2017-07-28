@@ -32,13 +32,7 @@ func (m *SprintTaskHandler) isInGroup(read Read) {
 
 // Creates a group for a task.
 func (m *SprintTaskHandler) createGroup(write Write) {
-	err := m.storage.Create(GROUP_DIRECTORY+write.group, "")
-	if err != nil {
-		write.reply <- err
-		return
-	}
-
-	err = m.storage.Create(GROUP_DIRECTORY+write.group+GROUP_SIZE, "0")
+	err := m.storage.Create(GROUP_DIRECTORY+write.group+GROUP_SIZE, "0")
 	if err != nil {
 		write.reply <- err
 		return
