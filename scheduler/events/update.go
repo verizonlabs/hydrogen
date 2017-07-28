@@ -13,56 +13,84 @@ import (
 //
 func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Update) {
 	status := updateEvent.GetStatus()
-	agentId := status.GetAgentId()
-	taskId := status.GetTaskId()
-	task, err := s.taskmanager.GetById(taskId)
+	agentID := status.GetAgentId()
+	taskID := status.GetTaskId()
+
+	// Always acknowledge that we've recieved the message from Mesos.
+	defer func() {
+		_, err := s.scheduler.Acknowledge(agentID, taskID, status.GetUuid())
+		if err != nil {
+			s.logger.Emit(
+				logging.ERROR,
+				"Failed to acknowledge event from agent %s for task ID %s: %s",
+				agentID.GetValue(),
+				taskID.GetValue(),
+				err.Error(),
+			)
+		}
+	}()
+
+	task, err := s.taskmanager.GetById(taskID)
 	if err != nil {
 		// The event is from a task that has been deleted from the task manager,
 		// ignore updates.
 		// NOTE (tim): Do we want to keep deleted task history for a certain amount of time
 		// before it's deleted? We would record status updates after it's killed here.
 		// ACK update, return.
-		s.scheduler.Acknowledge(agentId, taskId, status.GetUuid())
 		return
 	}
 
 	state := status.GetState()
 	message := status.GetMessage()
-	taskIdVal := taskId.GetValue()
-	agentIdVal := agentId.GetValue()
+	taskIdVal := taskID.GetValue()
+	agentIdVal := agentID.GetValue()
 
-	s.taskmanager.Set(state, task)
+	err = s.taskmanager.Set(state, task)
+	if err != nil {
+		s.logger.Emit(logging.ERROR, "Failed to update task %s: %s", taskIdVal, err.Error())
+		return
+	}
 
 	switch state {
 	case mesos_v1.TaskState_TASK_FAILED:
-		if s.taskmanager.IsInGroup(task) {
-			s.taskmanager.Unlink(task.GetName(), agentId)
-		}
 		s.logger.Emit(logging.ERROR, "Task %s failed: %s", taskIdVal, message)
+		if s.taskmanager.IsInGroup(task) {
+			err := s.taskmanager.Unlink(task.GetName(), agentID)
+			if err != nil {
+				s.logger.Emit(logging.ERROR, "Failed to remove task %s from group: %s", taskIdVal, err.Error())
+				return
+			}
+		}
+
 		s.reschedule(task)
 	case mesos_v1.TaskState_TASK_STAGING:
 		// NOP, keep task set to "launched".
 		s.logger.Emit(logging.INFO, "Task %s is staging: %s", taskIdVal, message)
 	case mesos_v1.TaskState_TASK_DROPPED:
-		if s.taskmanager.IsInGroup(task) {
-			s.taskmanager.Unlink(task.GetName(), agentId)
-		}
+
 		// Transient error, we should retry launching. Taskinfo is fine.
 		s.logger.Emit(logging.INFO, "Task %s dropped: %s", taskIdVal, message)
+		if s.taskmanager.IsInGroup(task) {
+			err := s.taskmanager.Unlink(task.GetName(), agentID)
+			if err != nil {
+				s.logger.Emit(logging.ERROR, "Failed to remove task %s from group: %s", taskIdVal, err.Error())
+				return
+			}
+		}
+
 		s.reschedule(task)
 	case mesos_v1.TaskState_TASK_ERROR:
-		if s.taskmanager.IsInGroup(task) {
-			s.taskmanager.Unlink(task.GetName(), agentId)
-		}
 		s.logger.Emit(logging.ERROR, "Error with task %s: %s", taskIdVal, message)
+		if s.taskmanager.IsInGroup(task) {
+			err := s.taskmanager.Unlink(task.GetName(), agentID)
+			if err != nil {
+				s.logger.Emit(logging.ERROR, "Failed to remove task %s from group: %s", taskIdVal, err.Error())
+				return
+			}
+		}
+
 		s.reschedule(task)
 	case mesos_v1.TaskState_TASK_FINISHED:
-		if s.taskmanager.IsInGroup(task) {
-			s.taskmanager.Unlink(task.GetName(), agentId)
-			s.taskmanager.SetSize(task.GetName(), -1)
-			// We only delete the entire group if the size is 0.
-			s.taskmanager.DeleteGroup(task.GetName())
-		}
 		s.logger.Emit(
 			logging.INFO,
 			"Task %s finished on agent %s: %s",
@@ -70,23 +98,47 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 			agentIdVal,
 			message,
 		)
+		if s.taskmanager.IsInGroup(task) {
+			err := s.taskmanager.Unlink(task.GetName(), agentID)
+			if err != nil {
+				s.logger.Emit(logging.ERROR, "Failed to remove task %s from group: %s", taskIdVal, err.Error())
+				return
+			}
+
+			err = s.taskmanager.SetSize(task.GetName(), -1)
+			if err != nil {
+				s.logger.Emit(logging.ERROR, "Failed to update size of group: %s", err.Error())
+				return
+			}
+
+			// We only delete the entire group if the size is 0.
+			err = s.taskmanager.DeleteGroup(task.GetName())
+			if err != nil {
+				s.logger.Emit(logging.ERROR, "Failed to delete the task %s's group: %s", taskIdVal, err.Error())
+				return
+			}
+		}
+
 		s.taskmanager.Delete(task)
 	case mesos_v1.TaskState_TASK_GONE:
-		if s.taskmanager.IsInGroup(task) {
-			s.taskmanager.Unlink(task.GetName(), agentId)
-		}
+
 		// Agent is dead and task is lost.
 		s.logger.Emit(logging.ERROR, "Task %s is gone: %s", taskIdVal, message)
+		if s.taskmanager.IsInGroup(task) {
+			err := s.taskmanager.Unlink(task.GetName(), agentID)
+			if err != nil {
+				s.logger.Emit(logging.ERROR, "Failed to remove task %s from group: %s", taskIdVal, err.Error())
+				return
+			}
+		}
+
 		s.reschedule(task)
 	case mesos_v1.TaskState_TASK_GONE_BY_OPERATOR:
+
 		// Agent might be dead, master is unsure. Will return to RUNNING state possibly or die.
 		s.logger.Emit(logging.ERROR, "Task %s gone by operator: %s", taskIdVal, message)
 	case mesos_v1.TaskState_TASK_KILLED:
-		if s.taskmanager.IsInGroup(task) {
-			s.taskmanager.Unlink(task.GetName(), agentId)
-			s.taskmanager.SetSize(task.GetName(), -1)
-			s.taskmanager.DeleteGroup(task.GetName())
-		}
+
 		// Task was killed.
 		s.logger.Emit(
 			logging.INFO,
@@ -94,17 +146,45 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 			taskIdVal,
 			agentIdVal,
 		)
+		if s.taskmanager.IsInGroup(task) {
+			err := s.taskmanager.Unlink(task.GetName(), agentID)
+			if err != nil {
+				s.logger.Emit(logging.ERROR, "Failed to remove task %s from group: %s", taskIdVal, err.Error())
+				return
+			}
+
+			err = s.taskmanager.SetSize(task.GetName(), -1)
+			if err != nil {
+				s.logger.Emit(logging.ERROR, "Failed to update size of group: %s", err.Error())
+				return
+			}
+
+			err = s.taskmanager.DeleteGroup(task.GetName())
+			if err != nil {
+				s.logger.Emit(logging.ERROR, "Failed to delete the task %s's group: %s", taskIdVal, err.Error())
+				return
+			}
+		}
+
 		s.taskmanager.Delete(task)
 	case mesos_v1.TaskState_TASK_KILLING:
+
 		// Task is in the process of catching a SIGNAL and shutting down.
 		s.logger.Emit(logging.INFO, "Killing task %s: %s", taskIdVal, message)
 	case mesos_v1.TaskState_TASK_LOST:
-		// A task can be lost if it never got to the master.
-		if s.taskmanager.IsInGroup(task) {
-			s.taskmanager.Unlink(task.GetName(), agentId)
-		}
+
 		// Task is unknown to the master and lost. Should reschedule.
 		s.logger.Emit(logging.ALARM, "Task %s was lost", taskIdVal)
+
+		// A task can be lost if it never got to the master.
+		if s.taskmanager.IsInGroup(task) {
+			err := s.taskmanager.Unlink(task.GetName(), agentID)
+			if err != nil {
+				s.logger.Emit(logging.ERROR, "Failed to remove task %s from group: %s", taskIdVal, err.Error())
+				return
+			}
+		}
+
 		s.reschedule(task)
 	case mesos_v1.TaskState_TASK_RUNNING:
 		s.logger.Emit(
@@ -114,19 +194,19 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 			agentIdVal,
 		)
 	case mesos_v1.TaskState_TASK_STARTING:
+
 		// Task is still starting up. NOOP
 		s.logger.Emit(logging.INFO, "Task %s is starting: %s", taskIdVal, message)
 	case mesos_v1.TaskState_TASK_UNKNOWN:
+
 		// Task is unknown to the master. Should ignore.
 		s.logger.Emit(logging.ALARM, "Task %s is unknown: %s", taskIdVal, message)
 	case mesos_v1.TaskState_TASK_UNREACHABLE:
+
 		// Agent lost contact with master, could be a network error. No guarantee the task is still running.
 		// Should we reschedule after waiting a certain period of time?
 		s.logger.Emit(logging.INFO, "Task %s is unreachable: %s", taskIdVal, message)
-	default:
 	}
-
-	s.scheduler.Acknowledge(agentId, taskId, status.GetUuid())
 }
 
 // Sets a task to be rescheduled.
@@ -147,6 +227,6 @@ func (s *SprintEventController) reschedule(task *mesos_v1.TaskInfo) {
 	}
 	err := s.taskmanager.RunPolicy(policy, retryFunc)
 	if err != nil {
-		s.logger.Emit(logging.ERROR, "Failed to run policy: %s", err.Error())
+		s.logger.Emit(logging.ERROR, "Failed to run policy for task %s: %s", task.GetName(), err.Error())
 	}
 }
