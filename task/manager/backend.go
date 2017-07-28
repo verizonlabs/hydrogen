@@ -14,14 +14,14 @@ import (
 // Private methods that handle operations on tasks.
 
 // Encodes task data to a small, efficient payload that can be transmitted across the wire.
-func (m *SprintTaskHandler) encode(task *mesos_v1.TaskInfo, state mesos_v1.TaskState) (bytes.Buffer, error) {
+func (m *SprintTaskHandler) encode(task *mesos_v1.TaskInfo, state mesos_v1.TaskState) error {
 	// Panics on nil values.
 	err := m.encoder.Encode(manager.Task{
 		Info:  task,
 		State: state,
 	})
-	// NOTE (tim): Since this is inside our struct, we don't need to return it, do we want to change the sig?
-	return m.buffer, err
+
+	return err
 }
 
 // Checks if a task is in a group
@@ -142,7 +142,7 @@ func (m *SprintTaskHandler) add(add Write) {
 	}
 
 	// Write forward.
-	encoded, err := m.encode(task, manager.UNKNOWN)
+	err := m.encode(task, manager.UNKNOWN)
 	if err != nil {
 		add.reply <- err
 		return
@@ -155,7 +155,7 @@ func (m *SprintTaskHandler) add(add Write) {
 
 	policy := m.storage.CheckPolicy(nil)
 
-	err = m.storage.RunPolicy(policy, m.storageWrite(id, encoded))
+	err = m.storage.RunPolicy(policy, m.storageWrite(id, m.buffer))
 
 	if err != nil {
 		add.reply <- err
@@ -220,7 +220,7 @@ func (m *SprintTaskHandler) totalTasks(read Read) {
 
 // Sets the state of a task.
 func (m *SprintTaskHandler) set(ret Write) {
-	encoded, err := m.encode(ret.task, ret.state)
+	err := m.encode(ret.task, ret.state)
 	if err != nil {
 		ret.reply <- err
 		return
@@ -229,7 +229,7 @@ func (m *SprintTaskHandler) set(ret Write) {
 	id := ret.task.TaskId.GetValue()
 
 	policy := m.storage.CheckPolicy(nil)
-	err = m.storage.RunPolicy(policy, m.storageWrite(id, encoded))
+	err = m.storage.RunPolicy(policy, m.storageWrite(id, m.buffer))
 
 	if err != nil {
 		ret.reply <- err
@@ -271,7 +271,7 @@ func (m *SprintTaskHandler) all(read Read) {
 }
 
 // Function that wraps writing to the storage backend.
-func (m *SprintTaskHandler) storageWrite(id string, encoded bytes.Buffer) func() error {
+func (m *SprintTaskHandler) storageWrite(id string, encoded *bytes.Buffer) func() error {
 	return func() error {
 		err := m.storage.Update(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
 		if err != nil {

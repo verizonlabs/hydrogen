@@ -47,7 +47,9 @@ var (
 func workingEventController() *SprintEventController {
 	var (
 		cfg *scheduler.Configuration = &scheduler.Configuration{
-			Leader:    &scheduler.LeaderConfiguration{},
+			Leader: &scheduler.LeaderConfiguration{
+				IP: "1", // Make sure we break out of our HA loop by matching on what mock storage gives us.
+			},
 			Executor:  &scheduler.ExecutorConfiguration{},
 			Scheduler: &scheduler.SchedulerConfiguration{ReconcileInterval: time.Nanosecond},
 			Persistence: &scheduler.PersistenceConfiguration{
