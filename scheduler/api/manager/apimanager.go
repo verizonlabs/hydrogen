@@ -10,11 +10,10 @@ import (
 	t "mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
 	"sprint/task/builder"
+	"sprint/task/control"
 	"sprint/task/manager"
 	"strconv"
 )
-
-//api manager will hold refs to task/resource manager.
 
 type (
 	ApiParser interface {
@@ -26,12 +25,14 @@ type (
 	}
 
 	Parser struct {
+		ctrlPlane       control.ControlPlane
 		resourceManager r.ResourceManager
 		taskManager     manager.SprintTaskManager
 		scheduler       scheduler.Scheduler
 	}
 )
 
+// NewApiParser returns an object that marshalls JSON and handles the input from the API endpoints.
 func NewApiParser(r r.ResourceManager, t manager.SprintTaskManager, s scheduler.Scheduler) *Parser {
 	return &Parser{
 		resourceManager: r,
@@ -40,83 +41,103 @@ func NewApiParser(r r.ResourceManager, t manager.SprintTaskManager, s scheduler.
 	}
 }
 
+// Deploy takes a slice of bytes and marshals them into a Application json struct.
 func (m *Parser) Deploy(decoded []byte) (*mesos_v1.TaskInfo, error) {
-	var appJson task.ApplicationJSON
-	err := json.Unmarshal(decoded, &appJson)
-
-	mesosTask, err := builder.Application(&appJson)
+	var appJSON task.ApplicationJSON
+	err := json.Unmarshal(decoded, &appJSON)
 	if err != nil {
 		return nil, err
 	}
 
+	mesosTask, err := builder.Application(&appJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	//
+	// If it's a group deployment, make a group object
+	// group object can be passed around just like
+	// a single task and updated on events.
+	//
+	// TaskLayer() <- updates and intents to launch are sent here
+	// to check to see what type of task we have
+	// a task can be:
+	// one-off.
+	// grouped
+	// long-running (?)
+	//
+	//
+	// NewTask(mesosTask) // This holds an abstract task
+	// The New Task object then can be modified in the business layer.
+	//
+	// Updates to the task come back as a mesos task.
+	// The task can be looked up and then updated accordingly.
+	//
+	//
+
 	// Deployment strategy
-	if appJson.Instances == 1 {
+	if appJSON.Instances == 1 {
 		if err := m.taskManager.Add(mesosTask); err != nil {
 			return nil, err
 		}
-		err := m.taskManager.AddPolicy(appJson.Retry, mesosTask)
+		err := m.taskManager.AddPolicy(appJSON.Retry, mesosTask)
 		if err != nil {
 			return nil, err
 		}
-		if len(appJson.Filters) > 0 {
-			if err := m.resourceManager.AddFilter(mesosTask, appJson.Filters); err != nil {
+		if len(appJSON.Filters) > 0 {
+			if err := m.resourceManager.AddFilter(mesosTask, appJSON.Filters); err != nil {
 				return nil, err
 			}
 		}
 
-	} else if appJson.Instances > 1 {
+	} else if appJSON.Instances > 1 {
 		originalName := mesosTask.GetName()
-		if err := m.taskManager.CreateGroup(originalName); err != nil {
-			return nil, err
-		} // Create our new group.
-		if err := m.taskManager.SetSize(originalName, appJson.Instances); err != nil {
-			return nil, err
-		}
 		taskId := mesosTask.GetTaskId().GetValue()
-		for i := 0; i < appJson.Instances; i++ {
+		for i := 0; i < appJSON.Instances; i++ {
 			duplicate := *mesosTask
 			duplicate.Name = utils.ProtoString(originalName + "-" + strconv.Itoa(i+1))
 			duplicate.TaskId = &mesos_v1.TaskID{Value: utils.ProtoString(taskId + "-" + strconv.Itoa(i+1))}
 			if err := m.taskManager.Add(&duplicate); err != nil {
 				return nil, err
 			}
-			err := m.taskManager.AddPolicy(appJson.Retry, &duplicate)
+			err := m.taskManager.AddPolicy(appJSON.Retry, &duplicate)
 			if err != nil {
 				return nil, err
 			}
-			if len(appJson.Filters) > 0 {
-				if err := m.resourceManager.AddFilter(&duplicate, appJson.Filters); err != nil {
+			if len(appJSON.Filters) > 0 {
+				if err := m.resourceManager.AddFilter(&duplicate, appJSON.Filters); err != nil {
 					return nil, err
 				}
 			}
 		}
 	} else {
-		return nil, errors.New("0 instances passed in. Not launching any tasks.")
+		return nil, errors.New("0 instances passed in. Not launching any tasks")
 	}
 
 	m.scheduler.Revive()
 	return mesosTask, nil
 }
 
+// Update takes a slice of bytes and marshalls them into an ApplicationJSON struct.
 func (m *Parser) Update(decoded []byte) (*mesos_v1.TaskInfo, error) {
-	var appJson task.ApplicationJSON
-	err := json.Unmarshal(decoded, &appJson)
+	var appJSON task.ApplicationJSON
+	err := json.Unmarshal(decoded, &appJSON)
 	if err != nil {
 		return nil, err
 	}
 
-	taskToKill, err := m.taskManager.Get(&appJson.Name)
+	taskToKill, err := m.taskManager.Get(&appJSON.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	mesosTask, err := builder.Application(&appJson)
+	mesosTask, err := builder.Application(&appJSON)
 	if err != nil {
 		return nil, err
 	}
 
-	if appJson.Retry != nil {
-		err = m.taskManager.AddPolicy(appJson.Retry, mesosTask)
+	if appJSON.Retry != nil {
+		err = m.taskManager.AddPolicy(appJSON.Retry, mesosTask)
 	}
 
 	if err != nil {
@@ -134,20 +155,21 @@ func (m *Parser) Update(decoded []byte) (*mesos_v1.TaskInfo, error) {
 	return mesosTask, nil
 }
 
+// Kill takes a slice of bytes and marshalls them into a kill json struct.
 func (m *Parser) Kill(decoded []byte) (string, error) {
-	var appJson task.KillJson
-	err := json.Unmarshal(decoded, &appJson)
+	var appJSON task.KillJson
+	err := json.Unmarshal(decoded, &appJSON)
 	if err != nil {
 		return "", err
 	}
 
 	// Make sure we have a name to look up
-	if appJson.Name == nil {
+	if appJSON.Name == nil {
 		return "", errors.New("Task name is nil")
 	}
 
 	// Look up task in task manager
-	tsk, err := m.taskManager.Get(appJson.Name)
+	tsk, err := m.taskManager.Get(appJSON.Name)
 	if err != nil {
 		return "", err
 	}
@@ -170,19 +192,9 @@ func (m *Parser) Kill(decoded []byte) (string, error) {
 		if err != nil {
 			return "", err
 		}
-	} else {
-		// we need to delete this task from a group since no event is generated
-		// by mesos if we kill a task before it's launched. For example,
-		// This occurs if we have a task that can't get a valid offer and sits in the queue.
-		// but we still want to remove it from the queue anyways.
-		if m.taskManager.IsInGroup(tsk) {
-			m.taskManager.Unlink(tsk.GetName(), tsk.GetAgentId())
-			m.taskManager.SetSize(tsk.GetName(), -1)
-			m.taskManager.DeleteGroup(tsk.GetName())
-		}
 	}
 
-	return *appJson.Name, nil
+	return *appJSON.Name, nil
 }
 
 func (m *Parser) Status(name string) (mesos_v1.TaskState, error) {

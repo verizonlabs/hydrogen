@@ -9,7 +9,6 @@ import (
 	mockResourceManager "mesos-framework-sdk/resources/manager/test"
 	sdkScheduler "mesos-framework-sdk/scheduler"
 	sched "mesos-framework-sdk/scheduler/test"
-	"mesos-framework-sdk/utils"
 	"os"
 	"sprint/scheduler"
 	sprintTask "sprint/task/manager"
@@ -118,6 +117,7 @@ func TestSprintEventController_Name(t *testing.T) {
 	}
 }
 
+/*
 func TestSprintEventController_Run(t *testing.T) {
 	ctrl := workingEventController()
 
@@ -145,7 +145,7 @@ func TestSprintEventController_FailureToRun(t *testing.T) {
 			FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString("Test")},
 		},
 	}
-}
+}*/
 
 func TestSprintEventController_SignalHandler(t *testing.T) {
 	ctrl := workingEventController()
