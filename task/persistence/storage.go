@@ -6,8 +6,8 @@ import (
 	"mesos-framework-sdk/persistence"
 	"mesos-framework-sdk/task"
 	"sprint/scheduler"
-	"sprint/task/retry"
 	"time"
+	"mesos-framework-sdk/task/retry"
 )
 
 // Provides pluggable storage types that can be used to persist state.

@@ -7,8 +7,8 @@ import (
 	"mesos-framework-sdk/structures/test"
 	"mesos-framework-sdk/task"
 	"mesos-framework-sdk/task/manager"
-	"sprint/task/retry"
 	"time"
+	"mesos-framework-sdk/task/retry"
 )
 
 type MockTaskManager struct{}

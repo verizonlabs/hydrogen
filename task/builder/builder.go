@@ -12,8 +12,8 @@ import (
 	"mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/task/resources"
 	"mesos-framework-sdk/utils"
-	"sprint/task/retry"
 	"time"
+	"mesos-framework-sdk/task/retry"
 )
 
 var NoNameError = errors.New("A name is required for the application. Please set the name field.")

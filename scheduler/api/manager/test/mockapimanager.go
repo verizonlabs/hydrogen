@@ -5,7 +5,7 @@ import (
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/task"
 	"mesos-framework-sdk/task/manager"
-	"sprint/task/retry"
+	"mesos-framework-sdk/task/retry"
 )
 
 type (
