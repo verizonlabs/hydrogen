@@ -1,11 +1,11 @@
 package manager
 
 import (
-	"testing"
+	"mesos-framework-sdk/include/mesos_v1"
 	k "mesos-framework-sdk/resources/manager/test"
 	s "mesos-framework-sdk/scheduler/test"
 	"sprint/task/manager/test"
-	"mesos-framework-sdk/include/mesos_v1"
+	"testing"
 )
 
 // Generate valid and invalid JSON
@@ -63,7 +63,7 @@ func TestParser_DeployWithTCPHealthCheck(t *testing.T) {
 	} else if task[0].Info.HealthCheck == nil {
 		t.Log("Healthcheck field was supposed to be set, was nil instead.")
 		t.Fail()
-	} else if task[0].Info.HealthCheck.Type == nil{
+	} else if task[0].Info.HealthCheck.Type == nil {
 		t.Log("Healthcheck type was set to nil, and not tcp")
 		t.Fail()
 	}
@@ -153,7 +153,7 @@ func TestParser_DeployWithIPNetwork(t *testing.T) {
 	} else if net.IpAddresses[0].GetIpAddress() != "10.2.1.25" {
 		t.Logf("Container networking has the wrong IP %v\n", task[0].Info.GetContainer().GetNetworkInfos()[0])
 		t.Fail()
-	} else if len(net.Groups) > 2 || len(net.Groups) < 2{
+	} else if len(net.Groups) > 2 || len(net.Groups) < 2 {
 		t.Logf("Expecting only 2 groups %v\n", net.Groups)
 		t.Fail()
 	} else if len(net.Labels.Labels) != 1 {
@@ -220,8 +220,8 @@ func TestParser_Update(t *testing.T) {
 		t.Logf("Failed %v\n", err)
 		t.Fail()
 	}
-	if  task[0].Info.GetName() != "test" {
-		t.Logf("Task updated came back with different name %v, should be the same",  task[0].Info.GetName())
+	if task[0].Info.GetName() != "test" {
+		t.Logf("Task updated came back with different name %v, should be the same", task[0].Info.GetName())
 	}
 }
 

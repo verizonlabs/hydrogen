@@ -2,6 +2,7 @@ package events
 
 import (
 	"mesos-framework-sdk/ha"
+	"mesos-framework-sdk/include/mesos_v1"
 	sched "mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/resources/manager"
@@ -16,7 +17,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-	"mesos-framework-sdk/include/mesos_v1"
 )
 
 //

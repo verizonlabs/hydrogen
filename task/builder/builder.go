@@ -9,9 +9,9 @@ import (
 	"mesos-framework-sdk/task/container"
 	"mesos-framework-sdk/task/healthcheck"
 	"mesos-framework-sdk/task/labels"
+	"mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/task/resources"
 	"mesos-framework-sdk/utils"
-	"mesos-framework-sdk/task/manager"
 	"sprint/task/retry"
 	"time"
 )
@@ -84,19 +84,19 @@ func Application(tasks ...*task.ApplicationJSON) ([]*manager.Task, error) {
 			}
 			taskIntent.Retry = &retry.TaskRetry{
 				TotalRetries: 0,
-				MaxRetries: t.Retry.MaxRetries,
-				RetryTime: duration,
-				Backoff: t.Retry.Backoff,
-				Name: t.Name,
+				MaxRetries:   t.Retry.MaxRetries,
+				RetryTime:    duration,
+				Backoff:      t.Retry.Backoff,
+				Name:         t.Name,
 			}
 		} else {
 			// Default retry policy.
 			taskIntent.Retry = &retry.TaskRetry{
 				TotalRetries: 0,
-				MaxRetries: 10,
-				RetryTime: time.Duration(1 * time.Second),
-				Backoff: true,
-				Name: t.Name,
+				MaxRetries:   10,
+				RetryTime:    time.Duration(1 * time.Second),
+				Backoff:      true,
+				Name:         t.Name,
 			}
 		}
 

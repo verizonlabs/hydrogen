@@ -13,7 +13,7 @@ import (
 
 type MockTaskManager struct{}
 
-func (m MockTaskManager) Add(...*manager.Task) error{
+func (m MockTaskManager) Add(...*manager.Task) error {
 	return nil
 }
 
@@ -23,21 +23,21 @@ func (m MockTaskManager) Delete(...*manager.Task) error {
 
 func (m MockTaskManager) Get(*string) (*manager.Task, error) {
 	return &manager.Task{Retry: &retry.TaskRetry{
-		TotalRetries:0,
-		MaxRetries:0,
-		RetryTime: time.Nanosecond,
-		Backoff: true,
-		Name: "id",
+		TotalRetries: 0,
+		MaxRetries:   0,
+		RetryTime:    time.Nanosecond,
+		Backoff:      true,
+		Name:         "id",
 	}}, nil
 }
 
 func (m MockTaskManager) GetById(id *mesos_v1.TaskID) (*manager.Task, error) {
 	return &manager.Task{Retry: &retry.TaskRetry{
-		TotalRetries:0,
-		MaxRetries:0,
-		RetryTime: time.Nanosecond,
-		Backoff: true,
-		Name: "id",
+		TotalRetries: 0,
+		MaxRetries:   0,
+		RetryTime:    time.Nanosecond,
+		Backoff:      true,
+		Name:         "id",
 	}}, nil
 }
 
@@ -65,6 +65,7 @@ func (m MockTaskManager) All() ([]manager.Task, error) {
 		&retry.TaskRetry{},
 		1,
 		3,
+		manager.GroupInfo{},
 	}}, nil
 }
 
@@ -77,7 +78,7 @@ var (
 	broken error = errors.New("Broken")
 )
 
-func (m MockBrokenTaskManager)  Add(...*manager.Task) error{
+func (m MockBrokenTaskManager) Add(...*manager.Task) error {
 	return broken
 }
 
@@ -85,7 +86,7 @@ func (m MockBrokenTaskManager) Delete(...*manager.Task) error {
 	return broken
 }
 
-func (m MockBrokenTaskManager)Get(*string) (*manager.Task, error) {
+func (m MockBrokenTaskManager) Get(*string) (*manager.Task, error) {
 	return nil, broken
 }
 
@@ -93,11 +94,11 @@ func (m MockBrokenTaskManager) GetById(id *mesos_v1.TaskID) (*manager.Task, erro
 	return nil, errors.New("Broken.")
 }
 
-func (m MockBrokenTaskManager) HasTask(*mesos_v1.TaskInfo) bool  {
+func (m MockBrokenTaskManager) HasTask(*mesos_v1.TaskInfo) bool {
 	return false
 }
 
-func (m MockBrokenTaskManager) Update(...*manager.Task) error  {
+func (m MockBrokenTaskManager) Update(...*manager.Task) error {
 	return errors.New("Broken.")
 }
 
@@ -117,7 +118,7 @@ func (m MockBrokenTaskManager) All() ([]manager.Task, error) {
 	return nil, errors.New("Broken.")
 }
 
-func (m MockBrokenTaskManager)AllByState(state mesos_v1.TaskState) ([]*manager.Task, error)  {
+func (m MockBrokenTaskManager) AllByState(state mesos_v1.TaskState) ([]*manager.Task, error) {
 	return nil, errors.New("Broken.")
 }
 
@@ -194,5 +195,6 @@ func (m MockTaskManagerQueued) All() ([]manager.Task, error) {
 		&retry.TaskRetry{},
 		1,
 		3,
+		manager.GroupInfo{},
 	}}, nil
 }

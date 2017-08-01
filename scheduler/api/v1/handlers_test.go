@@ -2,15 +2,15 @@ package v1
 
 import (
 	"io"
+	"mesos-framework-sdk/resources/manager/test"
+	test3 "mesos-framework-sdk/scheduler/test"
 	"net/http"
 	"net/http/httptest"
+	"sprint/scheduler/api/manager"
 	mockApiManager "sprint/scheduler/api/manager/test"
+	test2 "sprint/task/manager/test"
 	"strings"
 	"testing"
-	"sprint/scheduler/api/manager"
-	"mesos-framework-sdk/resources/manager/test"
-	test2 "sprint/task/manager/test"
-	test3 "mesos-framework-sdk/scheduler/test"
 )
 
 var (

@@ -1,11 +1,11 @@
 package events
 
 import (
+	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/task/manager"
 	"os"
-	"mesos-framework-sdk/include/mesos_v1"
 )
 
 //
@@ -36,7 +36,7 @@ func (s *SprintEventController) Subscribed(subEvent *mesos_v1_scheduler.Event_Su
 		return
 	}
 
-	toReconcile :=  []*mesos_v1.TaskInfo{}
+	toReconcile := []*mesos_v1.TaskInfo{}
 	for _, t := range launched {
 		toReconcile = append(toReconcile, t.Info)
 	}

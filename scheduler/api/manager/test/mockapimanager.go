@@ -3,8 +3,8 @@ package test
 import (
 	"errors"
 	"mesos-framework-sdk/include/mesos_v1"
-	"mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/task"
+	"mesos-framework-sdk/task/manager"
 	"sprint/task/retry"
 )
 
@@ -13,10 +13,12 @@ type (
 	MockBrokenApiManager struct{}
 )
 
-func (m MockApiManager) Deploy([]byte) ([]*manager.Task, error) { return []*manager.Task{
-	{Info: &mesos_v1.TaskInfo{}},
-}, nil }
-func (m MockApiManager) Kill([]byte) (string, error)               { return "", nil }
+func (m MockApiManager) Deploy([]byte) ([]*manager.Task, error) {
+	return []*manager.Task{
+		{Info: &mesos_v1.TaskInfo{}},
+	}, nil
+}
+func (m MockApiManager) Kill([]byte) (string, error) { return "", nil }
 func (m MockApiManager) Update([]byte) ([]*manager.Task, error) {
 	return []*manager.Task{{Info: &mesos_v1.TaskInfo{}}}, nil
 }
@@ -32,14 +34,15 @@ func (m MockApiManager) AllTasks() ([]manager.Task, error) {
 		&retry.TaskRetry{},
 		1,
 		3,
+		manager.GroupInfo{},
 	}}, nil
 }
 
-func (m MockBrokenApiManager) Deploy([]byte) ([]*manager.Task, error){
+func (m MockBrokenApiManager) Deploy([]byte) ([]*manager.Task, error) {
 	return nil, errors.New("Broken")
 }
 func (m MockBrokenApiManager) Kill([]byte) (string, error) { return "", errors.New("Broken") }
-func (m MockBrokenApiManager)Update([]byte) ([]*manager.Task, error)  {
+func (m MockBrokenApiManager) Update([]byte) ([]*manager.Task, error) {
 	return nil, errors.New("Broken")
 }
 func (m MockBrokenApiManager) Status(string) (mesos_v1.TaskState, error) {

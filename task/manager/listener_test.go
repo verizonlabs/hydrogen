@@ -86,7 +86,7 @@ func TestTaskManager_Length(t *testing.T) {
 	logger := logging.NewDefaultLogger()
 	testTask := &manager.Task{Info: CreateTestTask("testTask"), Instances: 1, State: manager.UNKNOWN}
 	testTask1 := &manager.Task{Info: CreateTestTask("testTask1"), Instances: 1, State: manager.UNKNOWN}
-	testTask2 := &manager.Task{Info: CreateTestTask("testTask2"), Instances: 1,  State: manager.UNKNOWN}
+	testTask2 := &manager.Task{Info: CreateTestTask("testTask2"), Instances: 1, State: manager.UNKNOWN}
 
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 
@@ -161,7 +161,7 @@ func TestTaskManager_HasTask(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	testTask := &manager.Task{Info: CreateTestTask("testTask"),Instances: 1,  State: manager.UNKNOWN}
+	testTask := &manager.Task{Info: CreateTestTask("testTask"), Instances: 1, State: manager.UNKNOWN}
 
 	taskManager.Add(testTask)
 
@@ -218,7 +218,7 @@ func TestTaskManager_AddSameTask(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	testTask := &manager.Task{Info: CreateTestTask("testTask"), Instances: 1,  State: manager.UNKNOWN}
+	testTask := &manager.Task{Info: CreateTestTask("testTask"), Instances: 1, State: manager.UNKNOWN}
 	taskManager.Add(testTask)
 	err := taskManager.Add(testTask)
 	if err == nil {

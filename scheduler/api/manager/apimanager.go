@@ -21,7 +21,7 @@ type (
 	}
 
 	Parser struct {
-//		ctrlPlane       control.ControlPlane
+		//		ctrlPlane       control.ControlPlane
 		resourceManager r.ResourceManager
 		taskManager     t.TaskManager
 		scheduler       scheduler.Scheduler

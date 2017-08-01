@@ -9,11 +9,11 @@ import (
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/structures"
 	"mesos-framework-sdk/task/manager"
+	"mesos-framework-sdk/utils"
 	"sprint/scheduler"
 	"sprint/task/persistence"
-	"sync"
 	"strconv"
-	"mesos-framework-sdk/utils"
+	"sync"
 )
 
 const (
@@ -112,7 +112,7 @@ func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
 					return err
 				}
 
-				err := m.storageWrite(duplicate.GroupInfo.GroupName + duplicate.Info.GetTaskId().GetValue(), m.buffer)
+				err := m.storageWrite(duplicate.GroupInfo.GroupName+duplicate.Info.GetTaskId().GetValue(), m.buffer)
 				if err != nil {
 					m.logger.Emit(logging.ERROR, "Storage error: %v", err)
 					return err
