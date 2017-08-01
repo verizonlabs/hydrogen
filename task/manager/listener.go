@@ -1,6 +1,8 @@
 package manager
 
 import (
+	"bytes"
+	"encoding/gob"
 	"errors"
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/logging"
@@ -50,6 +52,8 @@ type (
 	// The task handler manages all tasks that are submitted, updated, or deleted.
 	// Offers from Mesos are matched up with user-submitted tasks, and those tasks are updated via event callbacks.
 	SprintTaskHandler struct {
+		buffer     *bytes.Buffer
+		encoder    *gob.Encoder
 		tasks      map[string]manager.Task
 		groups     map[string][]*mesos_v1.AgentID
 		storage    persistence.Storage
@@ -106,7 +110,10 @@ func NewTaskManager(
 	config *scheduler.Configuration,
 	logger logging.Logger) SprintTaskManager {
 
+	b := new(bytes.Buffer)
 	handler := &SprintTaskHandler{
+		buffer:     b,
+		encoder:    gob.NewEncoder(b),
 		tasks:      cmap,
 		storage:    storage,
 		retries:    structures.NewConcurrentMap(),

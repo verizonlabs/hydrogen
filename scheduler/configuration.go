@@ -19,9 +19,11 @@ type Configuration struct {
 
 type ExecutorConfiguration struct {
 	CustomExecutor bool
+	URI            string
 	Name           string
 	Command        string
 	Shell          bool
+	TLS            bool
 }
 
 // Persistence connection configuration.
@@ -68,6 +70,7 @@ type SchedulerConfiguration struct {
 	Role              string
 	Checkpointing     bool
 	Principal         string
+	Secret            string
 	ExecutorSrvCfg    server.Configuration
 	ExecutorName      string
 	ExecutorCmd       string
@@ -92,26 +95,28 @@ func (c *Configuration) Initialize() *Configuration {
 // Configuration for the custom executor
 func (c *ExecutorConfiguration) initialize() *ExecutorConfiguration {
 	flag.BoolVar(&c.CustomExecutor, "executor.enable", false, "Enable/disable usage of the custom executor")
+	flag.StringVar(&c.URI, "executor.uri", "http://127.0.0.1:8081/executor", "URI for Mesos to fetch the custom executor")
 	flag.StringVar(&c.Name, "executor.name", "Sprinter", "The executor's name")
 	flag.StringVar(&c.Command, "executor.command", "executor", "Command to run the executor")
 	flag.BoolVar(&c.Shell, "executor.shell", false, "Whether or not the executor should be launched under a shell")
+	flag.BoolVar(&c.TLS, "executor.tls", false, "Use TLS when connecting to Mesos")
 
 	return c
 }
 
 // Applies default configuration for our persistence connection.
 func (c *PersistenceConfiguration) initialize() *PersistenceConfiguration {
-	flag.StringVar(&c.Endpoints, "persistence.endpoints", "http://127.0.0.1:2379", `Comma-separated list of
-											       storage endpoints`)
+	flag.StringVar(&c.Endpoints, "persistence.endpoints", "http://127.0.0.1:2379", "Comma-separated list of"+
+		"storage endpoints")
 	flag.DurationVar(&c.Timeout, "persistence.timeout", 2*time.Second, "Initial storage system connection timeout")
-	flag.DurationVar(&c.KeepaliveTime, "persistence.keepalive.time", 30*time.Second, `After a duration of this time
-												 if the client doesn't see any activity
-												 it pings the server to see
-												 if the transport is still alive`)
-	flag.DurationVar(&c.KeepaliveTimeout, "persistence.keepalive.timeout", 20*time.Second, `After having pinged for keepalive check,
-												       the client waits for this duration
-												       and if no activity is seen
-												       even after that the connection is closed`)
+	flag.DurationVar(&c.KeepaliveTime, "persistence.keepalive.time", 30*time.Second, "After a duration of this time"+
+		"if the client doesn't see any activity"+
+		"it pings the server to see"+
+		"if the transport is still alive")
+	flag.DurationVar(&c.KeepaliveTimeout, "persistence.keepalive.timeout", 20*time.Second, "After having pinged for keepalive check,"+
+		"the client waits for this duration"+
+		"and if no activity is seen"+
+		"even after that the connection is closed")
 	flag.IntVar(&c.MaxRetries, "persistence.retry.max", 3, "How many times persistence operations will be retried")
 
 	return c
@@ -122,10 +127,10 @@ func (c *LeaderConfiguration) initialize() *LeaderConfiguration {
 	flag.StringVar(&c.IP, "ha.leader.ip", "127.0.0.1", "IP address of the node where this framework is running")
 	flag.IntVar(&c.ServerPort, "ha.leader.server.port", 8082, "Port that the leader server listens on")
 	flag.StringVar(&c.AddressFamily, "ha.leader.address.family", "tcp4", "tcp4, tcp6, or tcp for dual stack")
-	flag.DurationVar(&c.RetryInterval, "ha.leader.retry", 2*time.Second, `How long to wait before retrying
-										    the leader election process`)
-	flag.DurationVar(&c.ServerRetry, "ha.leader.server.retry", 2*time.Second, `How long to wait before accepting
-											 connections from clients after an error`)
+	flag.DurationVar(&c.RetryInterval, "ha.leader.retry", 2*time.Second, "How long to wait before retrying"+
+		"the leader election process")
+	flag.DurationVar(&c.ServerRetry, "ha.leader.server.retry", 2*time.Second, "How long to wait before accepting"+
+		"connections from clients after an error")
 
 	return c
 }
@@ -163,10 +168,11 @@ func (c *SchedulerConfiguration) initialize() *SchedulerConfiguration {
 	flag.StringVar(&c.Role, "role", "*", "Framework role")
 	flag.BoolVar(&c.Checkpointing, "checkpointing", true, "Enable or disable checkpointing")
 	flag.StringVar(&c.Principal, "principal", "Sprint", "Framework principal")
+	flag.StringVar(&c.Secret, "secret", "", "Used when Mesos requires authentication")
 	flag.Float64Var(&c.Failover, "failover", 168*time.Hour.Seconds(), "Framework failover timeout") // 1 week is recommended
 	flag.StringVar(&c.Hostname, "hostname", "", "The framework's hostname")
-	flag.DurationVar(&c.SubscribeRetry, "subscribe.retry", 2*time.Second, `Controls the interval at which subscribe
-									       calls will be retried`)
+	flag.DurationVar(&c.SubscribeRetry, "subscribe.retry", 2*time.Second, "Controls the interval at which subscribe"+
+		"calls will be retried")
 	flag.DurationVar(&c.ReconcileInterval, "reconcile.interval", 15*time.Minute, "How often periodic reconciling happens")
 
 	return c

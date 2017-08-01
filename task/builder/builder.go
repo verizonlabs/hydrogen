@@ -7,6 +7,7 @@ import (
 	"mesos-framework-sdk/task"
 	"mesos-framework-sdk/task/command"
 	"mesos-framework-sdk/task/container"
+	"mesos-framework-sdk/task/healthcheck"
 	"mesos-framework-sdk/task/labels"
 	"mesos-framework-sdk/task/resources"
 	"mesos-framework-sdk/utils"
@@ -56,6 +57,11 @@ func Application(t *task.ApplicationJSON) (*mesos_v1.TaskInfo, error) {
 		return nil, err
 	}
 
+	hc, err := healthcheck.ParseHealthCheck(t.HealthCheck)
+	if err != nil {
+		return nil, err
+	}
+
 	name := t.Name
 	taskId := &mesos_v1.TaskID{Value: utils.ProtoString(name)}
 
@@ -65,6 +71,7 @@ func Application(t *task.ApplicationJSON) (*mesos_v1.TaskInfo, error) {
 		cmd,
 		res,
 		image,
+		hc,
 		lbls,
 	), nil
 }

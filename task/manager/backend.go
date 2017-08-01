@@ -3,7 +3,6 @@ package manager
 import (
 	"bytes"
 	"encoding/base64"
-	"encoding/gob"
 	"errors"
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/logging"
@@ -15,16 +14,14 @@ import (
 // Private methods that handle operations on tasks.
 
 // Encodes task data to a small, efficient payload that can be transmitted across the wire.
-func (m *SprintTaskHandler) encode(task *mesos_v1.TaskInfo, state mesos_v1.TaskState) (bytes.Buffer, error) {
-	var b bytes.Buffer
-	e := gob.NewEncoder(&b)
+func (m *SprintTaskHandler) encode(task *mesos_v1.TaskInfo, state mesos_v1.TaskState) error {
 	// Panics on nil values.
-	err := e.Encode(manager.Task{
+	err := m.encoder.Encode(manager.Task{
 		Info:  task,
 		State: state,
 	})
 
-	return b, err
+	return err
 }
 
 // Checks if a task is in a group
@@ -35,10 +32,14 @@ func (m *SprintTaskHandler) isInGroup(read Read) {
 
 // Creates a group for a task.
 func (m *SprintTaskHandler) createGroup(write Write) {
-	err := m.storage.Create(GROUP_DIRECTORY+write.group, "")
-	err = m.storage.Create(GROUP_DIRECTORY+write.group+GROUP_SIZE, strconv.Itoa(0))
+	err := m.storage.Create(GROUP_DIRECTORY+write.group+GROUP_SIZE, "0")
+	if err != nil {
+		write.reply <- err
+		return
+	}
+
 	m.groups[write.group] = make([]*mesos_v1.AgentID, 0)
-	write.reply <- err
+	write.reply <- nil
 }
 
 // Sets the size of a group.
@@ -86,7 +87,9 @@ func (m *SprintTaskHandler) link(write Write) {
 	err = m.storage.Update(GROUP_DIRECTORY+write.group, newValue)
 	if err != nil {
 		write.reply <- err
+		return
 	}
+
 	write.reply <- nil
 }
 
@@ -98,15 +101,15 @@ func (m *SprintTaskHandler) unlink(write Write) {
 		write.reply <- err
 		return
 	}
-	split := strings.Split(currentValues, ",")
-	var update []string
-	for _, i := range split {
-		if write.agentID.GetValue() != i {
-			update = append(update, i)
-		}
+
+	newValue := strings.Replace(currentValues, write.agentID.GetValue(), "", 1)
+	newValue = strings.Replace(newValue, ",,", ",", 1)
+	err = m.storage.Update(GROUP_DIRECTORY+write.group, newValue)
+	if err != nil {
+		write.reply <- err
+		return
 	}
-	newValue := strings.Join(update, ",")
-	m.storage.Update(GROUP_DIRECTORY+write.group, newValue)
+
 	write.reply <- nil
 }
 
@@ -117,21 +120,25 @@ func (m *SprintTaskHandler) deleteGroup(write Write) {
 		write.reply <- err
 		return
 	}
-	if s, _ := strconv.Atoi(size); s == 0 {
-		err := m.storage.Delete(GROUP_DIRECTORY + write.group)
-		if err != nil {
-			write.reply <- err
-			return
-		}
-		err = m.storage.Delete(GROUP_DIRECTORY + write.group + GROUP_SIZE)
-		if err != nil {
-			write.reply <- err
-			return
-		}
-		delete(m.groups, write.group)
+
+	s, err := strconv.Atoi(size)
+	if err != nil {
+		write.reply <- err
+		return
 	}
 
-	write.reply <- err
+	if s != 0 {
+		write.reply <- nil
+		return
+	}
+
+	err = m.storage.Delete(GROUP_DIRECTORY + write.group)
+	if err != nil {
+		write.reply <- err
+		return
+	}
+
+	delete(m.groups, write.group)
 }
 
 // Adds a task to the storage backend and data structure.
@@ -145,7 +152,7 @@ func (m *SprintTaskHandler) add(add Write) {
 	}
 
 	// Write forward.
-	encoded, err := m.encode(task, manager.UNKNOWN)
+	err := m.encode(task, manager.UNKNOWN)
 	if err != nil {
 		add.reply <- err
 		return
@@ -158,7 +165,7 @@ func (m *SprintTaskHandler) add(add Write) {
 
 	policy := m.storage.CheckPolicy(nil)
 
-	err = m.storage.RunPolicy(policy, m.storageWrite(id, encoded))
+	err = m.storage.RunPolicy(policy, m.storageWrite(id, m.buffer))
 
 	if err != nil {
 		add.reply <- err
@@ -178,13 +185,17 @@ func (m *SprintTaskHandler) delete(res Write) {
 	task := res.task
 	policy := m.storage.CheckPolicy(nil)
 	err := m.storage.RunPolicy(policy, m.storageDelete(task.GetTaskId().GetValue()))
-
 	if err != nil {
 		res.reply <- err
 		return
 	}
+
 	delete(m.tasks, task.GetName())
-	m.ClearPolicy(task)
+	err = m.ClearPolicy(task)
+	if err != nil {
+		res.reply <- err
+		return
+	}
 
 	res.reply <- nil
 }
@@ -204,6 +215,7 @@ func (m *SprintTaskHandler) getById(ret Read) {
 			return
 		}
 	}
+
 	ret.reply <- nil
 }
 
@@ -223,7 +235,7 @@ func (m *SprintTaskHandler) totalTasks(read Read) {
 
 // Sets the state of a task.
 func (m *SprintTaskHandler) set(ret Write) {
-	encoded, err := m.encode(ret.task, ret.state)
+	err := m.encode(ret.task, ret.state)
 	if err != nil {
 		ret.reply <- err
 		return
@@ -232,7 +244,7 @@ func (m *SprintTaskHandler) set(ret Write) {
 	id := ret.task.TaskId.GetValue()
 
 	policy := m.storage.CheckPolicy(nil)
-	err = m.storage.RunPolicy(policy, m.storageWrite(id, encoded))
+	err = m.storage.RunPolicy(policy, m.storageWrite(id, m.buffer))
 
 	if err != nil {
 		ret.reply <- err
@@ -262,6 +274,7 @@ func (m *SprintTaskHandler) allByState(read Read) {
 			read.reply <- v.Info
 		}
 	}
+
 	close(read.reply)
 }
 
@@ -270,11 +283,12 @@ func (m *SprintTaskHandler) all(read Read) {
 	for _, v := range m.tasks {
 		read.replyTask <- v
 	}
+
 	close(read.replyTask)
 }
 
 // Function that wraps writing to the storage backend.
-func (m *SprintTaskHandler) storageWrite(id string, encoded bytes.Buffer) func() error {
+func (m *SprintTaskHandler) storageWrite(id string, encoded *bytes.Buffer) func() error {
 	return func() error {
 		err := m.storage.Update(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
 		if err != nil {
@@ -283,6 +297,7 @@ func (m *SprintTaskHandler) storageWrite(id string, encoded bytes.Buffer) func()
 				id,
 			)
 		}
+
 		return err
 	}
 }
@@ -294,6 +309,7 @@ func (m *SprintTaskHandler) storageDelete(taskId string) func() error {
 		if err != nil {
 			m.logger.Emit(logging.ERROR, err.Error())
 		}
+
 		return err
 	}
 }
