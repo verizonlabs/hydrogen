@@ -17,7 +17,11 @@ import (
 )
 
 const (
+	// Root directory
 	TASK_DIRECTORY = "/tasks/"
+	// Groups are appended onto this
+	// /tasks/groupName/groupTask1
+	// /tasks/groupName/groupTask2...etc
 )
 
 type (
@@ -88,21 +92,27 @@ func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
 			m.tasks[t.Info.GetName()] = *t
 		} else {
 			// Otherwise add N instances.
+
+			// Add a group
+			t.GroupInfo = manager.GroupInfo{GroupName: t.Info.GetName() + "/", InGroup: true}
+
 			for i := 0; i < t.Instances; i++ {
 				// TODO(tim): t.Copy(Name, TaskId)
 				duplicate := *t
+				tmp := *t.Info // Make a copy
+				duplicate.Info = &tmp
 				duplicate.Info.Name = utils.ProtoString(originalName + "-" + strconv.Itoa(i+1))
 				duplicate.Info.TaskId = &mesos_v1.TaskID{Value: utils.ProtoString(taskId + "-" + strconv.Itoa(i+1))}
-
 				if _, ok := m.tasks[duplicate.Info.GetName()]; ok {
-					return errors.New("Task " + t.Info.GetName() + " already exists")
+					return errors.New("Task " + duplicate.Info.GetName() + " already exists")
 				}
 
 				// Write forward.
 				if err := m.encode(&duplicate); err != nil {
 					return err
 				}
-				err := m.storageWrite(t.Info.GetTaskId().GetValue(), m.buffer)
+
+				err := m.storageWrite(duplicate.GroupInfo.GroupName + duplicate.Info.GetTaskId().GetValue(), m.buffer)
 				if err != nil {
 					m.logger.Emit(logging.ERROR, "Storage error: %v", err)
 					return err
@@ -122,6 +132,11 @@ func (m *SprintTaskHandler) Delete(tasks ...*manager.Task) error {
 
 	for _, t := range tasks {
 		delete(m.tasks, t.Info.GetName())
+		if t.GroupInfo.InGroup {
+			m.storageDelete(t.GroupInfo.GroupName + t.Info.GetTaskId().GetValue())
+		} else {
+			m.storageDelete(t.Info.GetTaskId().GetValue())
+		}
 	}
 	return nil
 }

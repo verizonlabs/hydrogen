@@ -47,6 +47,7 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 
 	// Update the state of the task.
 	task.State = state
+	s.taskmanager.Update(task)
 
 	if err != nil {
 		s.logger.Emit(logging.ERROR, "Failed to update task %s: %s", taskIdVal, err.Error())
@@ -129,10 +130,9 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 // Sets a task to be rescheduled.
 // Rescheduling can be done when there are various failures such as network errors.
 func (s *SprintEventController) reschedule(task *manager.Task) {
-	// We need to check for nil tasks in order for testing to work with mock types.
-
-	task.Reschedule()
+	task.State = manager.UNKNOWN
 	s.taskmanager.Update(task)
+	task.Reschedule()
 	s.Scheduler().Revive()
 
 }
