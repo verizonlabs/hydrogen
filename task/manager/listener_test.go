@@ -57,17 +57,20 @@ func TestTaskManager_Cycle(t *testing.T) {
 	testTask := CreateTestTask("testTask")
 
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	taskManager.Add(&manager.Task{Info: testTask, State: manager.UNKNOWN})
+	taskManager.Add(&manager.Task{Info: testTask, Instances: 1, State: manager.UNKNOWN})
 	task, err := taskManager.Get(testTask.Name)
 	if err != nil {
+		t.Log(err)
 		t.FailNow()
 	}
 	if task.Info.String() != testTask.String() {
+		t.Log(err)
 		t.FailNow()
 	}
 	taskManager.Delete(task)
 	_, err = taskManager.Get(testTask.Name)
 	if err == nil {
+		t.Log(err)
 		t.FailNow()
 	}
 }
@@ -81,9 +84,9 @@ func TestTaskManager_Length(t *testing.T) {
 		},
 	}
 	logger := logging.NewDefaultLogger()
-	testTask := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
-	testTask1 := &manager.Task{Info: CreateTestTask("testTask1"), State: manager.UNKNOWN}
-	testTask2 := &manager.Task{Info: CreateTestTask("testTask2"), State: manager.UNKNOWN}
+	testTask := &manager.Task{Info: CreateTestTask("testTask"), Instances: 1, State: manager.UNKNOWN}
+	testTask1 := &manager.Task{Info: CreateTestTask("testTask1"), Instances: 1, State: manager.UNKNOWN}
+	testTask2 := &manager.Task{Info: CreateTestTask("testTask2"), Instances: 1,  State: manager.UNKNOWN}
 
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 
@@ -127,7 +130,7 @@ func TestTaskManager_GetById(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	testTask := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
+	testTask := &manager.Task{Info: CreateTestTask("testTask"), Instances: 1, State: manager.UNKNOWN}
 
 	taskManager.Add(testTask)
 
@@ -158,7 +161,7 @@ func TestTaskManager_HasTask(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	testTask := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
+	testTask := &manager.Task{Info: CreateTestTask("testTask"),Instances: 1,  State: manager.UNKNOWN}
 
 	taskManager.Add(testTask)
 
@@ -177,9 +180,9 @@ func TestTaskManager_TotalTasks(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	testTask := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
-	testTask1 := &manager.Task{Info: CreateTestTask("testTask1"), State: manager.UNKNOWN}
-	testTask2 := &manager.Task{Info: CreateTestTask("testTask2"), State: manager.UNKNOWN}
+	testTask := &manager.Task{Info: CreateTestTask("testTask"), Instances: 1, State: manager.UNKNOWN}
+	testTask1 := &manager.Task{Info: CreateTestTask("testTask1"), Instances: 1, State: manager.UNKNOWN}
+	testTask2 := &manager.Task{Info: CreateTestTask("testTask2"), Instances: 1, State: manager.UNKNOWN}
 
 	taskManager.Add(testTask, testTask1, testTask2)
 
@@ -215,7 +218,7 @@ func TestTaskManager_AddSameTask(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	testTask := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
+	testTask := &manager.Task{Info: CreateTestTask("testTask"), Instances: 1,  State: manager.UNKNOWN}
 	taskManager.Add(testTask)
 	err := taskManager.Add(testTask)
 	if err == nil {
@@ -298,9 +301,10 @@ func TestTaskManager_HasTaskFailWithBrokenStorage(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	testTask := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
+	testTask := &manager.Task{Info: CreateTestTask("testTask"), Instances: 1, State: manager.UNKNOWN}
 	err := taskManager.Add(testTask)
 	if err == nil {
+		t.Log(err)
 		t.Log("Didn't fail with broken storage.")
 		t.FailNow()
 	}
@@ -389,20 +393,13 @@ func TestTaskManager_DoubleAdd(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	tasks := make([]*manager.Task, 0)
-	for i := 0; i <= 3; i++ {
-		tasks = append(tasks, &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN})
+	tasks := []*manager.Task{
+		{Info: CreateTestTask("testTask"), Instances: 1, State: manager.UNKNOWN},
+		{Info: CreateTestTask("testTask"), Instances: 1, State: manager.UNKNOWN},
 	}
-	for _, k := range tasks {
-		taskManager.Add(k)
-		// Try to add the task again, should fail and throw an err.
-		if err := taskManager.Add(k); err == nil {
-			t.Log("Able to add multiples of the same task", err.Error())
-		}
-	}
-
-	if taskManager.TotalTasks() != 3 {
-		t.Log("Expecting 3 tasks in total, got " + strconv.Itoa(taskManager.TotalTasks()))
+	// This should fail since it's two of the same tasks.
+	if err := taskManager.Add(tasks...); err == nil {
+		t.Log("Able to add multiples of the same task", err.Error())
 	}
 }
 

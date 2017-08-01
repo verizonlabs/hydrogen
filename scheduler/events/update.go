@@ -16,7 +16,7 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 	agentID := status.GetAgentId()
 	taskID := status.GetTaskId()
 
-	// Always acknowledge that we've recieved the message from Mesos.
+	// Always acknowledge that we've received the message from Mesos.
 	defer func() {
 		_, err := s.scheduler.Acknowledge(agentID, taskID, status.GetUuid())
 		if err != nil {

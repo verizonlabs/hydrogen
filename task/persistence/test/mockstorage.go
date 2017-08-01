@@ -11,6 +11,6 @@ type MockStorage struct {
 }
 
 type MockBrokenStorage struct {
-	mockKv.MockKVStore
+	mockKv.MockBrokenKVStore
 	mockRetry.MockBrokenRetry
 }

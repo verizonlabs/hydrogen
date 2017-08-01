@@ -78,6 +78,7 @@ func (m *Parser) Update(decoded []byte) ([]*t.Task, error) {
 	}
 
 	m.scheduler.Kill(taskToKill.Info.GetTaskId(), taskToKill.Info.GetAgentId())
+	m.taskManager.Add(mesosTask...)
 	m.scheduler.Revive()
 
 	return mesosTask, nil

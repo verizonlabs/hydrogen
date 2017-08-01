@@ -14,7 +14,6 @@ import (
 	"sync"
 	"strconv"
 	"mesos-framework-sdk/utils"
-	"fmt"
 )
 
 const (
@@ -81,6 +80,11 @@ func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
 			if err := m.encode(t); err != nil {
 				return err
 			}
+			err := m.storageWrite(t.Info.GetTaskId().GetValue(), m.buffer)
+			if err != nil {
+				m.logger.Emit(logging.ERROR, "Storage error: %v", err)
+				return err
+			}
 			m.tasks[t.Info.GetName()] = *t
 		} else {
 			// Otherwise add N instances.
@@ -96,9 +100,13 @@ func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
 
 				// Write forward.
 				if err := m.encode(&duplicate); err != nil {
-					return errors.New("Task " + t.Info.GetName() + " already exists")
+					return err
 				}
-
+				err := m.storageWrite(t.Info.GetTaskId().GetValue(), m.buffer)
+				if err != nil {
+					m.logger.Emit(logging.ERROR, "Storage error: %v", err)
+					return err
+				}
 				m.tasks[duplicate.Info.GetName()] = duplicate
 			}
 		}
@@ -123,7 +131,6 @@ func (m *SprintTaskHandler) Get(name *string) (*manager.Task, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	fmt.Println(m.tasks)
 	if response, ok := m.tasks[*name]; ok {
 		return &response, nil
 	}
@@ -230,28 +237,24 @@ func (m *SprintTaskHandler) All() ([]manager.Task, error) {
 }
 
 // Function that wraps writing to the storage backend.
-func (m *SprintTaskHandler) storageWrite(id string, encoded *bytes.Buffer) func() error {
-	return func() error {
-		err := m.storage.Update(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
-		if err != nil {
-			m.logger.Emit(
-				logging.ERROR, "Failed to update task %s with name %s to persistent data store. Retrying...",
-				id,
-			)
-		}
-		return err
+func (m *SprintTaskHandler) storageWrite(id string, encoded *bytes.Buffer) error {
+	err := m.storage.Update(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
+	if err != nil {
+		m.logger.Emit(
+			logging.ERROR, "Failed to update task %s with name %s to persistent data store. Retrying...",
+			id,
+		)
 	}
+	return err
 }
 
 // Function that wraps deleting from the storage backend.
-func (m *SprintTaskHandler) storageDelete(taskId string) func() error {
-	return func() error {
-		err := m.storage.Delete(TASK_DIRECTORY + taskId)
-		if err != nil {
-			m.logger.Emit(logging.ERROR, err.Error())
-		}
-		return err
+func (m *SprintTaskHandler) storageDelete(taskId string) error {
+	err := m.storage.Delete(TASK_DIRECTORY + taskId)
+	if err != nil {
+		m.logger.Emit(logging.ERROR, err.Error())
 	}
+	return err
 }
 
 // Encodes task data.
