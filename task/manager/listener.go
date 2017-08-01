@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	TASK_DIRECTORY = "tasks"
+	TASK_DIRECTORY = "/tasks/"
 )
 
 type (
@@ -238,7 +238,7 @@ func (m *SprintTaskHandler) All() ([]manager.Task, error) {
 
 // Function that wraps writing to the storage backend.
 func (m *SprintTaskHandler) storageWrite(id string, encoded *bytes.Buffer) error {
-	err := m.storage.Update(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
+	err := m.storage.Create(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
 	if err != nil {
 		m.logger.Emit(
 			logging.ERROR, "Failed to update task %s with name %s to persistent data store. Retrying...",
