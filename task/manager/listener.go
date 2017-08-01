@@ -143,8 +143,8 @@ func (m *SprintTaskHandler) Delete(tasks ...*manager.Task) error {
 
 // Get a task by its name.
 func (m *SprintTaskHandler) Get(name *string) (*manager.Task, error) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	if response, ok := m.tasks[*name]; ok {
 		return &response, nil
@@ -154,8 +154,8 @@ func (m *SprintTaskHandler) Get(name *string) (*manager.Task, error) {
 
 // GetById : get a task by it's ID.
 func (m *SprintTaskHandler) GetById(id *mesos_v1.TaskID) (*manager.Task, error) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	if len(m.tasks) == 0 {
 		// TODO (tim): Standardize Error messages.
@@ -171,8 +171,8 @@ func (m *SprintTaskHandler) GetById(id *mesos_v1.TaskID) (*manager.Task, error) 
 
 // HasTask indicates whether or not the task manager holds the specified task.
 func (m *SprintTaskHandler) HasTask(task *mesos_v1.TaskInfo) bool {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 	if len(m.tasks) == 0 {
 		return false // If the manager is empty, this one doesn't exist.
 	}
@@ -184,8 +184,8 @@ func (m *SprintTaskHandler) HasTask(task *mesos_v1.TaskInfo) bool {
 
 // TotalTasks the total number of tasks that the task manager holds.
 func (m *SprintTaskHandler) TotalTasks() int {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 	return len(m.tasks)
 }
 
@@ -205,20 +205,10 @@ func (m *SprintTaskHandler) Update(tasks ...*manager.Task) error {
 	return nil
 }
 
-// Gets the task's state based on the supplied task name.
-func (m *SprintTaskHandler) State(name *string) (*mesos_v1.TaskState, error) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	if r, ok := m.tasks[*name]; ok {
-		return &r.State, nil
-	}
-	return mesos_v1.TaskState_TASK_UNKNOWN.Enum(), nil
-}
-
 // AllByState gets all tasks that match the given state.
 func (m *SprintTaskHandler) AllByState(state mesos_v1.TaskState) ([]*manager.Task, error) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	if len(m.tasks) == 0 {
 		return nil, errors.New("Task manager is empty")
@@ -239,8 +229,8 @@ func (m *SprintTaskHandler) AllByState(state mesos_v1.TaskState) ([]*manager.Tas
 
 // All gets all tasks that are known to the task manager.
 func (m *SprintTaskHandler) All() ([]manager.Task, error) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 	if len(m.tasks) == 0 {
 		return nil, errors.New("Task manager is empty")
 	}
