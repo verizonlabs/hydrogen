@@ -11,12 +11,12 @@ import (
 	sched "mesos-framework-sdk/scheduler/test"
 	"os"
 	"sprint/scheduler"
-	sprintTask "sprint/task/manager"
 	mockTaskManager "sprint/task/manager/test"
 	"sprint/task/persistence"
 	mockStorage "sprint/task/persistence/test"
 	"testing"
 	"time"
+	"mesos-framework-sdk/task/manager"
 )
 
 var (
@@ -57,7 +57,7 @@ func workingEventController() *SprintEventController {
 		}
 		c  chan *mesos_v1_scheduler.Event     = make(chan *mesos_v1_scheduler.Event)
 		sh sdkScheduler.Scheduler             = sched.MockScheduler{}
-		m  sprintTask.SprintTaskManager       = &mockTaskManager.MockTaskManager{}
+		m  manager.TaskManager       = &mockTaskManager.MockTaskManager{}
 		rm sdkResourceManager.ResourceManager = &mockResourceManager.MockResourceManager{}
 		s  persistence.Storage                = &mockStorage.MockStorage{}
 		l  logging.Logger                     = &mockLogger.MockLogger{}
@@ -85,7 +85,7 @@ func brokenSchedulerEventController() *SprintEventController {
 		}
 		c  chan *mesos_v1_scheduler.Event     = make(chan *mesos_v1_scheduler.Event)
 		sh sdkScheduler.Scheduler             = sched.MockBrokenScheduler{}
-		m  sprintTask.SprintTaskManager       = &mockTaskManager.MockTaskManager{}
+		m  manager.TaskManager       = &mockTaskManager.MockTaskManager{}
 		rm sdkResourceManager.ResourceManager = &mockResourceManager.MockResourceManager{}
 		s  persistence.Storage                = &mockStorage.MockStorage{}
 		l  logging.Logger                     = &mockLogger.MockLogger{}

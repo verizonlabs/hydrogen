@@ -31,19 +31,19 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 	s.resourcemanager.AddOffers(offerEvent.GetOffers())
 	accepts := make(map[*mesos_v1.OfferID][]*mesos_v1.Offer_Operation)
 
-	for _, mesosTask := range queued {
+	for _, task := range queued {
 		if !s.resourcemanager.HasResources() {
 			break
 		}
 
-		offer, err := s.resourcemanager.Assign(mesosTask)
+		offer, err := s.resourcemanager.Assign(task.Info)
 
 		if err != nil {
 			// It didn't match any offers.
 			s.logger.Emit(logging.ERROR, err.Error())
 			continue // We should decline.
 		}
-
+		mesosTask := task.Info
 		t := &mesos_v1.TaskInfo{
 			Name:        mesosTask.Name,
 			TaskId:      mesosTask.GetTaskId(),
@@ -59,10 +59,14 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 			s.setupExecutor(t)
 		}
 
+		task.Info = t
+		task.State = manager.STAGING
+
 		// TODO (aaron) investigate this state further as it might cause side effects.
 		// this is artificially set to STAGING, it does not correspond to when Mesos sets this task as STAGING.
 		// for example other parts of the codebase may check for STAGING and this would cause it to be set too early.
-		s.TaskManager().Set(manager.STAGING, t)
+		s.TaskManager().Update(task)
+
 		accepts[offer.Id] = append(accepts[offer.Id], resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
 	}
 

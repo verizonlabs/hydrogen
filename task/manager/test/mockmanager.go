@@ -8,78 +8,64 @@ import (
 	"mesos-framework-sdk/task"
 	"mesos-framework-sdk/task/manager"
 	"sprint/task/retry"
+	"time"
 )
 
 type MockTaskManager struct{}
 
-func (m MockTaskManager) CreateGroup(string) error                     { return nil }
-func (m MockTaskManager) Unlink(string, *mesos_v1.AgentID) error       { return nil }
-func (m MockTaskManager) SetSize(string, int) error                    { return nil }
-func (m MockTaskManager) Link(string, *mesos_v1.AgentID) error         { return nil }
-func (m MockTaskManager) AddToGroup(string, *mesos_v1.AgentID) error   { return nil }
-func (m MockTaskManager) ReadGroup(string) []*mesos_v1.AgentID         { return []*mesos_v1.AgentID{} }
-func (m MockTaskManager) DelFromGroup(string, *mesos_v1.AgentID) error { return nil }
-func (m MockTaskManager) DeleteGroup(string) error                     { return nil }
-func (m MockTaskManager) IsInGroup(*mesos_v1.TaskInfo) bool            { return true }
-
-func (m MockTaskManager) AddPolicy(*task.TimeRetry, *mesos_v1.TaskInfo) error {
-	return nil
-}
-func (m MockTaskManager) CheckPolicy(*mesos_v1.TaskInfo) *retry.TaskRetry {
-	return nil
-}
-func (m MockTaskManager) ClearPolicy(*mesos_v1.TaskInfo) error {
-	return nil
-}
-func (m MockTaskManager) RunPolicy(*retry.TaskRetry, func() error) error {
+func (m MockTaskManager) Add(...*manager.Task) error{
 	return nil
 }
 
-func (m MockTaskManager) Add(*mesos_v1.TaskInfo) error {
+func (m MockTaskManager) Delete(...*manager.Task) error {
 	return nil
 }
 
-func (m MockTaskManager) Delete(*mesos_v1.TaskInfo) error {
-	return nil
+func (m MockTaskManager) Get(*string) (*manager.Task, error) {
+	return &manager.Task{Retry: &retry.TaskRetry{
+		TotalRetries:0,
+		MaxRetries:0,
+		RetryTime: time.Nanosecond,
+		Backoff: true,
+		Name: "id",
+	}}, nil
 }
 
-func (m MockTaskManager) Get(*string) (*mesos_v1.TaskInfo, error) {
-	return &mesos_v1.TaskInfo{}, nil
-}
-
-func (m MockTaskManager) GetById(id *mesos_v1.TaskID) (*mesos_v1.TaskInfo, error) {
-	return &mesos_v1.TaskInfo{}, nil
+func (m MockTaskManager) GetById(id *mesos_v1.TaskID) (*manager.Task, error) {
+	return &manager.Task{Retry: &retry.TaskRetry{
+		TotalRetries:0,
+		MaxRetries:0,
+		RetryTime: time.Nanosecond,
+		Backoff: true,
+		Name: "id",
+	}}, nil
 }
 
 func (m MockTaskManager) HasTask(*mesos_v1.TaskInfo) bool {
 	return false
 }
 
-func (m MockTaskManager) Set(mesos_v1.TaskState, *mesos_v1.TaskInfo) error {
+func (m MockTaskManager) Update(...*manager.Task) error {
 	return nil
 }
 
-func (m MockTaskManager) State(name *string) (*mesos_v1.TaskState, error) {
-	return new(mesos_v1.TaskState), nil
+func (m MockTaskManager) AllByState(state mesos_v1.TaskState) ([]*manager.Task, error) {
+	return []*manager.Task{}, nil
 }
 
 func (m MockTaskManager) TotalTasks() int {
 	return 0
 }
 
-func (m MockTaskManager) Tasks() structures.DistributedMap {
-	return &test.MockDistributedMap{}
-}
-
 func (m MockTaskManager) All() ([]manager.Task, error) {
 	return []manager.Task{{
 		&mesos_v1.TaskInfo{},
 		mesos_v1.TaskState_TASK_RUNNING,
+		[]task.Filter{},
+		&retry.TaskRetry{},
+		1,
+		3,
 	}}, nil
-}
-
-func (m MockTaskManager) AllByState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
-	return []*mesos_v1.TaskInfo{{}}, nil
 }
 
 //
@@ -91,50 +77,27 @@ var (
 	broken error = errors.New("Broken")
 )
 
-func (m MockBrokenTaskManager) CreateGroup(string) error                     { return broken }
-func (m MockBrokenTaskManager) Unlink(string, *mesos_v1.AgentID) error       { return broken }
-func (m MockBrokenTaskManager) SetSize(string, int) error                    { return broken }
-func (m MockBrokenTaskManager) Link(string, *mesos_v1.AgentID) error         { return broken }
-func (m MockBrokenTaskManager) AddToGroup(string, *mesos_v1.AgentID) error   { return broken }
-func (m MockBrokenTaskManager) ReadGroup(string) []*mesos_v1.AgentID         { return nil }
-func (m MockBrokenTaskManager) DelFromGroup(string, *mesos_v1.AgentID) error { return broken }
-func (m MockBrokenTaskManager) DeleteGroup(string) error                     { return broken }
-func (m MockBrokenTaskManager) IsInGroup(*mesos_v1.TaskInfo) bool            { return false }
-
-func (m MockBrokenTaskManager) AddPolicy(*task.TimeRetry, *mesos_v1.TaskInfo) error {
-	return nil
-}
-func (m MockBrokenTaskManager) CheckPolicy(*mesos_v1.TaskInfo) *retry.TaskRetry {
-	return nil
-}
-func (m MockBrokenTaskManager) ClearPolicy(*mesos_v1.TaskInfo) error {
-	return nil
-}
-func (m MockBrokenTaskManager) RunPolicy(*retry.TaskRetry, func() error) error {
-	return nil
+func (m MockBrokenTaskManager)  Add(...*manager.Task) error{
+	return broken
 }
 
-func (m MockBrokenTaskManager) Add(*mesos_v1.TaskInfo) error {
-	return errors.New("Broken.")
+func (m MockBrokenTaskManager) Delete(...*manager.Task) error {
+	return broken
 }
 
-func (m MockBrokenTaskManager) Delete(*mesos_v1.TaskInfo) error {
-	return errors.New("Broken.")
+func (m MockBrokenTaskManager)Get(*string) (*manager.Task, error) {
+	return nil, broken
 }
 
-func (m MockBrokenTaskManager) Get(*string) (*mesos_v1.TaskInfo, error) {
+func (m MockBrokenTaskManager) GetById(id *mesos_v1.TaskID) (*manager.Task, error) {
 	return nil, errors.New("Broken.")
 }
 
-func (m MockBrokenTaskManager) GetById(id *mesos_v1.TaskID) (*mesos_v1.TaskInfo, error) {
-	return nil, errors.New("Broken.")
-}
-
-func (m MockBrokenTaskManager) HasTask(*mesos_v1.TaskInfo) bool {
+func (m MockBrokenTaskManager) HasTask(*mesos_v1.TaskInfo) bool  {
 	return false
 }
 
-func (m MockBrokenTaskManager) Set(mesos_v1.TaskState, *mesos_v1.TaskInfo) error {
+func (m MockBrokenTaskManager) Update(...*manager.Task) error  {
 	return errors.New("Broken.")
 }
 
@@ -154,7 +117,7 @@ func (m MockBrokenTaskManager) All() ([]manager.Task, error) {
 	return nil, errors.New("Broken.")
 }
 
-func (m MockBrokenTaskManager) AllByState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
+func (m MockBrokenTaskManager)AllByState(state mesos_v1.TaskState) ([]*manager.Task, error)  {
 	return nil, errors.New("Broken.")
 }
 
@@ -227,5 +190,9 @@ func (m MockTaskManagerQueued) All() ([]manager.Task, error) {
 	return []manager.Task{{
 		&mesos_v1.TaskInfo{},
 		mesos_v1.TaskState_TASK_RUNNING,
+		[]task.Filter{},
+		&retry.TaskRetry{},
+		1,
+		3,
 	}}, nil
 }

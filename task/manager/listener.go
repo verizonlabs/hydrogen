@@ -8,13 +8,13 @@ import (
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/structures"
-	"mesos-framework-sdk/task"
 	"mesos-framework-sdk/task/manager"
 	"sprint/scheduler"
 	"sprint/task/persistence"
-	"sprint/task/retry"
 	"sync"
-	"time"
+	"strconv"
+	"mesos-framework-sdk/utils"
+	"fmt"
 )
 
 const (
@@ -22,13 +22,6 @@ const (
 )
 
 type (
-	// Provides pluggable task managers that the framework can work with.
-	// Also used extensively for testing with mocks.
-	SprintTaskManager interface {
-		manager.TaskManager
-		retry.Retry
-	}
-
 	// Our primary task handler that implements the above interface.
 	// The task handler manages all tasks that are submitted, updated, or deleted.
 	// Offers from Mesos are matched up with user-submitted tasks, and those tasks are updated via event callbacks.
@@ -45,20 +38,12 @@ type (
 	}
 )
 
-var (
-	DEFAULT_RETRY_POLICY = &task.TimeRetry{
-		Time:       "1.5",
-		Backoff:    true,
-		MaxRetries: 3,
-	}
-)
-
 // Returns the core task manager that's used by the scheduler.
 func NewTaskManager(
 	cmap map[string]manager.Task,
 	storage persistence.Storage,
 	config *scheduler.Configuration,
-	logger logging.Logger) SprintTaskManager {
+	logger logging.Logger) manager.TaskManager {
 
 	b := new(bytes.Buffer)
 	handler := &SprintTaskHandler{
@@ -71,156 +56,92 @@ func NewTaskManager(
 		groups:  make(map[string][]*mesos_v1.AgentID),
 		logger:  logger,
 	}
+
 	return handler
-}
-
-//
-// Methods to satisfy retry interface.
-//
-func (s *SprintTaskHandler) AddPolicy(policy *task.TimeRetry, mesosTask *mesos_v1.TaskInfo) error {
-	if mesosTask != nil {
-		if policy == nil {
-			policy = &task.TimeRetry{
-				Time:       "1.5",
-				Backoff:    true,
-				MaxRetries: 3,
-			}
-		}
-
-		t, err := time.ParseDuration(policy.Time + "s")
-		if err != nil {
-			return errors.New("Invalid time given in policy.")
-		}
-
-		s.retries.Set(mesosTask.GetName(), &retry.TaskRetry{
-			TotalRetries: 0,
-			RetryTime:    t,
-			Backoff:      policy.Backoff,
-			Name:         mesosTask.GetName(),
-		})
-		return nil
-	}
-	return errors.New("Nil mesos task passed in")
-}
-
-// Runs the specified policy with a configurable backoff.
-func (s *SprintTaskHandler) RunPolicy(policy *retry.TaskRetry, f func() error) error {
-	policy.TotalRetries += 1 // Increment retry counter.
-
-	// Minimum is 1 seconds, max is 60.
-	if policy.RetryTime < 1*time.Second {
-		policy.RetryTime = 1 * time.Second
-	} else if policy.RetryTime > time.Minute {
-		policy.RetryTime = time.Minute
-	}
-
-	delay := policy.RetryTime + policy.RetryTime
-
-	// Total backoff can't be greater than 5 minutes.
-	if delay > 5*time.Minute {
-		delay = 5 * time.Minute
-	}
-
-	policy.RetryTime = delay // update with new time.
-	go func() {
-		time.Sleep(delay)
-		f()
-	}()
-
-	return nil
-}
-
-// Checks whether a policy exists for a given task.
-func (s *SprintTaskHandler) CheckPolicy(mesosTask *mesos_v1.TaskInfo) *retry.TaskRetry {
-	if mesosTask != nil {
-		policy := s.retries.Get(mesosTask.GetName())
-		if policy != nil {
-			return policy.(*retry.TaskRetry)
-		}
-	}
-
-	return nil
-}
-
-// Removes an existing policy associated with the given task.
-func (s *SprintTaskHandler) ClearPolicy(mesosTask *mesos_v1.TaskInfo) error {
-	if mesosTask != nil {
-		s.retries.Delete(mesosTask.GetTaskId().GetValue())
-		return nil
-	}
-	return errors.New("Nil mesos task passed in")
 }
 
 // Add and persists a new task into the task manager.
 // Duplicate task names are not allowed by Mesos, thus they are not allowed here.
-func (m *SprintTaskHandler) Add(task *mesos_v1.TaskInfo) error {
+func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	// Use a unique ID for storing in the map, taskid?
-	if _, ok := m.tasks[task.GetName()]; ok {
-		return errors.New("Task " + task.GetName() + " already exists")
-	}
+	for _, t := range tasks {
+		t.State = manager.UNKNOWN
 
-	// Write forward.
-	if err := m.encode(task, manager.UNKNOWN); err != nil {
-		return err
-	}
+		originalName := t.Info.GetName()
+		taskId := t.Info.GetTaskId().GetValue()
 
-	id := task.TaskId.GetValue()
+		// If we have a single instance, only add it.
+		if t.Instances == 1 {
+			if _, ok := m.tasks[t.Info.GetName()]; ok {
+				return errors.New("Task " + t.Info.GetName() + " already exists")
+			}
+			// Write forward.
+			if err := m.encode(t); err != nil {
+				return err
+			}
+			m.tasks[t.Info.GetName()] = *t
+		} else {
+			// Otherwise add N instances.
+			for i := 0; i < t.Instances; i++ {
+				// TODO(tim): t.Copy(Name, TaskId)
+				duplicate := *t
+				duplicate.Info.Name = utils.ProtoString(originalName + "-" + strconv.Itoa(i+1))
+				duplicate.Info.TaskId = &mesos_v1.TaskID{Value: utils.ProtoString(taskId + "-" + strconv.Itoa(i+1))}
 
-	policy := m.storage.CheckPolicy(nil)
+				if _, ok := m.tasks[duplicate.Info.GetName()]; ok {
+					return errors.New("Task " + t.Info.GetName() + " already exists")
+				}
 
-	if err := m.storage.RunPolicy(policy, m.storageWrite(id, m.buffer)); err != nil {
-		return err
-	}
+				// Write forward.
+				if err := m.encode(&duplicate); err != nil {
+					return errors.New("Task " + t.Info.GetName() + " already exists")
+				}
 
-	m.tasks[task.GetName()] = manager.Task{
-		State: manager.UNKNOWN,
-		Info:  task,
+				m.tasks[duplicate.Info.GetName()] = duplicate
+			}
+		}
 	}
 
 	return nil
 }
 
 // Delete a task from memory and etcd, and clears any associated policy.
-func (m *SprintTaskHandler) Delete(task *mesos_v1.TaskInfo) error {
+func (m *SprintTaskHandler) Delete(tasks ...*manager.Task) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	policy := m.storage.CheckPolicy(nil)
 
-	if err := m.storage.RunPolicy(policy, m.storageDelete(task.GetTaskId().GetValue())); err != nil {
-		return err
+	for _, t := range tasks {
+		delete(m.tasks, t.Info.GetName())
 	}
-
-	delete(m.tasks, task.GetName())
-	m.ClearPolicy(task)
-
 	return nil
 }
 
 // Get a task by its name.
-func (m *SprintTaskHandler) Get(name *string) (*mesos_v1.TaskInfo, error) {
+func (m *SprintTaskHandler) Get(name *string) (*manager.Task, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
+	fmt.Println(m.tasks)
 	if response, ok := m.tasks[*name]; ok {
-		return response.Info, nil
+		return &response, nil
 	}
-	return nil, errors.New("Could not find task.")
+	return nil, errors.New(*name + " not found.")
 }
 
 // GetById : get a task by it's ID.
-func (m *SprintTaskHandler) GetById(id *mesos_v1.TaskID) (*mesos_v1.TaskInfo, error) {
+func (m *SprintTaskHandler) GetById(id *mesos_v1.TaskID) (*manager.Task, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
+
 	if len(m.tasks) == 0 {
 		// TODO (tim): Standardize Error messages.
 		return nil, errors.New("There are no tasks")
 	}
 	for _, v := range m.tasks {
 		if id.GetValue() == v.Info.GetTaskId().GetValue() {
-			return v.Info, nil
+			return &v, nil
 		}
 	}
 	return nil, errors.New("Could not find task by id: " + id.GetValue())
@@ -247,24 +168,16 @@ func (m *SprintTaskHandler) TotalTasks() int {
 }
 
 // Update the given task with the given state.
-func (m *SprintTaskHandler) Set(state mesos_v1.TaskState, t *mesos_v1.TaskInfo) error {
+func (m *SprintTaskHandler) Update(tasks ...*manager.Task) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	if err := m.encode(t, state); err != nil {
-		return err
-	}
 
-	id := t.GetTaskId().GetValue()
-
-	policy := m.storage.CheckPolicy(nil)
-
-	if err := m.storage.RunPolicy(policy, m.storageWrite(id, m.buffer)); err != nil {
-		return err
-	}
-
-	m.tasks[t.GetName()] = manager.Task{
-		Info:  t,
-		State: state,
+	for _, task := range tasks {
+		// Update with the new state.
+		if err := m.encode(task); err != nil {
+			return err
+		}
+		m.tasks[task.Info.GetName()] = *task
 	}
 
 	return nil
@@ -281,16 +194,17 @@ func (m *SprintTaskHandler) State(name *string) (*mesos_v1.TaskState, error) {
 }
 
 // AllByState gets all tasks that match the given state.
-func (m *SprintTaskHandler) AllByState(state mesos_v1.TaskState) ([]*mesos_v1.TaskInfo, error) {
+func (m *SprintTaskHandler) AllByState(state mesos_v1.TaskState) ([]*manager.Task, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
+
 	if len(m.tasks) == 0 {
 		return nil, errors.New("Task manager is empty")
 	}
-	tasks := []*mesos_v1.TaskInfo{}
+	tasks := []*manager.Task{}
 	for _, v := range m.tasks {
 		if v.State == state {
-			tasks = append(tasks, v.Info)
+			tasks = append(tasks, &v)
 		}
 	}
 
@@ -309,8 +223,8 @@ func (m *SprintTaskHandler) All() ([]manager.Task, error) {
 		return nil, errors.New("Task manager is empty")
 	}
 	allTasks := []manager.Task{}
-	for _, task := range m.tasks {
-		allTasks = append(allTasks, task)
+	for _, t := range m.tasks {
+		allTasks = append(allTasks, t)
 	}
 	return allTasks, nil
 }
@@ -340,13 +254,10 @@ func (m *SprintTaskHandler) storageDelete(taskId string) func() error {
 	}
 }
 
-// Encodes task data to a small, efficient payload that can be transmitted across the wire.
-func (m *SprintTaskHandler) encode(task *mesos_v1.TaskInfo, state mesos_v1.TaskState) error {
+// Encodes task data.
+func (m *SprintTaskHandler) encode(task *manager.Task) error {
 	// Panics on nil values.
-	err := m.encoder.Encode(manager.Task{
-		Info:  task,
-		State: state,
-	})
+	err := m.encoder.Encode(task)
 
 	return err
 }

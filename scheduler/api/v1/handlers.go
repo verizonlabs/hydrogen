@@ -48,7 +48,7 @@ func (h *Handlers) deployApplication(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	Success(w, Response{TaskName: task.GetName(), Message: "Task successfully queued."})
+	Success(w, Response{TaskName: task[0].Info.GetName(), Message: "Task successfully queued."})
 }
 
 // Update handler allows for updates to an existing/running task.
@@ -67,9 +67,9 @@ func (h *Handlers) updateApplication(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	name := newTask.GetName()
+	name := newTask[0].Info.GetName()
 
-	Success(w, Response{Message: "Updating " + name + ".", TaskName: newTask.GetName()})
+	Success(w, Response{Message: "Updating " + name + ".", TaskName: newTask[0].Info.GetName()})
 }
 
 // Kill handler allows users to stop their running task.

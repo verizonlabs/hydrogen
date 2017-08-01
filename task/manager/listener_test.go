@@ -3,15 +3,12 @@ package manager
 import (
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/logging"
-	"mesos-framework-sdk/task"
 	"mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
 	"sprint/scheduler"
 	mockStorage "sprint/task/persistence/test"
-	"sprint/task/retry"
 	"strconv"
 	"testing"
-	"time"
 )
 
 func CreateTestTask(name string) *mesos_v1.TaskInfo {
@@ -60,12 +57,12 @@ func TestTaskManager_Cycle(t *testing.T) {
 	testTask := CreateTestTask("testTask")
 
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	taskManager.Add(testTask)
+	taskManager.Add(&manager.Task{Info: testTask, State: manager.UNKNOWN})
 	task, err := taskManager.Get(testTask.Name)
 	if err != nil {
 		t.FailNow()
 	}
-	if task.String() != testTask.String() {
+	if task.Info.String() != testTask.String() {
 		t.FailNow()
 	}
 	taskManager.Delete(task)
@@ -84,9 +81,9 @@ func TestTaskManager_Length(t *testing.T) {
 		},
 	}
 	logger := logging.NewDefaultLogger()
-	testTask := CreateTestTask("testTask")
-	testTask1 := CreateTestTask("testTask1")
-	testTask2 := CreateTestTask("testTask2")
+	testTask := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
+	testTask1 := &manager.Task{Info: CreateTestTask("testTask1"), State: manager.UNKNOWN}
+	testTask2 := &manager.Task{Info: CreateTestTask("testTask2"), State: manager.UNKNOWN}
 
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 
@@ -94,15 +91,15 @@ func TestTaskManager_Length(t *testing.T) {
 	taskManager.Add(testTask1)
 	taskManager.Add(testTask2)
 
-	task, err := taskManager.Get(testTask.Name)
+	tsk, err := taskManager.Get(testTask.Info.Name)
 	if err != nil {
 		t.FailNow()
 	}
-	if task.String() != testTask.String() {
+	if tsk.Info.String() != testTask.Info.String() {
 		t.FailNow()
 	}
-	taskManager.Delete(task)
-	_, err = taskManager.Get(testTask.Name)
+	taskManager.Delete(tsk)
+	_, err = taskManager.Get(tsk.Info.Name)
 	if err == nil {
 		t.FailNow()
 	}
@@ -130,43 +127,23 @@ func TestTaskManager_GetById(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	testTask := CreateTestTask("testTask")
+	testTask := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 
 	taskManager.Add(testTask)
 
-	task, err := taskManager.Get(testTask.Name)
+	task, err := taskManager.Get(testTask.Info.Name)
 	if err != nil {
 		t.Log("GetById failed to get task.")
 		t.FailNow()
 	}
 
-	taskInfo, err := taskManager.GetById(task.TaskId)
+	taskInfo, err := taskManager.GetById(task.Info.TaskId)
 	if err != nil {
 		t.Log("GetById got an error.")
 		t.FailNow()
 	}
 	if taskInfo == nil {
 		t.Log("GetById got a nil task")
-		t.FailNow()
-	}
-}
-
-func TestTaskManager_State(t *testing.T) {
-	cmap := make(map[string]manager.Task)
-	storage := mockStorage.MockStorage{}
-	config := &scheduler.Configuration{
-		Persistence: &scheduler.PersistenceConfiguration{
-			MaxRetries: 0,
-		},
-	}
-	logger := logging.NewDefaultLogger()
-	taskManager := NewTaskManager(cmap, storage, config, logger)
-	testTask := CreateTestTask("testTask")
-
-	taskManager.Add(testTask)
-
-	_, err := taskManager.State(testTask.Name)
-	if err != nil {
 		t.FailNow()
 	}
 }
@@ -181,50 +158,11 @@ func TestTaskManager_HasTask(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	testTask := CreateTestTask("testTask")
+	testTask := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 
 	taskManager.Add(testTask)
 
-	if !taskManager.HasTask(testTask) {
-		t.FailNow()
-	}
-}
-
-func TestTaskManager_Set(t *testing.T) {
-	cmap := make(map[string]manager.Task)
-	storage := mockStorage.MockStorage{}
-	config := &scheduler.Configuration{
-		Persistence: &scheduler.PersistenceConfiguration{
-			MaxRetries: 0,
-		},
-	}
-	logger := logging.NewDefaultLogger()
-	taskManager := NewTaskManager(cmap, storage, config, logger)
-	testTask := CreateTestTask("testTask")
-
-	taskManager.Add(testTask)
-
-	taskManager.Set(mesos_v1.TaskState_TASK_STAGING, testTask)
-	_, err := taskManager.State(testTask.Name)
-	if err != nil {
-		t.Log("Failed with err on getstate, finished.")
-		t.FailNow()
-	}
-
-	// KILLED and FINISHED delete the task from the task manager.
-	taskManager.Set(mesos_v1.TaskState_TASK_FINISHED, testTask)
-	_, err = taskManager.State(testTask.Name)
-	if err != nil {
-		t.Log(err.Error())
-		t.FailNow()
-	}
-
-	taskManager.Add(testTask)
-
-	taskManager.Set(mesos_v1.TaskState_TASK_KILLED, testTask)
-
-	_, err = taskManager.State(testTask.Name)
-	if err != nil {
+	if !taskManager.HasTask(testTask.Info) {
 		t.FailNow()
 	}
 }
@@ -239,13 +177,11 @@ func TestTaskManager_TotalTasks(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	testTask := CreateTestTask("testTask")
-	testTask1 := CreateTestTask("testTask1")
-	testTask2 := CreateTestTask("testTask2")
+	testTask := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
+	testTask1 := &manager.Task{Info: CreateTestTask("testTask1"), State: manager.UNKNOWN}
+	testTask2 := &manager.Task{Info: CreateTestTask("testTask2"), State: manager.UNKNOWN}
 
-	taskManager.Add(testTask)
-	taskManager.Add(testTask1)
-	taskManager.Add(testTask2)
+	taskManager.Add(testTask, testTask1, testTask2)
 
 	tasksLength := taskManager.TotalTasks()
 
@@ -279,7 +215,7 @@ func TestTaskManager_AddSameTask(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	testTask := CreateTestTask("testTask")
+	testTask := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Add(testTask)
 	err := taskManager.Add(testTask)
 	if err == nil {
@@ -298,7 +234,7 @@ func TestTaskManager_DeleteFail(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	testTask := CreateTestTask("testTask")
+	testTask := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Add(testTask)
 	taskManager.Delete(testTask)
 	taskManager.Delete(testTask) // This doesn't work, we need to make sure the storage driver fails.
@@ -314,16 +250,16 @@ func TestTaskManager_GetByIdFail(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	testTask := CreateTestTask("testTask")
+	testTask := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Add(testTask)
 	taskManager.Delete(testTask)
-	_, err := taskManager.GetById(testTask.GetTaskId())
+	_, err := taskManager.GetById(testTask.Info.GetTaskId())
 	if err == nil {
 		t.Logf("Found a task by ID after deleting it %v", testTask)
 		t.FailNow()
 	}
 
-	testTask = CreateTestTask("testTask")
+	testTask = &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Add(testTask)
 	_, err = taskManager.GetById(&mesos_v1.TaskID{Value: utils.ProtoString("Fail me")})
 	if err == nil {
@@ -342,10 +278,10 @@ func TestTaskManager_HasTaskFail(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	testTask := CreateTestTask("testTask")
+	testTask := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Add(testTask)
 	taskManager.Delete(testTask)
-	err := taskManager.HasTask(testTask)
+	err := taskManager.HasTask(testTask.Info)
 	if err {
 		t.Logf("Task manager still thinks it has a task after deleting it %v", testTask)
 		t.FailNow()
@@ -362,7 +298,7 @@ func TestTaskManager_HasTaskFailWithBrokenStorage(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	testTask := CreateTestTask("testTask")
+	testTask := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	err := taskManager.Add(testTask)
 	if err == nil {
 		t.Log("Didn't fail with broken storage.")
@@ -380,7 +316,7 @@ func TestTaskManager_DeleteFailWithBrokenStorage(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	testTask := CreateTestTask("testTask")
+	testTask := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Delete(testTask)
 }
 
@@ -394,8 +330,8 @@ func TestTaskManager_SetFailWithBrokenStorage(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	testTask := CreateTestTask("testTask")
-	taskManager.Set(manager.FAILED, testTask)
+	testTask := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
+	taskManager.Add(testTask)
 }
 
 func TestTaskManager_AddManyTasks(t *testing.T) {
@@ -408,13 +344,11 @@ func TestTaskManager_AddManyTasks(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	tasks := make([]*mesos_v1.TaskInfo, 0)
+	tasks := make([]*manager.Task, 0)
 	for i := 0; i <= 3; i++ {
-		tasks = append(tasks, CreateTestTask("testTask"+strconv.Itoa(i)))
+		tasks = append(tasks, &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN})
 	}
-	for _, k := range tasks {
-		taskManager.Set(manager.UNKNOWN, k)
-	}
+	taskManager.Add(tasks...)
 	if taskManager.TotalTasks() == 3 {
 		t.Log(taskManager.TotalTasks())
 	}
@@ -430,13 +364,12 @@ func TestTaskManager_AddManyTasksAndDelete(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	tasks := make([]*mesos_v1.TaskInfo, 0)
+	tasks := make([]*manager.Task, 0)
 	for i := 0; i <= 3; i++ {
-		tasks = append(tasks, CreateTestTask("testTask"+strconv.Itoa(i)))
+		tasks = append(tasks, &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN})
 	}
 	for _, k := range tasks {
 		taskManager.Add(k)
-		taskManager.Set(manager.UNKNOWN, k)
 	}
 	if taskManager.TotalTasks() == 3 {
 		t.Log(taskManager.TotalTasks())
@@ -456,9 +389,9 @@ func TestTaskManager_DoubleAdd(t *testing.T) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	tasks := make([]*mesos_v1.TaskInfo, 3)
-	for i := 0; i < 3; i++ {
-		tasks[i] = CreateTestTask("testTask" + strconv.Itoa(i))
+	tasks := make([]*manager.Task, 0)
+	for i := 0; i <= 3; i++ {
+		tasks = append(tasks, &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN})
 	}
 	for _, k := range tasks {
 		taskManager.Add(k)
@@ -466,11 +399,10 @@ func TestTaskManager_DoubleAdd(t *testing.T) {
 		if err := taskManager.Add(k); err == nil {
 			t.Log("Able to add multiples of the same task", err.Error())
 		}
-		taskManager.Set(manager.UNKNOWN, k)
 	}
 
 	if taskManager.TotalTasks() != 3 {
-		t.Log("Expecting 1000 tasks in total, got " + strconv.Itoa(taskManager.TotalTasks()))
+		t.Log("Expecting 3 tasks in total, got " + strconv.Itoa(taskManager.TotalTasks()))
 	}
 }
 
@@ -484,7 +416,7 @@ func BenchmarkSprintTaskHandler_Add(b *testing.B) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	t := CreateTestTask("test")
+	t := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		taskManager.Add(t)
@@ -502,7 +434,7 @@ func BenchmarkSprintTaskHandler_Delete(b *testing.B) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	t := CreateTestTask("test")
+	t := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		taskManager.Delete(t)
@@ -521,30 +453,11 @@ func BenchmarkSprintTaskHandler_Get(b *testing.B) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	t := CreateTestTask("test")
+	t := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Add(t)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		taskManager.Get(t.Name)
-	}
-	b.StopTimer()
-}
-
-func BenchmarkSprintTaskHandler_Set(b *testing.B) {
-	cmap := make(map[string]manager.Task)
-	storage := mockStorage.MockStorage{}
-	config := &scheduler.Configuration{
-		Persistence: &scheduler.PersistenceConfiguration{
-			MaxRetries: 0,
-		},
-	}
-	logger := logging.NewDefaultLogger()
-	taskManager := NewTaskManager(cmap, storage, config, logger)
-	t := CreateTestTask("test")
-	taskManager.Add(t)
-	b.StartTimer()
-	for i := 0; i < b.N; i++ {
-		taskManager.Set(manager.UNKNOWN, t)
+		taskManager.Get(t.Info.Name)
 	}
 	b.StopTimer()
 }
@@ -559,11 +472,11 @@ func BenchmarkSprintTaskHandler_GetById(b *testing.B) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	t := CreateTestTask("test")
+	t := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Add(t)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		taskManager.GetById(t.TaskId)
+		taskManager.GetById(t.Info.TaskId)
 	}
 	b.StopTimer()
 }
@@ -578,11 +491,11 @@ func BenchmarkSprintTaskHandler_HasTask(b *testing.B) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	t := CreateTestTask("test")
+	t := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Add(t)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		taskManager.HasTask(t)
+		taskManager.HasTask(t.Info)
 	}
 	b.StopTimer()
 }
@@ -597,7 +510,7 @@ func BenchmarkSprintTaskHandler_All(b *testing.B) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	t := CreateTestTask("test")
+	t := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Add(t)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
@@ -616,127 +529,11 @@ func BenchmarkSprintTaskHandler_TotalTasks(b *testing.B) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	t := CreateTestTask("test")
+	t := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Add(t)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		taskManager.TotalTasks()
-	}
-	b.StopTimer()
-}
-
-func BenchmarkSprintTaskHandler_State(b *testing.B) {
-	cmap := make(map[string]manager.Task)
-	storage := mockStorage.MockStorage{}
-	config := &scheduler.Configuration{
-		Persistence: &scheduler.PersistenceConfiguration{
-			MaxRetries: 0,
-		},
-	}
-	logger := logging.NewDefaultLogger()
-	taskManager := NewTaskManager(cmap, storage, config, logger)
-	t := CreateTestTask("test")
-	taskManager.Add(t)
-	b.StartTimer()
-	for i := 0; i < b.N; i++ {
-		taskManager.State(t.Name)
-	}
-	b.StopTimer()
-}
-
-func BenchmarkSprintTaskHandler_AddPolicy(b *testing.B) {
-	cmap := make(map[string]manager.Task)
-	storage := mockStorage.MockStorage{}
-	config := &scheduler.Configuration{
-		Persistence: &scheduler.PersistenceConfiguration{
-			MaxRetries: 0,
-		},
-	}
-	logger := logging.NewDefaultLogger()
-	taskManager := NewTaskManager(cmap, storage, config, logger)
-	t := CreateTestTask("test")
-	taskManager.Add(t)
-	b.StartTimer()
-	for i := 0; i < b.N; i++ {
-		taskManager.AddPolicy(&task.TimeRetry{
-			Time:       "1",
-			Backoff:    true,
-			MaxRetries: 100,
-		}, t)
-	}
-	b.StopTimer()
-}
-
-func BenchmarkSprintTaskHandler_CheckPolicy(b *testing.B) {
-	cmap := make(map[string]manager.Task)
-	storage := mockStorage.MockStorage{}
-	config := &scheduler.Configuration{
-		Persistence: &scheduler.PersistenceConfiguration{
-			MaxRetries: 0,
-		},
-	}
-	logger := logging.NewDefaultLogger()
-	taskManager := NewTaskManager(cmap, storage, config, logger)
-	t := CreateTestTask("test")
-	taskManager.Add(t)
-	b.StartTimer()
-	for i := 0; i < b.N; i++ {
-		taskManager.CheckPolicy(t)
-	}
-	b.StopTimer()
-}
-
-func BenchmarkSprintTaskHandler_ClearPolicy(b *testing.B) {
-	cmap := make(map[string]manager.Task)
-	storage := mockStorage.MockStorage{}
-	config := &scheduler.Configuration{
-		Persistence: &scheduler.PersistenceConfiguration{
-			MaxRetries: 0,
-		},
-	}
-	logger := logging.NewDefaultLogger()
-	taskManager := NewTaskManager(cmap, storage, config, logger)
-	t := CreateTestTask("test")
-	taskManager.Add(t)
-	b.StartTimer()
-	for i := 0; i < b.N; i++ {
-		taskManager.ClearPolicy(t)
-	}
-	b.StopTimer()
-}
-
-func BenchmarkSprintTaskHandler_RunPolicy(b *testing.B) {
-	cmap := make(map[string]manager.Task)
-	storage := mockStorage.MockStorage{}
-	config := &scheduler.Configuration{
-		Persistence: &scheduler.PersistenceConfiguration{
-			MaxRetries: 0,
-		},
-	}
-	logger := logging.NewDefaultLogger()
-	taskManager := NewTaskManager(cmap, storage, config, logger)
-	t := CreateTestTask("test")
-	taskManager.Add(t)
-	retryFunc := func() error {
-
-		// Check if the task has been deleted while waiting for a retry.
-		t, err := taskManager.Get(t.Name)
-		if err != nil {
-			return err
-		}
-		taskManager.Set(manager.UNKNOWN, t)
-
-		return nil
-	}
-	b.StartTimer()
-	for i := 0; i < b.N; i++ {
-		taskManager.RunPolicy(&retry.TaskRetry{
-			TotalRetries: 0,
-			MaxRetries:   100,
-			RetryTime:    1 * time.Nanosecond,
-			Backoff:      false,
-			Name:         "test",
-		}, retryFunc)
 	}
 	b.StopTimer()
 }
@@ -751,7 +548,7 @@ func BenchmarkSprintTaskHandler_AllByState(b *testing.B) {
 	}
 	logger := logging.NewDefaultLogger()
 	taskManager := NewTaskManager(cmap, storage, config, logger)
-	t := CreateTestTask("test")
+	t := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Add(t)
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {

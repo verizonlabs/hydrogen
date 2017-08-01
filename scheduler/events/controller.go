@@ -12,11 +12,11 @@ import (
 	"os"
 	"os/signal"
 	sprintSched "sprint/scheduler"
-	sprintTask "sprint/task/manager"
 	"sprint/task/persistence"
 	"sync"
 	"syscall"
 	"time"
+	"mesos-framework-sdk/include/mesos_v1"
 )
 
 //
@@ -53,7 +53,7 @@ type (
 	SprintEventController struct {
 		config          *sprintSched.Configuration
 		scheduler       scheduler.Scheduler
-		taskmanager     sprintTask.SprintTaskManager
+		taskmanager     sdkTaskManager.TaskManager
 		resourcemanager manager.ResourceManager
 		events          chan *sched.Event
 		storage         persistence.Storage
@@ -69,7 +69,7 @@ type (
 func NewSprintEventController(
 	config *sprintSched.Configuration,
 	scheduler scheduler.Scheduler,
-	manager sprintTask.SprintTaskManager,
+	manager sdkTaskManager.TaskManager,
 	resourceManager manager.ResourceManager,
 	eventChan chan *sched.Event,
 	storage persistence.Storage,
@@ -94,7 +94,7 @@ func (s *SprintEventController) Scheduler() scheduler.Scheduler {
 }
 
 // Returns the task manager which handles task state and persistent storage.
-func (s *SprintEventController) TaskManager() sprintTask.SprintTaskManager {
+func (s *SprintEventController) TaskManager() sdkTaskManager.TaskManager {
 	return s.taskmanager
 }
 
@@ -181,6 +181,7 @@ func (s *SprintEventController) Run() {
 // Keep our state in check by periodically reconciling.
 func (s *SprintEventController) periodicReconcile() {
 	ticker := time.NewTicker(s.config.Scheduler.ReconcileInterval)
+
 	for {
 		select {
 		case <-ticker.C:
@@ -188,8 +189,11 @@ func (s *SprintEventController) periodicReconcile() {
 			if err != nil {
 				continue
 			}
-
-			_, err = s.Scheduler().Reconcile(recon)
+			toReconcile := []*mesos_v1.TaskInfo{}
+			for _, t := range recon {
+				toReconcile = append(toReconcile, t.Info)
+			}
+			_, err = s.Scheduler().Reconcile(toReconcile)
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to reconcile all running tasks: %s", err.Error())
 			}

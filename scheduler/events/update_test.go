@@ -9,6 +9,7 @@ import (
 
 func TestSprintEventController_Update(t *testing.T) {
 	ctrl := workingEventController()
+
 	for _, state := range states {
 		ctrl.Update(&mesos_v1_scheduler.Event_Update{
 			Status: &mesos_v1.TaskStatus{

@@ -20,25 +20,27 @@ func TestNewApiParser(t *testing.T) {
 
 func TestParser_DeployNoHealthCheck(t *testing.T) {
 	api := NewApiParser(k.MockResourceManager{}, test.MockTaskManager{}, s.MockScheduler{})
-	validJSON := `{"name": "test",
+	validJSON := `[{"name": "test",
 	"instances": 1,
 	"resources": {"cpu": 0.5, "mem": 128.0, "disk": {"size": 1024.0}},
-	"command": {"cmd": "echo hello"}}`
+	"command": {"cmd": "echo hello"}}]`
 
 	task, err := api.Deploy([]byte(validJSON))
 	if err != nil {
 		t.Logf("Failure to parse JSON %v\n", err)
 		t.Fail()
 	}
-	if task.HealthCheck != nil {
-		t.Log("Healthcheck field was supposed to be set as nil, was non-nil instead.")
-		t.Fail()
+	if len(task) != 0 {
+		if task[0].Info.HealthCheck != nil {
+			t.Log("Healthcheck field was supposed to be set as nil, was non-nil instead.")
+			t.Fail()
+		}
 	}
 }
 
 func TestParser_DeployWithTCPHealthCheck(t *testing.T) {
 	api := NewApiParser(k.MockResourceManager{}, test.MockTaskManager{}, s.MockScheduler{})
-	validJSON := `{"name": "test",
+	validJSON := `[{"name": "test",
 	"instances": 1,
 	"resources": {"cpu": 0.5, "mem": 128.0, "disk": {"size": 1024.0}},
 	"command": {"cmd": "echo hello"},
@@ -48,7 +50,7 @@ func TestParser_DeployWithTCPHealthCheck(t *testing.T) {
 	      "port": 9000
 	    }
 	  }
-	}`
+	}]`
 
 	task, err := api.Deploy([]byte(validJSON))
 	if err != nil {
@@ -58,15 +60,15 @@ func TestParser_DeployWithTCPHealthCheck(t *testing.T) {
 	if task == nil {
 		t.Log("Task is nil and should be set to some value.")
 		t.Fail()
-	} else if task.HealthCheck == nil {
+	} else if task[0].Info.HealthCheck == nil {
 		t.Log("Healthcheck field was supposed to be set, was nil instead.")
 		t.Fail()
-	} else if task.HealthCheck.Type == nil{
+	} else if task[0].Info.HealthCheck.Type == nil{
 		t.Log("Healthcheck type was set to nil, and not tcp")
 		t.Fail()
 	}
-	if task.HealthCheck.Type.String() != "TCP" {
-		t.Logf("Healthcheck type was set to %v instead of tcp", task.HealthCheck.Type.String())
+	if task[0].Info.HealthCheck.Type.String() != "TCP" {
+		t.Logf("Healthcheck type was set to %v instead of tcp", task[0].Info.HealthCheck.Type.String())
 		t.Failed()
 	}
 }
@@ -97,7 +99,7 @@ func TestParser_DeployWithNoResources(t *testing.T) {
 
 func TestParser_DeployWithCNINetwork(t *testing.T) {
 	api := NewApiParser(k.MockResourceManager{}, test.MockTaskManager{}, s.MockScheduler{})
-	validJSON := `{"name": "tester",
+	validJSON := `[{"name": "tester",
 	"instances": 1,
 	"resources": {"cpu": 0.5, "mem": 128.0, "disk": {"size": 1024.0}},
 	"container": {
@@ -105,7 +107,7 @@ func TestParser_DeployWithCNINetwork(t *testing.T) {
 		"network": [{"name": "cni"}]
 	},
 	"command": {"cmd": ""}
-	}`
+	}]`
 	task, err := api.Deploy([]byte(validJSON))
 	if err != nil {
 		t.Logf("Error..%v\n", err.Error())
@@ -116,7 +118,7 @@ func TestParser_DeployWithCNINetwork(t *testing.T) {
 
 func TestParser_DeployWithIPNetwork(t *testing.T) {
 	api := NewApiParser(k.MockResourceManager{}, test.MockTaskManager{}, s.MockScheduler{})
-	validJSON := `{"name": "tester",
+	validJSON := `[{"name": "tester",
 	"instances": 1,
 	"resources": {"cpu": 0.5, "mem": 128.0, "disk": {"size": 1024.0}},
 	"container": {
@@ -131,25 +133,25 @@ func TestParser_DeployWithIPNetwork(t *testing.T) {
 		}]
 	},
 	"command": {"cmd": ""}
-	}`
+	}]`
 	task, err := api.Deploy([]byte(validJSON))
 	if err != nil {
 		t.Logf("Error parsing JSON for IP address setting %v\n", err.Error())
 		t.Fail()
 	}
-	if task.GetContainer() == nil {
-		t.Logf("Container is nil, should be set %v\n", task.GetContainer())
+	if task[0].Info.GetContainer() == nil {
+		t.Logf("Container is nil, should be set %v\n", task[0].Info.GetContainer())
 		t.Fail()
-	} else if len(task.GetContainer().GetNetworkInfos()) == 0 {
-		t.Logf("Container networking list is empty %v\n", task.GetContainer().GetNetworkInfos())
+	} else if len(task[0].Info.GetContainer().GetNetworkInfos()) == 0 {
+		t.Logf("Container networking list is empty %v\n", task[0].Info.GetContainer().GetNetworkInfos())
 		t.Fail()
 	}
-	net := task.GetContainer().GetNetworkInfos()[0]
+	net := task[0].Info.GetContainer().GetNetworkInfos()[0]
 	if len(net.IpAddresses) > 1 {
 		t.Log("Container network has > 1 ip address, only expecting 1.")
 		t.Fail()
 	} else if net.IpAddresses[0].GetIpAddress() != "10.2.1.25" {
-		t.Logf("Container networking has the wrong IP %v\n", task.GetContainer().GetNetworkInfos()[0])
+		t.Logf("Container networking has the wrong IP %v\n", task[0].Info.GetContainer().GetNetworkInfos()[0])
 		t.Fail()
 	} else if len(net.Groups) > 2 || len(net.Groups) < 2{
 		t.Logf("Expecting only 2 groups %v\n", net.Groups)
@@ -218,8 +220,8 @@ func TestParser_Update(t *testing.T) {
 		t.Logf("Failed %v\n", err)
 		t.Fail()
 	}
-	if task.GetName() != "test" {
-		t.Logf("Task updated came back with different name %v, should be the same", task.GetName())
+	if  task[0].Info.GetName() != "test" {
+		t.Logf("Task updated came back with different name %v, should be the same",  task[0].Info.GetName())
 	}
 }
 
@@ -238,10 +240,10 @@ func TestParser_Status(t *testing.T) {
 
 func TestParser_DeployMultiInstance(t *testing.T) {
 	api := NewApiParser(k.MockResourceManager{}, test.MockTaskManager{}, s.MockScheduler{})
-	multiInstance := `{"name": "test",
+	multiInstance := `[{"name": "test",
 	"instances": 5,
 	"resources": {"cpu": 0.5, "mem": 128.0, "disk": {"size": 1024.0}},
-	"command": {"cmd": "echo hello"}}`
+	"command": {"cmd": "echo hello"}}]`
 	task, err := api.Deploy([]byte(multiInstance))
 	if err != nil {
 		t.Logf("Deploying multiple instances failed %v", task)

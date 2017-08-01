@@ -33,7 +33,6 @@ func (s *SprintEventController) restoreTasks() error {
 			return err
 		}
 
-		s.TaskManager().Set(task.State, task.Info)
 	}
 
 	return nil

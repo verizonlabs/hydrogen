@@ -45,7 +45,9 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 	taskIdVal := taskID.GetValue()
 	agentIdVal := agentID.GetValue()
 
-	err = s.taskmanager.Set(state, task)
+	// Update the state of the task.
+	task.State = state
+
 	if err != nil {
 		s.logger.Emit(logging.ERROR, "Failed to update task %s: %s", taskIdVal, err.Error())
 		return
@@ -126,22 +128,11 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 
 // Sets a task to be rescheduled.
 // Rescheduling can be done when there are various failures such as network errors.
-func (s *SprintEventController) reschedule(task *mesos_v1.TaskInfo) {
-	policy := s.taskmanager.CheckPolicy(task)
-	retryFunc := func() error {
+func (s *SprintEventController) reschedule(task *manager.Task) {
+	// We need to check for nil tasks in order for testing to work with mock types.
 
-		// Check if the task has been deleted while waiting for a retry.
-		t, err := s.taskmanager.Get(task.Name)
-		if err != nil {
-			return err
-		}
-		s.taskmanager.Set(manager.UNKNOWN, t)
-		s.Scheduler().Revive()
+	task.Reschedule()
+	s.taskmanager.Update(task)
+	s.Scheduler().Revive()
 
-		return nil
-	}
-	err := s.taskmanager.RunPolicy(policy, retryFunc)
-	if err != nil {
-		s.logger.Emit(logging.ERROR, "Failed to run policy for task %s: %s", task.GetName(), err.Error())
-	}
 }
