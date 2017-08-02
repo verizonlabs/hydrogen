@@ -2,7 +2,7 @@ package test
 
 import (
 	mockKv "mesos-framework-sdk/persistence/drivers/etcd/test"
-	mockRetry "sprint/task/retry/test"
+	mockRetry "mesos-framework-sdk/task/retry/test"
 )
 
 type MockStorage struct {
@@ -11,6 +11,6 @@ type MockStorage struct {
 }
 
 type MockBrokenStorage struct {
-	mockKv.MockKVStore
+	mockKv.MockBrokenKVStore
 	mockRetry.MockBrokenRetry
 }
