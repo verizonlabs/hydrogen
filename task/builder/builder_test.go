@@ -22,13 +22,13 @@ func TestApplication(t *testing.T) {
 		Command: &task.CommandJSON{
 			Cmd: utils.ProtoString("/bin/sleep 1"),
 		},
-		Container:   &task.ContainerJSON{},
+		Container: &task.ContainerJSON{},
 		HealthCheck: &task.HealthCheckJSON{
 			Type: utils.ProtoString("http"),
 			Http: &task.HTTPHealthCheck{
 				Scheme: utils.ProtoString("http"),
-				Port: utils.ProtoInt32(9090),
-				Path: utils.ProtoString("/somepath"),
+				Port:   utils.ProtoInt32(9090),
+				Path:   utils.ProtoString("/somepath"),
 				Statuses: []uint32{
 					200,
 					202,
@@ -36,8 +36,8 @@ func TestApplication(t *testing.T) {
 			},
 			DelaySeconds: utils.ProtoFloat64(1.0),
 		},
-		Labels:      a,
-		Filters:     b,
+		Labels:  a,
+		Filters: b,
 	}
 	_, err := Application(test)
 	if err != nil {
@@ -166,8 +166,8 @@ func TestApplicationWithDockerContainer(t *testing.T) {
 			Type: utils.ProtoString("http"),
 			Http: &task.HTTPHealthCheck{
 				Scheme: utils.ProtoString("http"),
-				Port: utils.ProtoInt32(9090),
-				Path: utils.ProtoString("/somepath"),
+				Port:   utils.ProtoInt32(9090),
+				Path:   utils.ProtoString("/somepath"),
 				Statuses: []uint32{
 					200,
 					202,
@@ -175,8 +175,8 @@ func TestApplicationWithDockerContainer(t *testing.T) {
 			},
 			DelaySeconds: utils.ProtoFloat64(1.0),
 		},
-		Labels:      a,
-		Filters:     b,
+		Labels:  a,
+		Filters: b,
 	}
 	_, err := Application(test)
 	if err != nil {
@@ -259,13 +259,13 @@ func TestApplicationHealthChecks(t *testing.T) {
 		Command: &task.CommandJSON{
 			Cmd: utils.ProtoString("/bin/sleep 1"),
 		},
-		Container:   &task.ContainerJSON{},
+		Container: &task.ContainerJSON{},
 		HealthCheck: &task.HealthCheckJSON{
 			Type: utils.ProtoString("http"),
 			Http: &task.HTTPHealthCheck{
 				Scheme: utils.ProtoString("http"),
-				Port: utils.ProtoInt32(9090),
-				Path: utils.ProtoString("/somepath"),
+				Port:   utils.ProtoInt32(9090),
+				Path:   utils.ProtoString("/somepath"),
 				Statuses: []uint32{
 					200,
 					202,
@@ -273,8 +273,8 @@ func TestApplicationHealthChecks(t *testing.T) {
 			},
 			DelaySeconds: utils.ProtoFloat64(1.0),
 		},
-		Labels:      a,
-		Filters:     b,
+		Labels:  a,
+		Filters: b,
 	}
 	_, err := Application(test)
 	if err != nil {
