@@ -2,6 +2,7 @@ package events
 
 import (
 	"mesos-framework-sdk/ha"
+	"mesos-framework-sdk/include/mesos_v1"
 	sched "mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/resources/manager"
@@ -12,7 +13,6 @@ import (
 	"os"
 	"os/signal"
 	sprintSched "sprint/scheduler"
-	sprintTask "sprint/task/manager"
 	"sprint/task/persistence"
 	"sync"
 	"syscall"
@@ -32,9 +32,7 @@ import (
 //
 
 const (
-	// Note (tim): Is there a reasonable non-linear equation to determine refuse seconds?
-	// f^2/num_of_nodes_in_cluster where f is # of tasks to handle at once (per offer cycle).
-	refuseSeconds = 30.0 // Setting this to 30 as a "reasonable default".
+	refuseSeconds = 1.0 // Setting this to 30 as a "reasonable default".
 )
 
 type (
@@ -53,9 +51,10 @@ type (
 	SprintEventController struct {
 		config          *sprintSched.Configuration
 		scheduler       scheduler.Scheduler
-		taskmanager     sprintTask.SprintTaskManager
+		taskmanager     sdkTaskManager.TaskManager
 		resourcemanager manager.ResourceManager
 		events          chan *sched.Event
+		revive          chan *sdkTaskManager.Task
 		storage         persistence.Storage
 		logger          logging.Logger
 		frameworkLease  int64
@@ -69,9 +68,10 @@ type (
 func NewSprintEventController(
 	config *sprintSched.Configuration,
 	scheduler scheduler.Scheduler,
-	manager sprintTask.SprintTaskManager,
+	manager sdkTaskManager.TaskManager,
 	resourceManager manager.ResourceManager,
 	eventChan chan *sched.Event,
+    revive chan *sdkTaskManager.Task,
 	storage persistence.Storage,
 	logger logging.Logger) EventController {
 
@@ -82,6 +82,7 @@ func NewSprintEventController(
 		events:          eventChan,
 		resourcemanager: resourceManager,
 		storage:         storage,
+		revive:          revive,
 		logger:          logger,
 		status:          ha.Election,
 		name:            utils.UuidAsString(),
@@ -94,7 +95,7 @@ func (s *SprintEventController) Scheduler() scheduler.Scheduler {
 }
 
 // Returns the task manager which handles task state and persistent storage.
-func (s *SprintEventController) TaskManager() sprintTask.SprintTaskManager {
+func (s *SprintEventController) TaskManager() sdkTaskManager.TaskManager {
 	return s.taskmanager
 }
 
@@ -181,6 +182,7 @@ func (s *SprintEventController) Run() {
 // Keep our state in check by periodically reconciling.
 func (s *SprintEventController) periodicReconcile() {
 	ticker := time.NewTicker(s.config.Scheduler.ReconcileInterval)
+
 	for {
 		select {
 		case <-ticker.C:
@@ -188,8 +190,11 @@ func (s *SprintEventController) periodicReconcile() {
 			if err != nil {
 				continue
 			}
-
-			_, err = s.Scheduler().Reconcile(recon)
+			toReconcile := []*mesos_v1.TaskInfo{}
+			for _, t := range recon {
+				toReconcile = append(toReconcile, t.Info)
+			}
+			_, err = s.Scheduler().Reconcile(toReconcile)
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to reconcile all running tasks: %s", err.Error())
 			}

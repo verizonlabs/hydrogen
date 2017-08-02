@@ -31,37 +31,27 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 	s.resourcemanager.AddOffers(offerEvent.GetOffers())
 	accepts := make(map[*mesos_v1.OfferID][]*mesos_v1.Offer_Operation)
 
-	for _, mesosTask := range queued {
-		var InGroup bool
+	for _, task := range queued {
+		// If we've hit max retries of a task, kill itself.
+		if task.IsKill {
+			s.taskmanager.Delete(task)
+			continue
+		}
+
 		if !s.resourcemanager.HasResources() {
 			break
 		}
 
-		//
-		// Check if the task is in a scale group
-		// scale group will hold relevant information
-		// about which tasks are on which agents.
-		//
-
-		group := s.taskmanager.ReadGroup(mesosTask.GetName())
-
-		if group != nil {
-			InGroup = true
-		}
-
-		offer, err := s.resourcemanager.Assign(mesosTask)
-
-		// If we're in a group and we've already launched onto this agent, skip it.
-		if InGroup && s.isRedundantOffer(offer.GetAgentId().GetValue(), group) {
-			continue
-		}
+		offer, err := s.resourcemanager.Assign(task.Info)
 
 		if err != nil {
 			// It didn't match any offers.
 			s.logger.Emit(logging.ERROR, err.Error())
-			continue // We should decline.
+			task.Reschedule(s.revive)
+			s.taskmanager.Update(task)
+			continue
 		}
-
+		mesosTask := task.Info
 		t := &mesos_v1.TaskInfo{
 			Name:        mesosTask.Name,
 			TaskId:      mesosTask.GetTaskId(),
@@ -77,13 +67,11 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 			s.setupExecutor(t)
 		}
 
-		// TODO (aaron) investigate this state further as it might cause side effects.
-		// this is artificially set to STAGING, it does not correspond to when Mesos sets this task as STAGING.
-		// for example other parts of the codebase may check for STAGING and this would cause it to be set too early.
-		s.TaskManager().Set(manager.STAGING, t)
-		if InGroup {
-			s.TaskManager().Link(mesosTask.GetName(), offer.GetAgentId())
-		}
+		task.Info = t
+		task.State = manager.STAGING
+
+		s.TaskManager().Update(task)
+
 		accepts[offer.Id] = append(accepts[offer.Id], resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
 	}
 
@@ -99,7 +87,6 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 }
 
 func (s *SprintEventController) setupExecutor(t *mesos_v1.TaskInfo) {
-
 	// If we're using our custom executor then make sure we remove the original CommandInfo.
 	// Set up our ExecutorInfo and pass the user's command as data to the executor.
 	// The executor is responsible for taking this data and acting as expected.
