@@ -553,3 +553,22 @@ func BenchmarkSprintTaskHandler_AllByState(b *testing.B) {
 	}
 	b.StopTimer()
 }
+
+func BenchmarkSprintTaskHandler_Update(b *testing.B) {
+	cmap := make(map[string]manager.Task)
+	storage := mockStorage.MockStorage{}
+	config := &scheduler.Configuration{
+		Persistence: &scheduler.PersistenceConfiguration{
+			MaxRetries: 0,
+		},
+	}
+	logger := logging.NewDefaultLogger()
+	taskManager := NewTaskManager(cmap, storage, config, logger)
+	t := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
+	taskManager.Add(t)
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		taskManager.Update(t)
+	}
+	b.StopTimer()
+}

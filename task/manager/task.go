@@ -91,8 +91,6 @@ func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
 			}
 			m.tasks[t.Info.GetName()] = *t
 		} else {
-			// Otherwise add N instances.
-
 			// Add a group
 			t.GroupInfo = manager.GroupInfo{GroupName: t.Info.GetName() + "/", InGroup: true}
 
@@ -145,7 +143,6 @@ func (m *SprintTaskHandler) Delete(tasks ...*manager.Task) error {
 func (m *SprintTaskHandler) Get(name *string) (*manager.Task, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
-
 	if response, ok := m.tasks[*name]; ok {
 		return &response, nil
 	}
@@ -158,9 +155,9 @@ func (m *SprintTaskHandler) GetById(id *mesos_v1.TaskID) (*manager.Task, error) 
 	defer m.mutex.RUnlock()
 
 	if len(m.tasks) == 0 {
-		// TODO (tim): Standardize Error messages.
 		return nil, errors.New("There are no tasks")
 	}
+
 	for _, v := range m.tasks {
 		if id.GetValue() == v.Info.GetTaskId().GetValue() {
 			return &v, nil
@@ -174,7 +171,7 @@ func (m *SprintTaskHandler) HasTask(task *mesos_v1.TaskInfo) bool {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	if len(m.tasks) == 0 {
-		return false // If the manager is empty, this one doesn't exist.
+		return false
 	}
 	if _, ok := m.tasks[task.GetName()]; !ok {
 		return false
@@ -195,9 +192,13 @@ func (m *SprintTaskHandler) Update(tasks ...*manager.Task) error {
 	defer m.mutex.Unlock()
 
 	for _, task := range tasks {
-		// Update with the new state.
 		if err := m.encode(task); err != nil {
 			return err
+		}
+		if task.GroupInfo.InGroup {
+			m.storageWrite(task.GroupInfo.GroupName + task.Info.GetTaskId().GetValue(), m.buffer)
+		} else {
+			m.storageWrite(task.Info.GetTaskId().GetValue(), m.buffer)
 		}
 		m.tasks[task.Info.GetName()] = *task
 	}
@@ -265,7 +266,6 @@ func (m *SprintTaskHandler) storageDelete(taskId string) error {
 
 // Encodes task data.
 func (m *SprintTaskHandler) encode(task *manager.Task) error {
-	// Panics on nil values.
 	err := m.encoder.Encode(task)
 
 	return err

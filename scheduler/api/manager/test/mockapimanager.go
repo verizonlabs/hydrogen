@@ -33,7 +33,7 @@ func (m MockApiManager) AllTasks() ([]manager.Task, error) {
 		[]task.Filter{},
 		&retry.TaskRetry{},
 		1,
-		3,
+		false,
 		manager.GroupInfo{},
 	}}, nil
 }
