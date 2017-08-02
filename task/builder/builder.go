@@ -11,9 +11,9 @@ import (
 	"mesos-framework-sdk/task/labels"
 	"mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/task/resources"
+	"mesos-framework-sdk/task/retry"
 	"mesos-framework-sdk/utils"
 	"time"
-	"mesos-framework-sdk/task/retry"
 )
 
 var NoNameError = errors.New("A name is required for the application. Please set the name field.")
@@ -65,7 +65,7 @@ func Application(tasks ...*task.ApplicationJSON) ([]*manager.Task, error) {
 			return nil, err
 		}
 
-		hc, err := healthcheck.ParseHealthCheck(t.HealthCheck)
+		hc, err := healthcheck.ParseHealthCheck(t.HealthCheck, cmd)
 		if err != nil {
 			return nil, err
 		}
