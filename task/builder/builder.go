@@ -93,7 +93,7 @@ func Application(tasks ...*task.ApplicationJSON) ([]*manager.Task, error) {
 			// Default retry policy.
 			taskIntent.Retry = &retry.TaskRetry{
 				TotalRetries: 0,
-				MaxRetries:   10,
+				MaxRetries:   2,
 				RetryTime:    time.Duration(1 * time.Second),
 				Backoff:      true,
 				Name:         t.Name,

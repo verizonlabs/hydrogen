@@ -32,9 +32,7 @@ import (
 //
 
 const (
-	// Note (tim): Is there a reasonable non-linear equation to determine refuse seconds?
-	// f^2/num_of_nodes_in_cluster where f is # of tasks to handle at once (per offer cycle).
-	refuseSeconds = 30.0 // Setting this to 30 as a "reasonable default".
+	refuseSeconds = 1.0 // Setting this to 30 as a "reasonable default".
 )
 
 type (
@@ -56,6 +54,7 @@ type (
 		taskmanager     sdkTaskManager.TaskManager
 		resourcemanager manager.ResourceManager
 		events          chan *sched.Event
+		revive          chan *sdkTaskManager.Task
 		storage         persistence.Storage
 		logger          logging.Logger
 		frameworkLease  int64
@@ -72,6 +71,7 @@ func NewSprintEventController(
 	manager sdkTaskManager.TaskManager,
 	resourceManager manager.ResourceManager,
 	eventChan chan *sched.Event,
+    revive chan *sdkTaskManager.Task,
 	storage persistence.Storage,
 	logger logging.Logger) EventController {
 
@@ -82,6 +82,7 @@ func NewSprintEventController(
 		events:          eventChan,
 		resourcemanager: resourceManager,
 		storage:         storage,
+		revive:          revive,
 		logger:          logger,
 		status:          ha.Election,
 		name:            utils.UuidAsString(),

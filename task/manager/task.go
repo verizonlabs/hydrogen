@@ -213,6 +213,7 @@ func (m *SprintTaskHandler) AllByState(state mesos_v1.TaskState) ([]*manager.Tas
 	if len(m.tasks) == 0 {
 		return nil, errors.New("Task manager is empty")
 	}
+
 	tasks := []*manager.Task{}
 	for _, v := range m.tasks {
 		if v.State == state {
@@ -243,7 +244,7 @@ func (m *SprintTaskHandler) All() ([]manager.Task, error) {
 
 // Function that wraps writing to the storage backend.
 func (m *SprintTaskHandler) storageWrite(id string, encoded *bytes.Buffer) error {
-	err := m.storage.Create(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
+	err := m.storage.Update(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
 	if err != nil {
 		m.logger.Emit(
 			logging.ERROR, "Failed to update task %s with name %s to persistent data store. Retrying...",

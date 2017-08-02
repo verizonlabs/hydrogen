@@ -130,7 +130,13 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 // Sets a task to be rescheduled.
 // Rescheduling can be done when there are various failures such as network errors.
 func (s *SprintEventController) reschedule(task *manager.Task) {
-	task.Reschedule() // Updates back to TASK_UNKNOWN
-	s.taskmanager.Update(task)
-	s.Scheduler().Revive()
+	// Does the task manager still have a reference to this task?
+	_, err := s.taskmanager.GetById(task.Info.GetTaskId())
+	if err != nil {
+		// Task was killed in-between rescheduling.
+		s.taskmanager.Delete(task)
+	} else {
+		s.taskmanager.Update(task)
+		s.scheduler.Revive()
+	}
 }

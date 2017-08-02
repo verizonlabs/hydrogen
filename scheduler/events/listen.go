@@ -38,6 +38,8 @@ func (s *SprintEventController) Listen() {
 			case scheduler.Event_UNKNOWN:
 				s.logger.Emit(logging.ALARM, "Unknown event received")
 			}
+		case revive := <- s.revive:
+			s.reschedule(revive)
 		}
 	}
 }

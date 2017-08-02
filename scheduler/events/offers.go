@@ -32,6 +32,12 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 	accepts := make(map[*mesos_v1.OfferID][]*mesos_v1.Offer_Operation)
 
 	for _, task := range queued {
+		// If we've hit max retries of a task, kill itself.
+		if task.IsKill {
+			s.taskmanager.Delete(task)
+			continue
+		}
+
 		if !s.resourcemanager.HasResources() {
 			break
 		}
@@ -41,7 +47,9 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 		if err != nil {
 			// It didn't match any offers.
 			s.logger.Emit(logging.ERROR, err.Error())
-			continue // We should decline.
+			task.Reschedule(s.revive)
+			s.taskmanager.Update(task)
+			continue
 		}
 		mesosTask := task.Info
 		t := &mesos_v1.TaskInfo{
@@ -62,9 +70,6 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 		task.Info = t
 		task.State = manager.STAGING
 
-		// TODO (aaron) investigate this state further as it might cause side effects.
-		// this is artificially set to STAGING, it does not correspond to when Mesos sets this task as STAGING.
-		// for example other parts of the codebase may check for STAGING and this would cause it to be set too early.
 		s.TaskManager().Update(task)
 
 		accepts[offer.Id] = append(accepts[offer.Id], resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))

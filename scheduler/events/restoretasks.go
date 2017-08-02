@@ -6,6 +6,7 @@ import (
 	"encoding/gob"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/task/manager"
+	sprint "sprint/task/manager"
 )
 
 //
@@ -13,7 +14,7 @@ import (
 // If no tasks exist in the data store then we can consider this a fresh run and safely move on.
 //
 func (s *SprintEventController) restoreTasks() error {
-	tasks, err := s.getAllTasks()
+	tasks, err := s.storage.ReadAll(sprint.TASK_DIRECTORY)
 	if err != nil {
 		return err
 	}
@@ -28,11 +29,13 @@ func (s *SprintEventController) restoreTasks() error {
 		var b bytes.Buffer
 		b.Write(data)
 		d := gob.NewDecoder(&b)
-		err = d.Decode(&task)
-		if err != nil {
+
+		if err = d.Decode(&task); err != nil {
 			return err
 		}
-
+		if err := s.TaskManager().Add(&task); err != nil {
+			return err
+		}
 	}
 
 	return nil
