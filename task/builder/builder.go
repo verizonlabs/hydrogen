@@ -57,7 +57,7 @@ func Application(t *task.ApplicationJSON) (*mesos_v1.TaskInfo, error) {
 		return nil, err
 	}
 
-	hc, err := healthcheck.ParseHealthCheck(t.HealthCheck)
+	hc, err := healthcheck.ParseHealthCheck(t.HealthCheck, cmd)
 	if err != nil {
 		return nil, err
 	}
