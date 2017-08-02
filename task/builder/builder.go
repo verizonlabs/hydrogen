@@ -65,7 +65,7 @@ func Application(tasks ...*task.ApplicationJSON) ([]*manager.Task, error) {
 			return nil, err
 		}
 
-		hc, err := healthcheck.ParseHealthCheck(t.HealthCheck)
+		hc, err := healthcheck.ParseHealthCheck(t.HealthCheck, cmd)
 		if err != nil {
 			return nil, err
 		}
