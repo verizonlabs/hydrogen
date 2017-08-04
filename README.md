@@ -110,9 +110,9 @@ This is not valid JSON to launch but an example enumeration of all options avail
   "healthcheck": {
     "endpoint": "localhost:8080"            # What endpoint to hit for healthchecks
   },
-  "labels": [{
+  "labels": {
     "purpose": "Testing"                    # Labels are supported.
-  }]
+  }
 }
 </code></pre>
 
