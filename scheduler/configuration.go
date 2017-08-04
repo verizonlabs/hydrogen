@@ -108,7 +108,7 @@ func (c *ExecutorConfiguration) initialize() *ExecutorConfiguration {
 func (c *PersistenceConfiguration) initialize() *PersistenceConfiguration {
 	flag.StringVar(&c.Endpoints, "persistence.endpoints", "http://127.0.0.1:2379", "Comma-separated list of"+
 		"storage endpoints")
-	flag.DurationVar(&c.Timeout, "persistence.timeout", 2*time.Second, "Initial storage system connection timeout")
+	flag.DurationVar(&c.Timeout, "persistence.timeout", 2*time.Second, "Timeout for CRUD storage operations")
 	flag.DurationVar(&c.KeepaliveTime, "persistence.keepalive.time", 30*time.Second, "After a duration of this time"+
 		"if the client doesn't see any activity"+
 		"it pings the server to see"+
