@@ -18,6 +18,10 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 
 	// Always acknowledge that we've received the message from Mesos.
 	defer func() {
+		if len(status.GetUuid()) == 0 {
+			// We don't ack events that don't have uuid's.
+			return
+		}
 		_, err := s.scheduler.Acknowledge(agentID, taskID, status.GetUuid())
 		if err != nil {
 			s.logger.Emit(
@@ -47,7 +51,7 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 
 	// Update the state of the task.
 	task.State = state
-	s.taskmanager.Update(task)
+	err = s.taskmanager.Update(task)
 
 	if err != nil {
 		s.logger.Emit(logging.ERROR, "Failed to update task %s: %s", taskIdVal, err.Error())
@@ -57,7 +61,7 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 	switch state {
 	case mesos_v1.TaskState_TASK_FAILED:
 		s.logger.Emit(logging.ERROR, "Task %s failed: %s", taskIdVal, message)
-		s.reschedule(task)
+		task.Reschedule(s.revive)
 	case mesos_v1.TaskState_TASK_STAGING:
 		// NOP, keep task set to "launched".
 		s.logger.Emit(logging.INFO, "Task %s is staging: %s", taskIdVal, message)
@@ -65,10 +69,10 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 
 		// Transient error, we should retry launching. Taskinfo is fine.
 		s.logger.Emit(logging.INFO, "Task %s dropped: %s", taskIdVal, message)
-		s.reschedule(task)
+		task.Reschedule(s.revive)
 	case mesos_v1.TaskState_TASK_ERROR:
 		s.logger.Emit(logging.ERROR, "Error with task %s: %s", taskIdVal, message)
-		s.reschedule(task)
+		task.Reschedule(s.revive)
 	case mesos_v1.TaskState_TASK_FINISHED:
 		s.logger.Emit(
 			logging.INFO,
@@ -82,7 +86,7 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 		// Agent is dead and task is lost.
 		s.logger.Emit(logging.ERROR, "Task %s is gone: %s", taskIdVal, message)
 
-		s.reschedule(task)
+		task.Reschedule(s.revive)
 	case mesos_v1.TaskState_TASK_GONE_BY_OPERATOR:
 		// Agent might be dead, master is unsure. Will return to RUNNING state possibly or die.
 		s.logger.Emit(logging.ERROR, "Task %s gone by operator: %s", taskIdVal, message)
@@ -96,14 +100,12 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 		)
 		s.taskmanager.Delete(task)
 	case mesos_v1.TaskState_TASK_KILLING:
-
 		// Task is in the process of catching a SIGNAL and shutting down.
 		s.logger.Emit(logging.INFO, "Killing task %s: %s", taskIdVal, message)
 	case mesos_v1.TaskState_TASK_LOST:
 		// Task is unknown to the master and lost. Should reschedule.
 		s.logger.Emit(logging.ALARM, "Task %s was lost", taskIdVal)
-
-		s.reschedule(task)
+		task.Reschedule(s.revive)
 	case mesos_v1.TaskState_TASK_RUNNING:
 		s.logger.Emit(
 			logging.INFO,
@@ -132,7 +134,7 @@ func (s *SprintEventController) Update(updateEvent *mesos_v1_scheduler.Event_Upd
 func (s *SprintEventController) reschedule(task *manager.Task) {
 	// Does the task manager still have a reference to this task?
 	_, err := s.taskmanager.GetById(task.Info.GetTaskId())
-	if err != nil {
+	if err != nil || task.IsKill {
 		// Task was killed in-between rescheduling.
 		s.taskmanager.Delete(task)
 	} else {

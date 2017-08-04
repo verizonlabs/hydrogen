@@ -42,15 +42,15 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 			break
 		}
 
-		offer, err := s.resourcemanager.Assign(task.Info)
+		offer, err := s.resourcemanager.Assign(task)
 
 		if err != nil {
 			// It didn't match any offers.
 			s.logger.Emit(logging.ERROR, err.Error())
 			task.Reschedule(s.revive)
-			s.taskmanager.Update(task)
 			continue
 		}
+
 		mesosTask := task.Info
 		t := &mesos_v1.TaskInfo{
 			Name:        mesosTask.Name,
