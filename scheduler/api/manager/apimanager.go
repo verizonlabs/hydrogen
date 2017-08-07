@@ -45,6 +45,10 @@ func (m *Parser) Deploy(decoded []byte) ([]*t.Task, error) {
 		return nil, err
 	}
 
+	if len(appJSON) == 0 {
+		return nil, errors.New("No valid application passed in.")
+	}
+
 	mesosTasks, err := builder.Application(appJSON...)
 	if err != nil {
 		return nil, err
