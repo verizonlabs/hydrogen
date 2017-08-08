@@ -196,7 +196,7 @@ func (m *SprintTaskHandler) Update(tasks ...*manager.Task) error {
 			return err
 		}
 		if task.GroupInfo.InGroup {
-			m.storageWrite(task.GroupInfo.GroupName + task.Info.GetTaskId().GetValue(), m.buffer)
+			m.storageWrite(task.GroupInfo.GroupName+task.Info.GetTaskId().GetValue(), m.buffer)
 		} else {
 			m.storageWrite(task.Info.GetTaskId().GetValue(), m.buffer)
 		}
