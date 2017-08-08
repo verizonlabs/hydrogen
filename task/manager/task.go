@@ -1,7 +1,6 @@
 package manager
 
 import (
-	"encoding/json"
 	"errors"
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/logging"
@@ -74,7 +73,7 @@ func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
 				return errors.New("Task " + t.Info.GetName() + " already exists")
 			}
 			// Write forward.
-			data, err := m.encode(t)
+			data, err := t.Encode()
 			if err != nil {
 				return err
 			}
@@ -100,7 +99,7 @@ func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
 				}
 
 				// Write forward.
-				data, err := m.encode(&duplicate)
+				data, err := duplicate.Encode()
 				if err != nil {
 					return err
 				}
@@ -187,7 +186,7 @@ func (m *SprintTaskHandler) Update(tasks ...*manager.Task) error {
 	defer m.mutex.Unlock()
 
 	for _, task := range tasks {
-		data, err := m.encode(task)
+		data, err := task.Encode()
 		if err != nil {
 			return err
 		}
@@ -262,14 +261,4 @@ func (m *SprintTaskHandler) storageDelete(taskId string) error {
 		m.logger.Emit(logging.ERROR, err.Error())
 	}
 	return err
-}
-
-// Encodes task data.
-func (m *SprintTaskHandler) encode(task *manager.Task) ([]byte, error) {
-	data, err := json.Marshal(task)
-	if err != nil {
-		return nil, err
-	}
-
-	return data, err
 }
