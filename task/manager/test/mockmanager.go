@@ -58,15 +58,13 @@ func (m MockTaskManager) TotalTasks() int {
 }
 
 func (m MockTaskManager) All() ([]manager.Task, error) {
-	return []manager.Task{{
+	return []manager.Task{*manager.NewTask(
 		&mesos_v1.TaskInfo{},
 		mesos_v1.TaskState_TASK_RUNNING,
 		[]task.Filter{},
 		&retry.TaskRetry{},
 		1,
-		false,
-		manager.GroupInfo{},
-	}}, nil
+		manager.GroupInfo{})}, nil
 }
 
 //
@@ -188,13 +186,11 @@ func (m MockTaskManagerQueued) Tasks() structures.DistributedMap {
 }
 
 func (m MockTaskManagerQueued) All() ([]manager.Task, error) {
-	return []manager.Task{{
+	return []manager.Task{*manager.NewTask(
 		&mesos_v1.TaskInfo{},
 		mesos_v1.TaskState_TASK_RUNNING,
 		[]task.Filter{},
 		&retry.TaskRetry{},
 		1,
-		false,
-		manager.GroupInfo{},
-	}}, nil
+		manager.GroupInfo{})}, nil
 }
