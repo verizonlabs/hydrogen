@@ -7,7 +7,7 @@ import (
 )
 
 func TestApplication(t *testing.T) {
-	a := make([]map[string]string, 0)
+	a := make(map[string]string, 0)
 	b := make([]task.Filter, 0)
 	// Test
 	test := &task.ApplicationJSON{
@@ -47,7 +47,7 @@ func TestApplication(t *testing.T) {
 }
 
 func TestApplicationNoName(t *testing.T) {
-	a := make([]map[string]string, 0)
+	a := make(map[string]string, 0)
 	b := make([]task.Filter, 0)
 	// Test
 	test := &task.ApplicationJSON{
@@ -67,7 +67,7 @@ func TestApplicationNoName(t *testing.T) {
 }
 
 func TestApplicationNoResources(t *testing.T) {
-	a := make([]map[string]string, 0)
+	a := make(map[string]string, 0)
 	b := make([]task.Filter, 0)
 	// Test
 	test := &task.ApplicationJSON{
@@ -87,7 +87,7 @@ func TestApplicationNoResources(t *testing.T) {
 }
 
 func TestApplicationCommandFail(t *testing.T) {
-	a := make([]map[string]string, 0)
+	a := make(map[string]string, 0)
 	b := make([]task.Filter, 0)
 	// Test
 	test := &task.ApplicationJSON{
@@ -112,7 +112,7 @@ func TestApplicationCommandFail(t *testing.T) {
 }
 
 func TestApplicationContainerFail(t *testing.T) {
-	a := make([]map[string]string, 0)
+	a := make(map[string]string, 0)
 	b := make([]task.Filter, 0)
 	l := make([]task.VolumesJSON, 1)
 	l = append(l, task.VolumesJSON{HostPath: utils.ProtoString("/home/someone")})
@@ -143,7 +143,7 @@ func TestApplicationContainerFail(t *testing.T) {
 }
 
 func TestApplicationWithDockerContainer(t *testing.T) {
-	a := make([]map[string]string, 0)
+	a := make(map[string]string, 0)
 	b := make([]task.Filter, 0)
 
 	test := &task.ApplicationJSON{
@@ -186,7 +186,7 @@ func TestApplicationWithDockerContainer(t *testing.T) {
 }
 
 func TestApplicationFailResources(t *testing.T) {
-	a := make([]map[string]string, 0)
+	a := make(map[string]string, 0)
 	b := make([]task.Filter, 0)
 
 	test := &task.ApplicationJSON{
@@ -214,9 +214,8 @@ func TestApplicationFailResources(t *testing.T) {
 }
 
 func TestApplicationFailLabels(t *testing.T) {
-	a := make([]map[string]string, 1)
+	a := map[string]string{"": ""}
 	b := make([]task.Filter, 0)
-	a = append(a, map[string]string{"": ""})
 
 	test := &task.ApplicationJSON{
 		Name: "Test Task",
@@ -243,7 +242,7 @@ func TestApplicationFailLabels(t *testing.T) {
 }
 
 func TestApplicationHealthChecks(t *testing.T) {
-	a := make([]map[string]string, 0)
+	a := make(map[string]string, 0)
 	b := make([]task.Filter, 0)
 
 	// Test
