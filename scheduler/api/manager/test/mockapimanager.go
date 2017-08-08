@@ -27,15 +27,13 @@ func (m MockApiManager) Status(string) (mesos_v1.TaskState, error) {
 	return mesos_v1.TaskState_TASK_RUNNING, nil
 }
 func (m MockApiManager) AllTasks() ([]manager.Task, error) {
-	return []manager.Task{{
+	return []manager.Task{*manager.NewTask(
 		&mesos_v1.TaskInfo{},
 		mesos_v1.TaskState_TASK_RUNNING,
 		[]task.Filter{},
 		&retry.TaskRetry{},
 		1,
-		false,
-		manager.GroupInfo{},
-	}}, nil
+		manager.GroupInfo{})}, nil
 }
 
 func (m MockBrokenApiManager) Deploy([]byte) ([]*manager.Task, error) {
