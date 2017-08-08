@@ -83,7 +83,7 @@ func main() {
 		Auth:     auth,
 	}, logger) // Manages scheduler/executor HTTP calls, authorization, and new master detection.
 	s := sched.NewDefaultScheduler(c, frameworkInfo, logger) // Manages how to route and schedule tasks.
-	m := apiManager.NewApiParser(r, taskManager, s)                    // Middleware for our API.
+	m := apiManager.NewApiParser(r, taskManager, s)          // Middleware for our API.
 
 	revive := make(chan *t.Task)
 

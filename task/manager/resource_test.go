@@ -3,10 +3,10 @@ package manager
 import (
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/resources/manager"
+	"mesos-framework-sdk/task"
+	manager2 "mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
 	"testing"
-	manager2 "mesos-framework-sdk/task/manager"
-	"mesos-framework-sdk/task"
 )
 
 func createResources(cpu, mem float64) (r []*mesos_v1.Resource) {
