@@ -128,8 +128,12 @@ func (m *SprintTaskHandler) Delete(tasks ...*manager.Task) error {
 	defer m.mutex.Unlock()
 
 	for _, t := range tasks {
+		// Try to delete it from storage first.
+		if err := m.storageDelete(t); err != nil {
+			return err
+		}
+		// Then from in memory.
 		delete(m.tasks, t.Info.GetName())
-		m.storageDelete(t)
 
 	}
 	return nil
