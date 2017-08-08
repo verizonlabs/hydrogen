@@ -196,9 +196,13 @@ func (m *SprintTaskHandler) Update(tasks ...*manager.Task) error {
 			return err
 		}
 		if task.GroupInfo.InGroup {
-			m.storageWrite(task.GroupInfo.GroupName+task.Info.GetTaskId().GetValue(), m.buffer)
+			if err := m.storageWrite(task.GroupInfo.GroupName+task.Info.GetTaskId().GetValue(), m.buffer); err != nil{
+				return err
+			}
 		} else {
-			m.storageWrite(task.Info.GetTaskId().GetValue(), m.buffer)
+			if err := m.storageWrite(task.Info.GetTaskId().GetValue(), m.buffer); err != nil{
+				return err
+			}
 		}
 		m.tasks[task.Info.GetName()] = *task
 	}
