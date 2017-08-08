@@ -71,7 +71,7 @@ func NewSprintEventController(
 	manager sdkTaskManager.TaskManager,
 	resourceManager manager.ResourceManager,
 	eventChan chan *sched.Event,
-    revive chan *sdkTaskManager.Task,
+	revive chan *sdkTaskManager.Task,
 	storage persistence.Storage,
 	logger logging.Logger) EventController {
 

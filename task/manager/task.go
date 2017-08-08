@@ -77,11 +77,13 @@ func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
 			if err != nil {
 				return err
 			}
-			err = m.storageWrite(t.Info.GetTaskId().GetValue(), data)
+
+			err = m.storageWrite(t, data)
 			if err != nil {
 				m.logger.Emit(logging.ERROR, "Storage error: %v", err)
 				return err
 			}
+
 			m.tasks[t.Info.GetName()] = *t
 		} else {
 			// Add a group
@@ -104,11 +106,12 @@ func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
 					return err
 				}
 
-				err = m.storageWrite(duplicate.GroupInfo.GroupName+duplicate.Info.GetTaskId().GetValue(), data)
+				err = m.storageWrite(t, data)
 				if err != nil {
 					m.logger.Emit(logging.ERROR, "Storage error: %v", err)
 					return err
 				}
+
 				m.tasks[duplicate.Info.GetName()] = duplicate
 			}
 		}
@@ -123,12 +126,13 @@ func (m *SprintTaskHandler) Delete(tasks ...*manager.Task) error {
 	defer m.mutex.Unlock()
 
 	for _, t := range tasks {
-		delete(m.tasks, t.Info.GetName())
-		if t.GroupInfo.InGroup {
-			m.storageDelete(t.GroupInfo.GroupName + t.Info.GetTaskId().GetValue())
-		} else {
-			m.storageDelete(t.Info.GetTaskId().GetValue())
+		// Try to delete it from storage first.
+		if err := m.storageDelete(t); err != nil {
+			return err
 		}
+		// Then from in memory.
+		delete(m.tasks, t.Info.GetName())
+
 	}
 	return nil
 }
@@ -190,15 +194,10 @@ func (m *SprintTaskHandler) Update(tasks ...*manager.Task) error {
 		if err != nil {
 			return err
 		}
-		if task.GroupInfo.InGroup {
-			if err := m.storageWrite(task.GroupInfo.GroupName+task.Info.GetTaskId().GetValue(), data); err != nil {
-				return err
-			}
-		} else {
-			if err := m.storageWrite(task.Info.GetTaskId().GetValue(), data); err != nil {
-				return err
-			}
+		if err := m.storageWrite(task, data); err != nil {
+			return err
 		}
+
 		m.tasks[task.Info.GetName()] = *task
 	}
 
@@ -243,20 +242,36 @@ func (m *SprintTaskHandler) All() ([]manager.Task, error) {
 }
 
 // Function that wraps writing to the storage backend.
-func (m *SprintTaskHandler) storageWrite(id string, encoded []byte) error {
-	err := m.storage.Update(TASK_DIRECTORY+id, string(encoded))
+func (m *SprintTaskHandler) storageWrite(task *manager.Task, encoded []byte) error {
+	var writeKey string
+	var id string = task.Info.GetTaskId().GetValue()
+	var name string = task.Info.GetName()
+	if task.GroupInfo.InGroup {
+		writeKey = TASK_DIRECTORY + task.GroupInfo.GroupName + id
+	} else {
+		writeKey = TASK_DIRECTORY + id
+	}
+	err := m.storage.Update(writeKey, string(encoded))
 	if err != nil {
 		m.logger.Emit(
 			logging.ERROR, "Failed to update task %s with name %s to persistent data store. Retrying...",
 			id,
+			name,
 		)
 	}
 	return err
 }
 
 // Function that wraps deleting from the storage backend.
-func (m *SprintTaskHandler) storageDelete(taskId string) error {
-	err := m.storage.Delete(TASK_DIRECTORY + taskId)
+func (m *SprintTaskHandler) storageDelete(task *manager.Task) error {
+	var del string
+	var id string = task.Info.GetTaskId().GetValue()
+	if task.GroupInfo.InGroup {
+		del = TASK_DIRECTORY + task.GroupInfo.GroupName + id
+	} else {
+		del = TASK_DIRECTORY + id
+	}
+	err := m.storage.Delete(del)
 	if err != nil {
 		m.logger.Emit(logging.ERROR, err.Error())
 	}
