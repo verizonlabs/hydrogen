@@ -26,8 +26,8 @@ func (m MockApiManager) Update([]byte) ([]*manager.Task, error) {
 func (m MockApiManager) Status(string) (mesos_v1.TaskState, error) {
 	return mesos_v1.TaskState_TASK_RUNNING, nil
 }
-func (m MockApiManager) AllTasks() ([]manager.Task, error) {
-	return []manager.Task{*manager.NewTask(
+func (m MockApiManager) AllTasks() ([]*manager.Task, error) {
+	return []*manager.Task{manager.NewTask(
 		&mesos_v1.TaskInfo{},
 		mesos_v1.TaskState_TASK_RUNNING,
 		[]task.Filter{},
@@ -46,6 +46,6 @@ func (m MockBrokenApiManager) Update([]byte) ([]*manager.Task, error) {
 func (m MockBrokenApiManager) Status(string) (mesos_v1.TaskState, error) {
 	return mesos_v1.TaskState_TASK_UNKNOWN, errors.New("Broken")
 }
-func (m MockBrokenApiManager) AllTasks() ([]manager.Task, error) {
+func (m MockBrokenApiManager) AllTasks() ([]*manager.Task, error) {
 	return nil, errors.New("Broken")
 }

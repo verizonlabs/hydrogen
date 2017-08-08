@@ -30,7 +30,7 @@ func CreateTestTask(name string) *mesos_v1.TaskInfo {
 }
 
 func TestNewTaskManager(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -46,7 +46,7 @@ func TestNewTaskManager(t *testing.T) {
 }
 
 func TestTaskManager_Cycle(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -76,7 +76,7 @@ func TestTaskManager_Cycle(t *testing.T) {
 }
 
 func TestTaskManager_Length(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -121,7 +121,7 @@ func TestTaskManager_Length(t *testing.T) {
 }
 
 func TestTaskManager_GetById(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -152,7 +152,7 @@ func TestTaskManager_GetById(t *testing.T) {
 }
 
 func TestTaskManager_HasTask(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -171,7 +171,7 @@ func TestTaskManager_HasTask(t *testing.T) {
 }
 
 func TestTaskManager_TotalTasks(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -209,7 +209,7 @@ func TestTaskManager_TotalTasks(t *testing.T) {
 }
 
 func TestTaskManager_AddSameTask(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -228,7 +228,7 @@ func TestTaskManager_AddSameTask(t *testing.T) {
 }
 
 func TestTaskManager_DeleteFail(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -244,7 +244,7 @@ func TestTaskManager_DeleteFail(t *testing.T) {
 }
 
 func TestTaskManager_GetByIdFail(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -272,7 +272,7 @@ func TestTaskManager_GetByIdFail(t *testing.T) {
 }
 
 func TestTaskManager_HasTaskFail(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -292,7 +292,7 @@ func TestTaskManager_HasTaskFail(t *testing.T) {
 }
 
 func TestTaskManager_HasTaskFailWithBrokenStorage(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockBrokenStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -311,7 +311,7 @@ func TestTaskManager_HasTaskFailWithBrokenStorage(t *testing.T) {
 }
 
 func TestTaskManager_DeleteFailWithBrokenStorage(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -325,7 +325,7 @@ func TestTaskManager_DeleteFailWithBrokenStorage(t *testing.T) {
 }
 
 func TestTaskManager_SetFailWithBrokenStorage(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -339,7 +339,7 @@ func TestTaskManager_SetFailWithBrokenStorage(t *testing.T) {
 }
 
 func TestTaskManager_AddManyTasks(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -359,7 +359,7 @@ func TestTaskManager_AddManyTasks(t *testing.T) {
 }
 
 func TestTaskManager_AddManyTasksAndDelete(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -384,7 +384,7 @@ func TestTaskManager_AddManyTasksAndDelete(t *testing.T) {
 }
 
 func TestTaskManager_DoubleAdd(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -404,7 +404,7 @@ func TestTaskManager_DoubleAdd(t *testing.T) {
 }
 
 func BenchmarkSprintTaskHandler_Add(b *testing.B) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -422,7 +422,7 @@ func BenchmarkSprintTaskHandler_Add(b *testing.B) {
 }
 
 func BenchmarkSprintTaskHandler_Delete(b *testing.B) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -441,7 +441,7 @@ func BenchmarkSprintTaskHandler_Delete(b *testing.B) {
 }
 
 func BenchmarkSprintTaskHandler_Get(b *testing.B) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -460,7 +460,7 @@ func BenchmarkSprintTaskHandler_Get(b *testing.B) {
 }
 
 func BenchmarkSprintTaskHandler_GetById(b *testing.B) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -479,7 +479,7 @@ func BenchmarkSprintTaskHandler_GetById(b *testing.B) {
 }
 
 func BenchmarkSprintTaskHandler_HasTask(b *testing.B) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -498,7 +498,7 @@ func BenchmarkSprintTaskHandler_HasTask(b *testing.B) {
 }
 
 func BenchmarkSprintTaskHandler_All(b *testing.B) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -517,7 +517,7 @@ func BenchmarkSprintTaskHandler_All(b *testing.B) {
 }
 
 func BenchmarkSprintTaskHandler_TotalTasks(b *testing.B) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -536,7 +536,7 @@ func BenchmarkSprintTaskHandler_TotalTasks(b *testing.B) {
 }
 
 func BenchmarkSprintTaskHandler_AllByState(b *testing.B) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
@@ -555,7 +555,7 @@ func BenchmarkSprintTaskHandler_AllByState(b *testing.B) {
 }
 
 func BenchmarkSprintTaskHandler_Update(b *testing.B) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{

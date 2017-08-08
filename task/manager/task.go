@@ -32,7 +32,7 @@ type (
 		mutex   sync.RWMutex
 		buffer  *bytes.Buffer
 		encoder *gob.Encoder
-		tasks   map[string]manager.Task
+		tasks   map[string]*manager.Task
 		groups  map[string][]*mesos_v1.AgentID
 		storage persistence.Storage
 		retries structures.DistributedMap
@@ -43,7 +43,7 @@ type (
 
 // Returns the core task manager that's used by the scheduler.
 func NewTaskManager(
-	cmap map[string]manager.Task,
+	cmap map[string]*manager.Task,
 	storage persistence.Storage,
 	config *scheduler.Configuration,
 	logger logging.Logger) manager.TaskManager {
@@ -89,7 +89,7 @@ func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
 				m.logger.Emit(logging.ERROR, "Storage error: %v", err)
 				return err
 			}
-			m.tasks[t.Info.GetName()] = *t
+			m.tasks[t.Info.GetName()] = t
 		} else {
 			// Add a group
 			t.GroupInfo = manager.GroupInfo{GroupName: t.Info.GetName() + "/", InGroup: true}
@@ -114,7 +114,7 @@ func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
 					m.logger.Emit(logging.ERROR, "Storage error: %v", err)
 					return err
 				}
-				m.tasks[duplicate.Info.GetName()] = duplicate
+				m.tasks[duplicate.Info.GetName()] = &duplicate
 			}
 		}
 	}
@@ -144,7 +144,7 @@ func (m *SprintTaskHandler) Get(name *string) (*manager.Task, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	if response, ok := m.tasks[*name]; ok {
-		return &response, nil
+		return response, nil
 	}
 	return nil, errors.New(*name + " not found.")
 }
@@ -160,7 +160,7 @@ func (m *SprintTaskHandler) GetById(id *mesos_v1.TaskID) (*manager.Task, error) 
 
 	for _, v := range m.tasks {
 		if id.GetValue() == v.Info.GetTaskId().GetValue() {
-			return &v, nil
+			return v, nil
 		}
 	}
 	return nil, errors.New("Could not find task by id: " + id.GetValue())
@@ -199,7 +199,7 @@ func (m *SprintTaskHandler) Update(tasks ...*manager.Task) error {
 			return err
 		}
 
-		m.tasks[task.Info.GetName()] = *task
+		m.tasks[task.Info.GetName()] = task
 	}
 
 	return nil
@@ -217,7 +217,7 @@ func (m *SprintTaskHandler) AllByState(state mesos_v1.TaskState) ([]*manager.Tas
 	tasks := []*manager.Task{}
 	for _, v := range m.tasks {
 		if v.State == state {
-			tasks = append(tasks, &v)
+			tasks = append(tasks, v)
 		}
 	}
 
@@ -229,13 +229,13 @@ func (m *SprintTaskHandler) AllByState(state mesos_v1.TaskState) ([]*manager.Tas
 }
 
 // All gets all tasks that are known to the task manager.
-func (m *SprintTaskHandler) All() ([]manager.Task, error) {
+func (m *SprintTaskHandler) All() ([]*manager.Task, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	if len(m.tasks) == 0 {
 		return nil, errors.New("Task manager is empty")
 	}
-	allTasks := []manager.Task{}
+	allTasks := []*manager.Task{}
 	for _, t := range m.tasks {
 		allTasks = append(allTasks, t)
 	}
