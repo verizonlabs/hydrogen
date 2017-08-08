@@ -1,9 +1,7 @@
 package manager
 
 import (
-	"bytes"
-	"encoding/base64"
-	"encoding/gob"
+	"encoding/json"
 	"errors"
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/logging"
@@ -30,8 +28,6 @@ type (
 	// Offers from Mesos are matched up with user-submitted tasks, and those tasks are updated via event callbacks.
 	SprintTaskHandler struct {
 		mutex   sync.RWMutex
-		buffer  *bytes.Buffer
-		encoder *gob.Encoder
 		tasks   map[string]manager.Task
 		groups  map[string][]*mesos_v1.AgentID
 		storage persistence.Storage
@@ -48,10 +44,7 @@ func NewTaskManager(
 	config *scheduler.Configuration,
 	logger logging.Logger) manager.TaskManager {
 
-	b := new(bytes.Buffer)
 	handler := &SprintTaskHandler{
-		buffer:  b,
-		encoder: gob.NewEncoder(b),
 		tasks:   cmap,
 		storage: storage,
 		retries: structures.NewConcurrentMap(),
@@ -81,10 +74,11 @@ func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
 				return errors.New("Task " + t.Info.GetName() + " already exists")
 			}
 			// Write forward.
-			if err := m.encode(t); err != nil {
+			data, err := m.encode(t)
+			if err != nil {
 				return err
 			}
-			err := m.storageWrite(t.Info.GetTaskId().GetValue(), m.buffer)
+			err = m.storageWrite(t.Info.GetTaskId().GetValue(), data)
 			if err != nil {
 				m.logger.Emit(logging.ERROR, "Storage error: %v", err)
 				return err
@@ -106,11 +100,12 @@ func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
 				}
 
 				// Write forward.
-				if err := m.encode(&duplicate); err != nil {
+				data, err := m.encode(&duplicate)
+				if err != nil {
 					return err
 				}
 
-				err := m.storageWrite(duplicate.GroupInfo.GroupName+duplicate.Info.GetTaskId().GetValue(), m.buffer)
+				err = m.storageWrite(duplicate.GroupInfo.GroupName+duplicate.Info.GetTaskId().GetValue(), data)
 				if err != nil {
 					m.logger.Emit(logging.ERROR, "Storage error: %v", err)
 					return err
@@ -192,13 +187,14 @@ func (m *SprintTaskHandler) Update(tasks ...*manager.Task) error {
 	defer m.mutex.Unlock()
 
 	for _, task := range tasks {
-		if err := m.encode(task); err != nil {
+		data, err := m.encode(task)
+		if err != nil {
 			return err
 		}
 		if task.GroupInfo.InGroup {
-			m.storageWrite(task.GroupInfo.GroupName+task.Info.GetTaskId().GetValue(), m.buffer)
+			m.storageWrite(task.GroupInfo.GroupName+task.Info.GetTaskId().GetValue(), data)
 		} else {
-			m.storageWrite(task.Info.GetTaskId().GetValue(), m.buffer)
+			m.storageWrite(task.Info.GetTaskId().GetValue(), data)
 		}
 		m.tasks[task.Info.GetName()] = *task
 	}
@@ -244,8 +240,8 @@ func (m *SprintTaskHandler) All() ([]manager.Task, error) {
 }
 
 // Function that wraps writing to the storage backend.
-func (m *SprintTaskHandler) storageWrite(id string, encoded *bytes.Buffer) error {
-	err := m.storage.Update(TASK_DIRECTORY+id, base64.StdEncoding.EncodeToString(encoded.Bytes()))
+func (m *SprintTaskHandler) storageWrite(id string, encoded []byte) error {
+	err := m.storage.Update(TASK_DIRECTORY+id, string(encoded))
 	if err != nil {
 		m.logger.Emit(
 			logging.ERROR, "Failed to update task %s with name %s to persistent data store. Retrying...",
@@ -265,8 +261,11 @@ func (m *SprintTaskHandler) storageDelete(taskId string) error {
 }
 
 // Encodes task data.
-func (m *SprintTaskHandler) encode(task *manager.Task) error {
-	err := m.encoder.Encode(task)
+func (m *SprintTaskHandler) encode(task *manager.Task) ([]byte, error) {
+	data, err := json.Marshal(task)
+	if err != nil {
+		return nil, err
+	}
 
-	return err
+	return data, err
 }

@@ -1,12 +1,11 @@
 package events
 
 import (
-	"bytes"
-	"encoding/base64"
-	"encoding/gob"
+	"encoding/json"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/task/manager"
 	sprint "sprint/task/manager"
+	"strings"
 )
 
 //
@@ -21,16 +20,12 @@ func (s *SprintEventController) restoreTasks() error {
 
 	for _, value := range tasks {
 		var task manager.Task
-		data, err := base64.StdEncoding.DecodeString(value)
 		if err != nil {
 			s.logger.Emit(logging.ERROR, err.Error())
 		}
 
-		var b bytes.Buffer
-		b.Write(data)
-		d := gob.NewDecoder(&b)
-
-		if err = d.Decode(&task); err != nil {
+		dec := json.NewDecoder(strings.NewReader(value))
+		if err = dec.Decode(&task); err != nil {
 			return err
 		}
 		if err := s.TaskManager().Add(&task); err != nil {
