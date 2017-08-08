@@ -57,8 +57,8 @@ func (m MockTaskManager) TotalTasks() int {
 	return 0
 }
 
-func (m MockTaskManager) All() ([]manager.Task, error) {
-	return []manager.Task{*manager.NewTask(
+func (m MockTaskManager) All() ([]*manager.Task, error) {
+	return []*manager.Task{manager.NewTask(
 		&mesos_v1.TaskInfo{},
 		mesos_v1.TaskState_TASK_RUNNING,
 		[]task.Filter{},
@@ -112,7 +112,7 @@ func (m MockBrokenTaskManager) Tasks() structures.DistributedMap {
 	return &test.MockBrokenDistributedMap{}
 }
 
-func (m MockBrokenTaskManager) All() ([]manager.Task, error) {
+func (m MockBrokenTaskManager) All() ([]*manager.Task, error) {
 	return nil, errors.New("Broken.")
 }
 
@@ -121,29 +121,6 @@ func (m MockBrokenTaskManager) AllByState(state mesos_v1.TaskState) ([]*manager.
 }
 
 type MockTaskManagerQueued struct{}
-
-func (m MockTaskManagerQueued) CreateGroup(string) error                     { return nil }
-func (m MockTaskManagerQueued) Unlink(string, *mesos_v1.AgentID) error       { return nil }
-func (m MockTaskManagerQueued) SetSize(string, int) error                    { return nil }
-func (m MockTaskManagerQueued) Link(string, *mesos_v1.AgentID) error         { return nil }
-func (m MockTaskManagerQueued) AddToGroup(string, *mesos_v1.AgentID) error   { return nil }
-func (m MockTaskManagerQueued) ReadGroup(string) []*mesos_v1.AgentID         { return []*mesos_v1.AgentID{} }
-func (m MockTaskManagerQueued) DelFromGroup(string, *mesos_v1.AgentID) error { return nil }
-func (m MockTaskManagerQueued) DeleteGroup(string) error                     { return nil }
-func (m MockTaskManagerQueued) IsInGroup(*mesos_v1.TaskInfo) bool            { return true }
-
-func (m MockTaskManagerQueued) AddPolicy(*task.TimeRetry, *mesos_v1.TaskInfo) error {
-	return nil
-}
-func (m MockTaskManagerQueued) CheckPolicy(*mesos_v1.TaskInfo) *retry.TaskRetry {
-	return nil
-}
-func (m MockTaskManagerQueued) ClearPolicy(*mesos_v1.TaskInfo) error {
-	return nil
-}
-func (m MockTaskManagerQueued) RunPolicy(*retry.TaskRetry, func() error) error {
-	return nil
-}
 
 func (m MockTaskManagerQueued) Add(*mesos_v1.TaskInfo) error {
 	return nil
@@ -185,8 +162,8 @@ func (m MockTaskManagerQueued) Tasks() structures.DistributedMap {
 	return &test.MockDistributedMap{}
 }
 
-func (m MockTaskManagerQueued) All() ([]manager.Task, error) {
-	return []manager.Task{*manager.NewTask(
+func (m MockTaskManagerQueued) All() ([]*manager.Task, error) {
+	return []*manager.Task{manager.NewTask(
 		&mesos_v1.TaskInfo{},
 		mesos_v1.TaskState_TASK_RUNNING,
 		[]task.Filter{},
