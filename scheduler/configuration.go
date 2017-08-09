@@ -106,16 +106,16 @@ func (c *ExecutorConfiguration) initialize() *ExecutorConfiguration {
 
 // Applies default configuration for our persistence connection.
 func (c *PersistenceConfiguration) initialize() *PersistenceConfiguration {
-	flag.StringVar(&c.Endpoints, "persistence.endpoints", "http://127.0.0.1:2379", "Comma-separated list of"+
+	flag.StringVar(&c.Endpoints, "persistence.endpoints", "http://127.0.0.1:2379", "Comma-separated list of "+
 		"storage endpoints")
 	flag.DurationVar(&c.Timeout, "persistence.timeout", 2*time.Second, "Timeout for CRUD storage operations")
-	flag.DurationVar(&c.KeepaliveTime, "persistence.keepalive.time", 30*time.Second, "After a duration of this time"+
-		"if the client doesn't see any activity"+
-		"it pings the server to see"+
+	flag.DurationVar(&c.KeepaliveTime, "persistence.keepalive.time", 30*time.Second, "After a duration of this time "+
+		"if the client doesn't see any activity "+
+		"it pings the server to see "+
 		"if the transport is still alive")
-	flag.DurationVar(&c.KeepaliveTimeout, "persistence.keepalive.timeout", 20*time.Second, "After having pinged for keepalive check,"+
-		"the client waits for this duration"+
-		"and if no activity is seen"+
+	flag.DurationVar(&c.KeepaliveTimeout, "persistence.keepalive.timeout", 20*time.Second, "After having pinged for keepalive check, "+
+		"the client waits for this duration "+
+		"and if no activity is seen "+
 		"even after that the connection is closed")
 	flag.IntVar(&c.MaxRetries, "persistence.retry.max", 3, "How many times persistence operations will be retried")
 
@@ -127,9 +127,9 @@ func (c *LeaderConfiguration) initialize() *LeaderConfiguration {
 	flag.StringVar(&c.IP, "ha.ip", "127.0.0.1", "IP address of the node where this framework is running")
 	flag.IntVar(&c.ServerPort, "ha.leader.server.port", 8082, "Port that the leader server listens on")
 	flag.StringVar(&c.AddressFamily, "ha.leader.server.address.family", "tcp4", "tcp4, tcp6, or tcp for dual stack")
-	flag.DurationVar(&c.RetryInterval, "ha.leader.election.retry", 2*time.Second, "How long to wait before retrying"+
+	flag.DurationVar(&c.RetryInterval, "ha.leader.election.retry", 2*time.Second, "How long to wait before retrying "+
 		"the leader election process")
-	flag.DurationVar(&c.ServerRetry, "ha.leader.server.retry", 2*time.Second, "How long to wait before accepting"+
+	flag.DurationVar(&c.ServerRetry, "ha.leader.server.retry", 2*time.Second, "How long to wait before accepting "+
 		"connections from clients after an error")
 
 	return c
@@ -171,7 +171,7 @@ func (c *SchedulerConfiguration) initialize() *SchedulerConfiguration {
 	flag.StringVar(&c.Secret, "secret", "", "Used when Mesos requires authentication")
 	flag.Float64Var(&c.Failover, "failover", 168*time.Hour.Seconds(), "Framework failover timeout") // 1 week is recommended
 	flag.StringVar(&c.Hostname, "hostname", "", "The framework's hostname")
-	flag.DurationVar(&c.SubscribeRetry, "subscribe.retry", 2*time.Second, "Controls the interval at which subscribe"+
+	flag.DurationVar(&c.SubscribeRetry, "subscribe.retry", 2*time.Second, "Controls the interval at which subscribe "+
 		"calls will be retried")
 	flag.DurationVar(&c.ReconcileInterval, "reconcile.interval", 15*time.Minute, "How often periodic reconciling happens")
 
