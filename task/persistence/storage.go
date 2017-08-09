@@ -5,8 +5,8 @@ import (
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/persistence"
 	"mesos-framework-sdk/task"
+	"mesos-framework-sdk/task/retry"
 	"sprint/scheduler"
-	"sprint/task/retry"
 	"time"
 )
 

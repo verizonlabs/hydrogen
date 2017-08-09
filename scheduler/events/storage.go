@@ -106,25 +106,3 @@ func (s *SprintEventController) refreshFrameworkIdLease() error {
 		return err
 	})
 }
-
-// Atomically retrieves all persisted tasks.
-func (s *SprintEventController) getAllTasks() (map[string]string, error) {
-	var tasks map[string]string
-	policy := s.storage.CheckPolicy(nil)
-	err := s.storage.RunPolicy(policy, func() error {
-		t, err := s.storage.ReadAll("/tasks")
-		if err != nil {
-			s.logger.Emit(logging.ERROR, "Failed to get all task data: %s", err.Error())
-			return err
-		}
-
-		tasks = t
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return tasks, nil
-}

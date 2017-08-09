@@ -4,6 +4,7 @@ import (
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/task"
+	manager2 "mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
 	"testing"
 )
@@ -58,31 +59,17 @@ func TestResourceManager_HasResources(t *testing.T) {
 	}
 }
 
-func TestResourceManager_AddFilter(t *testing.T) {
-	rm := manager.NewDefaultResourceManager()
-	o := createOffers(10)
-	rm.AddOffers(o)
-	f := task.Filter{
-		Type:  "text",
-		Value: []string{"test"},
-	}
-	filters := []task.Filter{f}
-	if err := rm.AddFilter(&mesos_v1.TaskInfo{
-		Name:      utils.ProtoString("test"),
-		Resources: createResources(1, 128),
-	}, filters); err != nil {
-		t.Log("Failed to add filter.")
-		t.FailNow()
-	}
-}
-
 func TestResourceManager_Assign(t *testing.T) {
 	rm := manager.NewDefaultResourceManager()
 	rm.AddOffers(createOffers(10))
-	o, err := rm.Assign(&mesos_v1.TaskInfo{
-		Name:      utils.ProtoString("test"),
-		Resources: createResources(1, 128),
-	})
+	o, err := rm.Assign(
+		&manager2.Task{
+			Info: &mesos_v1.TaskInfo{
+				Name:      utils.ProtoString("test"),
+				Resources: createResources(1, 128),
+			},
+			Filters: []task.Filter{},
+		})
 	if err != nil {
 		t.Log(err.Error())
 		t.FailNow()

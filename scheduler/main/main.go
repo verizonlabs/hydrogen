@@ -66,8 +66,8 @@ func main() {
 	), config)
 
 	// Manages our tasks.
-	t := sprintTaskManager.NewTaskManager(
-		make(map[string]t.Task),
+	taskManager := sprintTaskManager.NewTaskManager(
+		make(map[string]*t.Task),
 		p,
 		config,
 		logger,
@@ -83,10 +83,12 @@ func main() {
 		Auth:     auth,
 	}, logger) // Manages scheduler/executor HTTP calls, authorization, and new master detection.
 	s := sched.NewDefaultScheduler(c, frameworkInfo, logger) // Manages how to route and schedule tasks.
-	m := apiManager.NewApiParser(r, t, s)                    // Middleware for our API.
+	m := apiManager.NewApiParser(r, taskManager, s)          // Middleware for our API.
+
+	revive := make(chan *t.Task)
 
 	// Event controller manages scheduler events and how they are handled.
-	e := events.NewSprintEventController(config, s, t, r, eventChan, p, logger)
+	e := events.NewSprintEventController(config, s, taskManager, r, eventChan, revive, p, logger)
 
 	logger.Emit(logging.INFO, "Starting API server")
 
