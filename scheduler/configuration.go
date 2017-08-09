@@ -124,10 +124,10 @@ func (c *PersistenceConfiguration) initialize() *PersistenceConfiguration {
 
 // Applies default leader configuration.
 func (c *LeaderConfiguration) initialize() *LeaderConfiguration {
-	flag.StringVar(&c.IP, "ha.leader.ip", "127.0.0.1", "IP address of the node where this framework is running")
+	flag.StringVar(&c.IP, "ha.ip", "127.0.0.1", "IP address of the node where this framework is running")
 	flag.IntVar(&c.ServerPort, "ha.leader.server.port", 8082, "Port that the leader server listens on")
-	flag.StringVar(&c.AddressFamily, "ha.leader.address.family", "tcp4", "tcp4, tcp6, or tcp for dual stack")
-	flag.DurationVar(&c.RetryInterval, "ha.leader.retry", 2*time.Second, "How long to wait before retrying"+
+	flag.StringVar(&c.AddressFamily, "ha.leader.server.address.family", "tcp4", "tcp4, tcp6, or tcp for dual stack")
+	flag.DurationVar(&c.RetryInterval, "ha.leader.election.retry", 2*time.Second, "How long to wait before retrying"+
 		"the leader election process")
 	flag.DurationVar(&c.ServerRetry, "ha.leader.server.retry", 2*time.Second, "How long to wait before accepting"+
 		"connections from clients after an error")
