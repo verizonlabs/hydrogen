@@ -2,7 +2,7 @@ package manager
 
 import (
 	"mesos-framework-sdk/include/mesos_v1"
-	"mesos-framework-sdk/logging"
+	mockLogger "mesos-framework-sdk/logging/test"
 	"mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
 	"sprint/scheduler"
@@ -30,14 +30,14 @@ func CreateTestTask(name string) *mesos_v1.TaskInfo {
 }
 
 func TestNewTaskManager(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	if taskManager == nil {
@@ -46,14 +46,14 @@ func TestNewTaskManager(t *testing.T) {
 }
 
 func TestTaskManager_Cycle(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	testTask := CreateTestTask("testTask")
 
 	taskManager := NewTaskManager(cmap, storage, config, logger)
@@ -76,14 +76,14 @@ func TestTaskManager_Cycle(t *testing.T) {
 }
 
 func TestTaskManager_Length(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	testTask := &manager.Task{Info: CreateTestTask("testTask"), Instances: 1, State: manager.UNKNOWN}
 	testTask1 := &manager.Task{Info: CreateTestTask("testTask1"), Instances: 1, State: manager.UNKNOWN}
 	testTask2 := &manager.Task{Info: CreateTestTask("testTask2"), Instances: 1, State: manager.UNKNOWN}
@@ -121,14 +121,14 @@ func TestTaskManager_Length(t *testing.T) {
 }
 
 func TestTaskManager_GetById(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	testTask := &manager.Task{Info: CreateTestTask("testTask"), Instances: 1, State: manager.UNKNOWN}
 
@@ -152,14 +152,14 @@ func TestTaskManager_GetById(t *testing.T) {
 }
 
 func TestTaskManager_HasTask(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	testTask := &manager.Task{Info: CreateTestTask("testTask"), Instances: 1, State: manager.UNKNOWN}
 
@@ -171,14 +171,14 @@ func TestTaskManager_HasTask(t *testing.T) {
 }
 
 func TestTaskManager_TotalTasks(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	testTask := &manager.Task{Info: CreateTestTask("testTask"), Instances: 1, State: manager.UNKNOWN}
 	testTask1 := &manager.Task{Info: CreateTestTask("testTask1"), Instances: 1, State: manager.UNKNOWN}
@@ -209,14 +209,14 @@ func TestTaskManager_TotalTasks(t *testing.T) {
 }
 
 func TestTaskManager_AddSameTask(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	testTask := &manager.Task{Info: CreateTestTask("testTask"), Instances: 1, State: manager.UNKNOWN}
 	taskManager.Add(testTask)
@@ -228,14 +228,14 @@ func TestTaskManager_AddSameTask(t *testing.T) {
 }
 
 func TestTaskManager_DeleteFail(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	testTask := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Add(testTask)
@@ -244,14 +244,14 @@ func TestTaskManager_DeleteFail(t *testing.T) {
 }
 
 func TestTaskManager_GetByIdFail(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	testTask := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Add(testTask)
@@ -272,14 +272,14 @@ func TestTaskManager_GetByIdFail(t *testing.T) {
 }
 
 func TestTaskManager_HasTaskFail(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	testTask := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Add(testTask)
@@ -292,14 +292,14 @@ func TestTaskManager_HasTaskFail(t *testing.T) {
 }
 
 func TestTaskManager_HasTaskFailWithBrokenStorage(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockBrokenStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	testTask := &manager.Task{Info: CreateTestTask("testTask"), Instances: 1, State: manager.UNKNOWN}
 	err := taskManager.Add(testTask)
@@ -311,42 +311,42 @@ func TestTaskManager_HasTaskFailWithBrokenStorage(t *testing.T) {
 }
 
 func TestTaskManager_DeleteFailWithBrokenStorage(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	testTask := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Delete(testTask)
 }
 
 func TestTaskManager_SetFailWithBrokenStorage(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	testTask := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Add(testTask)
 }
 
 func TestTaskManager_AddManyTasks(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	tasks := make([]*manager.Task, 0)
 	for i := 0; i <= 3; i++ {
@@ -359,14 +359,14 @@ func TestTaskManager_AddManyTasks(t *testing.T) {
 }
 
 func TestTaskManager_AddManyTasksAndDelete(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	tasks := make([]*manager.Task, 0)
 	for i := 0; i <= 3; i++ {
@@ -384,14 +384,14 @@ func TestTaskManager_AddManyTasksAndDelete(t *testing.T) {
 }
 
 func TestTaskManager_DoubleAdd(t *testing.T) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	tasks := []*manager.Task{
 		{Info: CreateTestTask("testTask"), Instances: 1, State: manager.UNKNOWN},
@@ -404,14 +404,14 @@ func TestTaskManager_DoubleAdd(t *testing.T) {
 }
 
 func BenchmarkSprintTaskHandler_Add(b *testing.B) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	t := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	b.StartTimer()
@@ -422,14 +422,14 @@ func BenchmarkSprintTaskHandler_Add(b *testing.B) {
 }
 
 func BenchmarkSprintTaskHandler_Delete(b *testing.B) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	t := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	b.StartTimer()
@@ -441,14 +441,14 @@ func BenchmarkSprintTaskHandler_Delete(b *testing.B) {
 }
 
 func BenchmarkSprintTaskHandler_Get(b *testing.B) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	t := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Add(t)
@@ -460,14 +460,14 @@ func BenchmarkSprintTaskHandler_Get(b *testing.B) {
 }
 
 func BenchmarkSprintTaskHandler_GetById(b *testing.B) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	t := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Add(t)
@@ -479,14 +479,14 @@ func BenchmarkSprintTaskHandler_GetById(b *testing.B) {
 }
 
 func BenchmarkSprintTaskHandler_HasTask(b *testing.B) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	t := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Add(t)
@@ -498,14 +498,14 @@ func BenchmarkSprintTaskHandler_HasTask(b *testing.B) {
 }
 
 func BenchmarkSprintTaskHandler_All(b *testing.B) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	t := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Add(t)
@@ -517,14 +517,14 @@ func BenchmarkSprintTaskHandler_All(b *testing.B) {
 }
 
 func BenchmarkSprintTaskHandler_TotalTasks(b *testing.B) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	t := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Add(t)
@@ -536,14 +536,14 @@ func BenchmarkSprintTaskHandler_TotalTasks(b *testing.B) {
 }
 
 func BenchmarkSprintTaskHandler_AllByState(b *testing.B) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	t := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Add(t)
@@ -555,14 +555,14 @@ func BenchmarkSprintTaskHandler_AllByState(b *testing.B) {
 }
 
 func BenchmarkSprintTaskHandler_Update(b *testing.B) {
-	cmap := make(map[string]manager.Task)
+	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	config := &scheduler.Configuration{
 		Persistence: &scheduler.PersistenceConfiguration{
 			MaxRetries: 0,
 		},
 	}
-	logger := logging.NewDefaultLogger()
+	logger := new(mockLogger.MockLogger)
 	taskManager := NewTaskManager(cmap, storage, config, logger)
 	t := &manager.Task{Info: CreateTestTask("testTask"), State: manager.UNKNOWN}
 	taskManager.Add(t)

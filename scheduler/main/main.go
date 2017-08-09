@@ -67,7 +67,7 @@ func main() {
 
 	// Manages our tasks.
 	taskManager := sprintTaskManager.NewTaskManager(
-		make(map[string]t.Task),
+		make(map[string]*t.Task),
 		p,
 		config,
 		logger,

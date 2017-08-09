@@ -17,7 +17,7 @@ type (
 		Kill([]byte) (string, error)
 		Update([]byte) ([]*t.Task, error)
 		Status(string) (mesos_v1.TaskState, error)
-		AllTasks() ([]t.Task, error)
+		AllTasks() ([]*t.Task, error)
 	}
 
 	Parser struct {
@@ -132,7 +132,7 @@ func (m *Parser) Status(name string) (mesos_v1.TaskState, error) {
 	return tsk.State, nil
 }
 
-func (m *Parser) AllTasks() ([]t.Task, error) {
+func (m *Parser) AllTasks() ([]*t.Task, error) {
 	tasks, err := m.taskManager.All()
 	if err != nil {
 		return nil, err

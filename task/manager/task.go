@@ -1,9 +1,6 @@
 package manager
 
 import (
-	"bytes"
-	"encoding/base64"
-	"encoding/gob"
 	"errors"
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/logging"
@@ -30,9 +27,7 @@ type (
 	// Offers from Mesos are matched up with user-submitted tasks, and those tasks are updated via event callbacks.
 	SprintTaskHandler struct {
 		mutex   sync.RWMutex
-		buffer  *bytes.Buffer
-		encoder *gob.Encoder
-		tasks   map[string]manager.Task
+		tasks   map[string]*manager.Task
 		groups  map[string][]*mesos_v1.AgentID
 		storage persistence.Storage
 		retries structures.DistributedMap
@@ -43,15 +38,12 @@ type (
 
 // Returns the core task manager that's used by the scheduler.
 func NewTaskManager(
-	cmap map[string]manager.Task,
+	cmap map[string]*manager.Task,
 	storage persistence.Storage,
 	config *scheduler.Configuration,
 	logger logging.Logger) manager.TaskManager {
 
-	b := new(bytes.Buffer)
 	handler := &SprintTaskHandler{
-		buffer:  b,
-		encoder: gob.NewEncoder(b),
 		tasks:   cmap,
 		storage: storage,
 		retries: structures.NewConcurrentMap(),
@@ -81,15 +73,17 @@ func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
 				return errors.New("Task " + t.Info.GetName() + " already exists")
 			}
 			// Write forward.
-			if err := m.encode(t); err != nil {
+			data, err := t.Encode()
+			if err != nil {
 				return err
 			}
-			err := m.storageWrite(t, m.buffer)
+
+			err = m.storageWrite(t, data)
 			if err != nil {
 				m.logger.Emit(logging.ERROR, "Storage error: %v", err)
 				return err
 			}
-			m.tasks[t.Info.GetName()] = *t
+			m.tasks[t.Info.GetName()] = t
 		} else {
 			// Add a group
 			t.GroupInfo = manager.GroupInfo{GroupName: t.Info.GetName() + "/", InGroup: true}
@@ -106,15 +100,17 @@ func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
 				}
 
 				// Write forward.
-				if err := m.encode(&duplicate); err != nil {
+				data, err := duplicate.Encode()
+				if err != nil {
 					return err
 				}
-				err := m.storageWrite(t, m.buffer)
+
+				err = m.storageWrite(t, data)
 				if err != nil {
 					m.logger.Emit(logging.ERROR, "Storage error: %v", err)
 					return err
 				}
-				m.tasks[duplicate.Info.GetName()] = duplicate
+				m.tasks[duplicate.Info.GetName()] = &duplicate
 			}
 		}
 	}
@@ -128,8 +124,12 @@ func (m *SprintTaskHandler) Delete(tasks ...*manager.Task) error {
 	defer m.mutex.Unlock()
 
 	for _, t := range tasks {
+		// Try to delete it from storage first.
+		if err := m.storageDelete(t); err != nil {
+			return err
+		}
+		// Then from in memory.
 		delete(m.tasks, t.Info.GetName())
-		m.storageDelete(t)
 
 	}
 	return nil
@@ -140,7 +140,7 @@ func (m *SprintTaskHandler) Get(name *string) (*manager.Task, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	if response, ok := m.tasks[*name]; ok {
-		return &response, nil
+		return response, nil
 	}
 	return nil, errors.New(*name + " not found.")
 }
@@ -156,7 +156,7 @@ func (m *SprintTaskHandler) GetById(id *mesos_v1.TaskID) (*manager.Task, error) 
 
 	for _, v := range m.tasks {
 		if id.GetValue() == v.Info.GetTaskId().GetValue() {
-			return &v, nil
+			return v, nil
 		}
 	}
 	return nil, errors.New("Could not find task by id: " + id.GetValue())
@@ -188,14 +188,15 @@ func (m *SprintTaskHandler) Update(tasks ...*manager.Task) error {
 	defer m.mutex.Unlock()
 
 	for _, task := range tasks {
-		if err := m.encode(task); err != nil {
+		data, err := task.Encode()
+		if err != nil {
 			return err
 		}
-		if err := m.storageWrite(task, m.buffer); err != nil {
+		if err := m.storageWrite(task, data); err != nil {
 			return err
 		}
 
-		m.tasks[task.Info.GetName()] = *task
+		m.tasks[task.Info.GetName()] = task
 	}
 
 	return nil
@@ -213,7 +214,7 @@ func (m *SprintTaskHandler) AllByState(state mesos_v1.TaskState) ([]*manager.Tas
 	tasks := []*manager.Task{}
 	for _, v := range m.tasks {
 		if v.State == state {
-			tasks = append(tasks, &v)
+			tasks = append(tasks, v)
 		}
 	}
 
@@ -225,13 +226,13 @@ func (m *SprintTaskHandler) AllByState(state mesos_v1.TaskState) ([]*manager.Tas
 }
 
 // All gets all tasks that are known to the task manager.
-func (m *SprintTaskHandler) All() ([]manager.Task, error) {
+func (m *SprintTaskHandler) All() ([]*manager.Task, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	if len(m.tasks) == 0 {
 		return nil, errors.New("Task manager is empty")
 	}
-	allTasks := []manager.Task{}
+	allTasks := []*manager.Task{}
 	for _, t := range m.tasks {
 		allTasks = append(allTasks, t)
 	}
@@ -239,7 +240,7 @@ func (m *SprintTaskHandler) All() ([]manager.Task, error) {
 }
 
 // Function that wraps writing to the storage backend.
-func (m *SprintTaskHandler) storageWrite(task *manager.Task, encoded *bytes.Buffer) error {
+func (m *SprintTaskHandler) storageWrite(task *manager.Task, encoded []byte) error {
 	var writeKey string
 	var id string = task.Info.GetTaskId().GetValue()
 	var name string = task.Info.GetName()
@@ -248,7 +249,7 @@ func (m *SprintTaskHandler) storageWrite(task *manager.Task, encoded *bytes.Buff
 	} else {
 		writeKey = TASK_DIRECTORY + id
 	}
-	err := m.storage.Update(writeKey, base64.StdEncoding.EncodeToString(encoded.Bytes()))
+	err := m.storage.Update(writeKey, string(encoded))
 	if err != nil {
 		m.logger.Emit(
 			logging.ERROR, "Failed to update task %s with name %s to persistent data store. Retrying...",
@@ -272,12 +273,5 @@ func (m *SprintTaskHandler) storageDelete(task *manager.Task) error {
 	if err != nil {
 		m.logger.Emit(logging.ERROR, err.Error())
 	}
-	return err
-}
-
-// Encodes task data.
-func (m *SprintTaskHandler) encode(task *manager.Task) error {
-	err := m.encoder.Encode(task)
-
 	return err
 }
