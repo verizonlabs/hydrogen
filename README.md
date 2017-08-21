@@ -160,3 +160,5 @@ Get all tasks known to the scheduler
 # Example
 curl -X GET sprint.marathon.mesos:8080/v1/api/app/all
 </pre></code>
+
+### [License](LICENSE) ###
