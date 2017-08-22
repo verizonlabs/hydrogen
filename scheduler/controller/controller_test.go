@@ -16,6 +16,7 @@ package controller
 
 import (
 	"mesos-framework-sdk/include/mesos_v1"
+	"mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
 	mockLogger "mesos-framework-sdk/logging/test"
 	sdkScheduler "mesos-framework-sdk/scheduler"
@@ -23,6 +24,7 @@ import (
 	"mesos-framework-sdk/task/manager"
 	"os"
 	"sprint/scheduler"
+	"sprint/scheduler/ha"
 	mockTaskManager "sprint/task/manager/test"
 	"sprint/task/persistence"
 	mockStorage "sprint/task/persistence/test"
@@ -104,43 +106,34 @@ func brokenSchedulerEventController() *EventController {
 	}
 }
 
-func TestNewSprintEventController(t *testing.T) {
+// Tests creation of a new event controller.
+func TestNewEventController(t *testing.T) {
+
 	ctrl := workingEventController()
 	if ctrl == nil {
 		t.FailNow()
 	}
 }
 
-/*
+// Verify that we can successfully run our scheduler.
 func TestEventController_Run(t *testing.T) {
-	ctrl := workingEventController()
+	ctrl := NewEventController(
+		new(scheduler.Configuration),
+		new(sched.MockScheduler),
+		new(mockTaskManager.MockTaskManager),
+		new(mockStorage.MockStorage),
+		new(mockLogger.MockLogger),
+		ha.NewHA(
+			new(mockStorage.MockStorage),
+			new(mockLogger.MockLogger),
+			new(scheduler.LeaderConfiguration),
+		),
+	)
 
-	go ctrl.Run()
-
-	// Subscribe.
-	ctrl.events <- &mesos_v1_scheduler.Event{
-		Type: mesos_v1_scheduler.Event_SUBSCRIBED.Enum(),
-		Subscribed: &mesos_v1_scheduler.Event_Subscribed{
-			FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString("Test")},
-		},
-	}
+	go ctrl.Run(make(chan *mesos_v1_scheduler.Event))
 }
 
-// This should utilize the broken factory
-func TestEventController_FailureToRun(t *testing.T) {
-	ctrl := workingEventController()
-
-	go ctrl.Run()
-
-	// Subscribe.
-	ctrl.events <- &mesos_v1_scheduler.Event{
-		Type: mesos_v1_scheduler.Event_SUBSCRIBED.Enum(),
-		Subscribed: &mesos_v1_scheduler.Event_Subscribed{
-			FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString("Test")},
-		},
-	}
-}*/
-
+// Ensure our controller registers signal handlers and check that they work.
 func TestEventController_SignalHandler(t *testing.T) {
 	ctrl := workingEventController()
 	ctrl.registerShutdownHandlers()
@@ -149,10 +142,10 @@ func TestEventController_SignalHandler(t *testing.T) {
 	p.Wait()
 }
 
+// Test our periodic reconciling.
 func TestEventController_periodicReconcile(t *testing.T) {
 	ctrl := workingEventController()
 	go ctrl.periodicReconcile()
 	broken := brokenSchedulerEventController()
 	go broken.periodicReconcile()
-
 }
