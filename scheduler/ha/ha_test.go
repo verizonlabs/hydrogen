@@ -14,40 +14,53 @@
 
 package ha
 
-import "testing"
+import (
+	mockLogger "mesos-framework-sdk/logging/test"
+	"sprint/scheduler"
+	mockStorage "sprint/task/persistence/test"
+	"testing"
+)
 
 // Possible to test communication with a variadic input for a channel.
 // If a channel is passed in, it communicates on that channel.
 // Can block on the "read" of that channel.
-func TestSprintEventController_Communicate(t *testing.T) {
-	ctrl := workingEventController()
-	go ctrl.Communicate() // this never gets covered since this test closes too fast
-	ctrl.Election()
+func TestHA_Communicate(t *testing.T) {
+	ha := NewHA(new(mockStorage.MockStorage), new(mockLogger.MockLogger), &scheduler.LeaderConfiguration{
+		IP: "1", // Make sure we break out of our HA loop by matching on what mock storage gives us.
+	})
+	go ha.Communicate()
+	ha.Election()
 }
 
-func TestSprintEventController_Election(t *testing.T) {
-	ctrl := workingEventController()
-	ctrl.Election()
+func TestHA_Election(t *testing.T) {
+	ha := NewHA(new(mockStorage.MockStorage), new(mockLogger.MockLogger), &scheduler.LeaderConfiguration{
+		IP: "1", // Make sure we break out of our HA loop by matching on what mock storage gives us.
+	})
+	ha.Election()
 }
 
 // Can we create a leader?
-func TestSprintEventController_CreateLeader(t *testing.T) {
-	ctrl := workingEventController()
-	if err := ctrl.CreateLeader(); err != nil {
+func TestHA_CreateLeader(t *testing.T) {
+	ha := NewHA(new(mockStorage.MockStorage), new(mockLogger.MockLogger), &scheduler.LeaderConfiguration{
+		IP: "1", // Make sure we break out of our HA loop by matching on what mock storage gives us.
+	})
+	if err := ha.CreateLeader(); err != nil {
 		t.Logf("Failed to create a leader %v", err.Error())
 		t.Fail()
 	}
 }
 
 // Can we create and get the leader?
-func TestSprintEventController_GetLeader(t *testing.T) {
-	ctrl := workingEventController()
-	if err := ctrl.CreateLeader(); err != nil {
+func TestHA_GetLeader(t *testing.T) {
+	ha := NewHA(new(mockStorage.MockStorage), new(mockLogger.MockLogger), &scheduler.LeaderConfiguration{
+		IP: "1", // Make sure we break out of our HA loop by matching on what mock storage gives us.
+	})
+	if err := ha.CreateLeader(); err != nil {
 		t.Logf("Failed to create a leader %v\n", err.Error())
 		t.Fail()
 	}
 	// Leader string is simply an empty string during testing...
-	_, err := ctrl.GetLeader()
+	_, err := ha.GetLeader()
 	if err != nil {
 		t.Logf("Failed to grab the leader %v\n", err.Error())
 		t.Fail()
