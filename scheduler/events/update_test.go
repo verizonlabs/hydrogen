@@ -17,15 +17,34 @@ package events
 import (
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
+	mockResourceManager "mesos-framework-sdk/resources/manager/test"
 	"mesos-framework-sdk/utils"
 	"testing"
 )
 
-func TestSprintEventController_Update(t *testing.T) {
-	ctrl := workingEventController()
+var states []*mesos_v1.TaskState = []*mesos_v1.TaskState{
+	mesos_v1.TaskState_TASK_RUNNING.Enum(),
+	mesos_v1.TaskState_TASK_STARTING.Enum(),
+	mesos_v1.TaskState_TASK_FINISHED.Enum(),
+	mesos_v1.TaskState_TASK_DROPPED.Enum(),
+	mesos_v1.TaskState_TASK_ERROR.Enum(),
+	mesos_v1.TaskState_TASK_FAILED.Enum(),
+	mesos_v1.TaskState_TASK_GONE.Enum(),
+	mesos_v1.TaskState_TASK_GONE_BY_OPERATOR.Enum(),
+	mesos_v1.TaskState_TASK_UNREACHABLE.Enum(),
+	mesos_v1.TaskState_TASK_UNKNOWN.Enum(),
+	mesos_v1.TaskState_TASK_STAGING.Enum(),
+	mesos_v1.TaskState_TASK_KILLED.Enum(),
+	mesos_v1.TaskState_TASK_KILLING.Enum(),
+	mesos_v1.TaskState_TASK_ERROR.Enum(),
+	mesos_v1.TaskState_TASK_LOST.Enum(),
+}
+
+func TestEvent_Update(t *testing.T) {
+	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
 
 	for _, state := range states {
-		ctrl.Update(&mesos_v1_scheduler.Event_Update{
+		e.Update(&mesos_v1_scheduler.Event_Update{
 			Status: &mesos_v1.TaskStatus{
 				TaskId: &mesos_v1.TaskID{Value: utils.ProtoString("id")},
 				State:  state,
@@ -33,41 +52,47 @@ func TestSprintEventController_Update(t *testing.T) {
 	}
 }
 
-func TestSprintEventController_UpdateWithNilTaskId(t *testing.T) {
-	ctrl := workingEventController()
+func TestEvent_UpdateWithNilTaskId(t *testing.T) {
+	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
+
 	for _, state := range states {
-		ctrl.Update(&mesos_v1_scheduler.Event_Update{
+		e.Update(&mesos_v1_scheduler.Event_Update{
 			Status: &mesos_v1.TaskStatus{
 				TaskId: &mesos_v1.TaskID{Value: nil},
 				State:  state,
 			}})
-		ctrl.Update(&mesos_v1_scheduler.Event_Update{
+
+		e.Update(&mesos_v1_scheduler.Event_Update{
 			Status: &mesos_v1.TaskStatus{
 				TaskId: nil,
 				State:  state,
 			}})
 	}
-	ctrl.Update(nil)
+
+	e.Update(nil)
 }
 
-func TestSprintEventController_UpdateWithInvalidState(t *testing.T) {
-	ctrl := workingEventController()
-	ctrl.Update(&mesos_v1_scheduler.Event_Update{
+func TestEvent_UpdateWithInvalidState(t *testing.T) {
+	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
+
+	e.Update(&mesos_v1_scheduler.Event_Update{
 		Status: &mesos_v1.TaskStatus{
 			TaskId: &mesos_v1.TaskID{Value: nil},
 			State:  nil,
 		}})
-	ctrl.Update(&mesos_v1_scheduler.Event_Update{
+
+	e.Update(&mesos_v1_scheduler.Event_Update{
 		Status: &mesos_v1.TaskStatus{
 			TaskId: &mesos_v1.TaskID{Value: nil},
 			State:  mesos_v1.TaskState(100).Enum(), // Doesn't exist.
 		}})
 }
 
-func TestSprintEventController_UpdateWith(t *testing.T) {
-	ctrl := brokenSchedulerEventController()
+func TestEvent_UpdateWith(t *testing.T) {
+	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
+
 	for _, state := range states {
-		ctrl.Update(&mesos_v1_scheduler.Event_Update{
+		e.Update(&mesos_v1_scheduler.Event_Update{
 			Status: &mesos_v1.TaskStatus{
 				TaskId: &mesos_v1.TaskID{Value: utils.ProtoString("id")},
 				State:  state,

@@ -16,21 +16,22 @@ package events
 
 import (
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
+	mockResourceManager "mesos-framework-sdk/resources/manager/test"
 	"mesos-framework-sdk/utils"
 	"testing"
 )
 
-func TestSprintEventController_Error(t *testing.T) {
-	ctrl := workingEventController()
-	ctrl.Error(&mesos_v1_scheduler.Event_Error{
+func TestEvent_Error(t *testing.T) {
+	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
+	e.Error(&mesos_v1_scheduler.Event_Error{
 		Message: utils.ProtoString("message"),
 	})
 }
 
-func TestSprintEventController_ErrorWithNoMessage(t *testing.T) {
-	ctrl := workingEventController()
-	ctrl.Error(&mesos_v1_scheduler.Event_Error{
+func TestEvent_ErrorWithNoMessage(t *testing.T) {
+	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
+	e.Error(&mesos_v1_scheduler.Event_Error{
 		Message: nil,
 	})
-	ctrl.Error(nil)
+	e.Error(nil)
 }

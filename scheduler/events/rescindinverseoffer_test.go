@@ -17,13 +17,14 @@ package events
 import (
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
+	mockResourceManager "mesos-framework-sdk/resources/manager/test"
 	"mesos-framework-sdk/utils"
 	"testing"
 )
 
-func TestSprintEventController_RescindInverseOffer(t *testing.T) {
-	ctrl := workingEventController()
-	ctrl.RescindInverseOffer(&mesos_v1_scheduler.Event_RescindInverseOffer{
+func TestEvent_RescindInverseOffer(t *testing.T) {
+	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
+	e.RescindInverseOffer(&mesos_v1_scheduler.Event_RescindInverseOffer{
 		InverseOfferId: &mesos_v1.OfferID{Value: utils.ProtoString("id")},
 	})
 }

@@ -17,16 +17,17 @@ package events
 import (
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
+	mockResourceManager "mesos-framework-sdk/resources/manager/test"
 	"mesos-framework-sdk/utils"
 	"testing"
 )
 
-func TestSprintEventController_Offers(t *testing.T) {
-	ctrl := workingEventController()
+func TestEvent_Offers(t *testing.T) {
+	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
 
 	// Test empty offers.
 	offers := []*mesos_v1.Offer{}
-	ctrl.Offers(&mesos_v1_scheduler.Event_Offers{
+	e.Offers(&mesos_v1_scheduler.Event_Offers{
 		Offers: offers,
 	})
 
@@ -40,6 +41,7 @@ func TestSprintEventController_Offers(t *testing.T) {
 			Value: utils.ProtoFloat64(10.0),
 		},
 	})
+
 	offers = append(offers, &mesos_v1.Offer{
 		Id:          &mesos_v1.OfferID{Value: utils.ProtoString("id")},
 		FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString(utils.UuidAsString())},
@@ -47,17 +49,18 @@ func TestSprintEventController_Offers(t *testing.T) {
 		Hostname:    utils.ProtoString("Some host"),
 		Resources:   resources,
 	})
-	ctrl.Offers(&mesos_v1_scheduler.Event_Offers{
+
+	e.Offers(&mesos_v1_scheduler.Event_Offers{
 		Offers: offers,
 	})
-
 }
 
-func TestSprintEventController_OffersWithQueuedTasks(t *testing.T) {
-	ctrl := workingEventController()
+func TestEvent_OffersWithQueuedTasks(t *testing.T) {
+	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
+
 	// Test empty offers.
 	offers := []*mesos_v1.Offer{}
-	ctrl.Offers(&mesos_v1_scheduler.Event_Offers{
+	e.Offers(&mesos_v1_scheduler.Event_Offers{
 		Offers: offers,
 	})
 
@@ -71,6 +74,7 @@ func TestSprintEventController_OffersWithQueuedTasks(t *testing.T) {
 			Value: utils.ProtoFloat64(10.0),
 		},
 	})
+
 	offers = append(offers, &mesos_v1.Offer{
 		Id:          &mesos_v1.OfferID{Value: utils.ProtoString("id")},
 		FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString(utils.UuidAsString())},
@@ -78,13 +82,8 @@ func TestSprintEventController_OffersWithQueuedTasks(t *testing.T) {
 		Hostname:    utils.ProtoString("Some host"),
 		Resources:   resources,
 	})
-	ctrl.Offers(&mesos_v1_scheduler.Event_Offers{
+
+	e.Offers(&mesos_v1_scheduler.Event_Offers{
 		Offers: offers,
 	})
-
-}
-
-func TestSprintEventController_declineOffers(t *testing.T) {
-	ctrl := workingEventController()
-	ctrl.declineOffers(make([]*mesos_v1.Offer, 0), 0.0)
 }

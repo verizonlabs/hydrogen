@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
 	mockLogger "mesos-framework-sdk/logging/test"
@@ -30,26 +29,6 @@ import (
 	mockStorage "sprint/task/persistence/test"
 	"testing"
 	"time"
-)
-
-var (
-	states []*mesos_v1.TaskState = []*mesos_v1.TaskState{
-		mesos_v1.TaskState_TASK_RUNNING.Enum(),
-		mesos_v1.TaskState_TASK_STARTING.Enum(),
-		mesos_v1.TaskState_TASK_FINISHED.Enum(),
-		mesos_v1.TaskState_TASK_DROPPED.Enum(),
-		mesos_v1.TaskState_TASK_ERROR.Enum(),
-		mesos_v1.TaskState_TASK_FAILED.Enum(),
-		mesos_v1.TaskState_TASK_GONE.Enum(),
-		mesos_v1.TaskState_TASK_GONE_BY_OPERATOR.Enum(),
-		mesos_v1.TaskState_TASK_UNREACHABLE.Enum(),
-		mesos_v1.TaskState_TASK_UNKNOWN.Enum(),
-		mesos_v1.TaskState_TASK_STAGING.Enum(),
-		mesos_v1.TaskState_TASK_KILLED.Enum(),
-		mesos_v1.TaskState_TASK_KILLING.Enum(),
-		mesos_v1.TaskState_TASK_ERROR.Enum(),
-		mesos_v1.TaskState_TASK_LOST.Enum(),
-	}
 )
 
 // TODO (tim): Factory function that takes in a list of broken items,

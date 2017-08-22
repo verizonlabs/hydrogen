@@ -17,19 +17,22 @@ package events
 import (
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
+	mockResourceManager "mesos-framework-sdk/resources/manager/test"
 	"mesos-framework-sdk/utils"
 	"testing"
 )
 
-func TestSprintEventController_Subscribe(t *testing.T) {
-	ctrl := workingEventController()
-	ctrl.Subscribed(&mesos_v1_scheduler.Event_Subscribed{FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString("id")}})
+func TestEvent_Subscribe(t *testing.T) {
+	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
+	e.Subscribed(&mesos_v1_scheduler.Event_Subscribed{FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString("id")}})
 }
 
-func TestSprintEventController_Subscribed(t *testing.T) {
+func TestEvent_Subscribed(t *testing.T) {
+	ch := make(chan *mesos_v1_scheduler.Event)
 	ctrl := workingEventController()
-	go ctrl.Run()
-	ctrl.events <- &mesos_v1_scheduler.Event{
+	go ctrl.Run(ch)
+
+	ch <- &mesos_v1_scheduler.Event{
 		Type: mesos_v1_scheduler.Event_SUBSCRIBED.Enum(),
 		Subscribed: &mesos_v1_scheduler.Event_Subscribed{
 			FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString("Test")},

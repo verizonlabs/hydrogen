@@ -17,13 +17,14 @@ package events
 import (
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
+	mockResourceManager "mesos-framework-sdk/resources/manager/test"
 	"mesos-framework-sdk/utils"
 	"testing"
 )
 
-func TestSprintEventController_InverseOffer(t *testing.T) {
-	ctrl := workingEventController()
-	ctrl.InverseOffer(&mesos_v1_scheduler.Event_InverseOffers{
+func TestEvent_InverseOffer(t *testing.T) {
+	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
+	e.InverseOffer(&mesos_v1_scheduler.Event_InverseOffers{
 		InverseOffers: []*mesos_v1.InverseOffer{
 			{
 				Id:             &mesos_v1.OfferID{Value: utils.ProtoString("id")},
@@ -34,8 +35,10 @@ func TestSprintEventController_InverseOffer(t *testing.T) {
 	})
 }
 
-func TestSprintEventController_InverseOfferWithNilOffer(t *testing.T) {
-	ctrl := workingEventController()
-	ctrl.InverseOffer(&mesos_v1_scheduler.Event_InverseOffers{InverseOffers: nil})
-	ctrl.InverseOffer(nil)
+func TestEvent_InverseOfferWithNilOffer(t *testing.T) {
+	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
+	e.InverseOffer(&mesos_v1_scheduler.Event_InverseOffers{
+		InverseOffers: nil,
+	})
+	e.InverseOffer(nil)
 }
