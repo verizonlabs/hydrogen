@@ -16,11 +16,8 @@ package controller
 
 import (
 	"mesos-framework-sdk/include/mesos_v1"
-	"mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
 	mockLogger "mesos-framework-sdk/logging/test"
-	sdkResourceManager "mesos-framework-sdk/resources/manager"
-	mockResourceManager "mesos-framework-sdk/resources/manager/test"
 	sdkScheduler "mesos-framework-sdk/scheduler"
 	sched "mesos-framework-sdk/scheduler/test"
 	"mesos-framework-sdk/task/manager"
@@ -57,7 +54,7 @@ var (
 // generates an event controller with those items broken.
 
 // Creates a new working event controller.
-func workingEventController() *SprintEventController {
+func workingEventController() *EventController {
 	var (
 		cfg *scheduler.Configuration = &scheduler.Configuration{
 			Leader: &scheduler.LeaderConfiguration{
@@ -69,25 +66,21 @@ func workingEventController() *SprintEventController {
 				MaxRetries: 0,
 			},
 		}
-		c  chan *mesos_v1_scheduler.Event     = make(chan *mesos_v1_scheduler.Event)
-		sh sdkScheduler.Scheduler             = sched.MockScheduler{}
-		m  manager.TaskManager                = &mockTaskManager.MockTaskManager{}
-		rm sdkResourceManager.ResourceManager = &mockResourceManager.MockResourceManager{}
-		s  persistence.Storage                = &mockStorage.MockStorage{}
-		l  logging.Logger                     = &mockLogger.MockLogger{}
+		sh sdkScheduler.Scheduler = sched.MockScheduler{}
+		m  manager.TaskManager    = &mockTaskManager.MockTaskManager{}
+		s  persistence.Storage    = &mockStorage.MockStorage{}
+		l  logging.Logger         = &mockLogger.MockLogger{}
 	)
-	return &SprintEventController{
-		config:          cfg,
-		scheduler:       sh,
-		taskmanager:     m,
-		resourcemanager: rm,
-		events:          c,
-		storage:         s,
-		logger:          l,
+	return &EventController{
+		Config:      cfg,
+		Scheduler:   sh,
+		TaskManager: m,
+		Storage:     s,
+		Logger:      l,
 	}
 }
 
-func brokenSchedulerEventController() *SprintEventController {
+func brokenSchedulerEventController() *EventController {
 	var (
 		cfg *scheduler.Configuration = &scheduler.Configuration{
 			Leader:    &scheduler.LeaderConfiguration{},
@@ -97,21 +90,17 @@ func brokenSchedulerEventController() *SprintEventController {
 				MaxRetries: 0,
 			},
 		}
-		c  chan *mesos_v1_scheduler.Event     = make(chan *mesos_v1_scheduler.Event)
-		sh sdkScheduler.Scheduler             = sched.MockBrokenScheduler{}
-		m  manager.TaskManager                = &mockTaskManager.MockTaskManager{}
-		rm sdkResourceManager.ResourceManager = &mockResourceManager.MockResourceManager{}
-		s  persistence.Storage                = &mockStorage.MockStorage{}
-		l  logging.Logger                     = &mockLogger.MockLogger{}
+		sh sdkScheduler.Scheduler = sched.MockBrokenScheduler{}
+		m  manager.TaskManager    = &mockTaskManager.MockTaskManager{}
+		s  persistence.Storage    = &mockStorage.MockStorage{}
+		l  logging.Logger         = &mockLogger.MockLogger{}
 	)
-	return &SprintEventController{
-		config:          cfg,
-		scheduler:       sh,
-		taskmanager:     m,
-		resourcemanager: rm,
-		events:          c,
-		storage:         s,
-		logger:          l,
+	return &EventController{
+		Config:      cfg,
+		Scheduler:   sh,
+		TaskManager: m,
+		Storage:     s,
+		Logger:      l,
 	}
 }
 
@@ -122,17 +111,8 @@ func TestNewSprintEventController(t *testing.T) {
 	}
 }
 
-func TestSprintEventController_Name(t *testing.T) {
-	ctrl := workingEventController()
-	_, err := ctrl.Name()
-	if err != nil {
-		t.Log(err)
-		t.FailNow()
-	}
-}
-
 /*
-func TestSprintEventController_Run(t *testing.T) {
+func TestEventController_Run(t *testing.T) {
 	ctrl := workingEventController()
 
 	go ctrl.Run()
@@ -147,7 +127,7 @@ func TestSprintEventController_Run(t *testing.T) {
 }
 
 // This should utilize the broken factory
-func TestSprintEventController_FailureToRun(t *testing.T) {
+func TestEventController_FailureToRun(t *testing.T) {
 	ctrl := workingEventController()
 
 	go ctrl.Run()
@@ -161,7 +141,7 @@ func TestSprintEventController_FailureToRun(t *testing.T) {
 	}
 }*/
 
-func TestSprintEventController_SignalHandler(t *testing.T) {
+func TestEventController_SignalHandler(t *testing.T) {
 	ctrl := workingEventController()
 	ctrl.registerShutdownHandlers()
 	p, _ := os.FindProcess(os.Getpid())
@@ -169,7 +149,7 @@ func TestSprintEventController_SignalHandler(t *testing.T) {
 	p.Wait()
 }
 
-func TestNewSprintEventController_periodicReconcile(t *testing.T) {
+func TestEventController_periodicReconcile(t *testing.T) {
 	ctrl := workingEventController()
 	go ctrl.periodicReconcile()
 	broken := brokenSchedulerEventController()
