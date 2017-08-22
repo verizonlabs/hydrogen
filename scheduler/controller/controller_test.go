@@ -72,14 +72,16 @@ func workingEventController() *EventController {
 		m  manager.TaskManager    = &mockTaskManager.MockTaskManager{}
 		s  persistence.Storage    = &mockStorage.MockStorage{}
 		l  logging.Logger         = &mockLogger.MockLogger{}
+		ha                        = ha.NewHA(s, l, cfg.Leader)
 	)
-	return &EventController{
-		Config:      cfg,
-		Scheduler:   sh,
-		TaskManager: m,
-		Storage:     s,
-		Logger:      l,
-	}
+	return NewEventController(
+		cfg,
+		sh,
+		m,
+		s,
+		l,
+		ha,
+	)
 }
 
 func brokenSchedulerEventController() *EventController {
@@ -96,20 +98,22 @@ func brokenSchedulerEventController() *EventController {
 		m  manager.TaskManager    = &mockTaskManager.MockTaskManager{}
 		s  persistence.Storage    = &mockStorage.MockStorage{}
 		l  logging.Logger         = &mockLogger.MockLogger{}
+		ha                        = ha.NewHA(s, l, cfg.Leader)
 	)
-	return &EventController{
-		Config:      cfg,
-		Scheduler:   sh,
-		TaskManager: m,
-		Storage:     s,
-		Logger:      l,
-	}
+	return NewEventController(
+		cfg,
+		sh,
+		m,
+		s,
+		l,
+		ha,
+	)
 }
 
 // Tests creation of a new event controller.
 func TestNewEventController(t *testing.T) {
-
 	ctrl := workingEventController()
+
 	if ctrl == nil {
 		t.FailNow()
 	}
@@ -117,18 +121,7 @@ func TestNewEventController(t *testing.T) {
 
 // Verify that we can successfully run our scheduler.
 func TestEventController_Run(t *testing.T) {
-	ctrl := NewEventController(
-		new(scheduler.Configuration),
-		new(sched.MockScheduler),
-		new(mockTaskManager.MockTaskManager),
-		new(mockStorage.MockStorage),
-		new(mockLogger.MockLogger),
-		ha.NewHA(
-			new(mockStorage.MockStorage),
-			new(mockLogger.MockLogger),
-			new(scheduler.LeaderConfiguration),
-		),
-	)
+	ctrl := workingEventController()
 
 	go ctrl.Run(make(chan *mesos_v1_scheduler.Event))
 }
