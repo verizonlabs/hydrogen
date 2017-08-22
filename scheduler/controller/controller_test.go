@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package events
+package controller
 
 import (
 	"mesos-framework-sdk/include/mesos_v1"

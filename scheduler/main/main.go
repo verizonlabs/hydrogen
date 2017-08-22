@@ -30,7 +30,9 @@ import (
 	"sprint/scheduler"
 	"sprint/scheduler/api"
 	apiManager "sprint/scheduler/api/manager"
+	"sprint/scheduler/controller"
 	"sprint/scheduler/events"
+	"sprint/scheduler/ha"
 	sprintTaskManager "sprint/task/manager"
 	"sprint/task/persistence"
 	"strings"
@@ -68,22 +70,18 @@ func main() {
 	logger.Emit(logging.INFO, "Starting executor file server")
 	go executorSrv.Serve()
 
-	// Used to listen for events coming from mesos master to our scheduler.
-	eventChan := make(chan *mesos_v1_scheduler.Event)
-
 	// Storage interface that holds client and retry policy manager.
 	p := persistence.NewPersistence(etcd.NewClient(
 		strings.Split(config.Persistence.Endpoints, ","),
 		config.Persistence.Timeout,
 		config.Persistence.KeepaliveTime,
 		config.Persistence.KeepaliveTimeout,
-	), config)
+	), config.Persistence.MaxRetries)
 
 	// Manages our tasks.
 	taskManager := sprintTaskManager.NewTaskManager(
 		make(map[string]*t.Task),
 		p,
-		config,
 		logger,
 	)
 
@@ -98,11 +96,13 @@ func main() {
 	}, logger) // Manages scheduler/executor HTTP calls, authorization, and new master detection.
 	s := sched.NewDefaultScheduler(c, frameworkInfo, logger) // Manages how to route and schedule tasks.
 	m := apiManager.NewApiParser(r, taskManager, s)          // Middleware for our API.
+	ha := ha.NewHA(p, logger, config.Leader)
 
-	revive := make(chan *t.Task)
+	// Used to listen for events coming from mesos master to our scheduler.
+	eventChan := make(chan *mesos_v1_scheduler.Event)
 
 	// Event controller manages scheduler events and how they are handled.
-	e := events.NewSprintEventController(config, s, taskManager, r, eventChan, revive, p, logger)
+	e := controller.NewEventController(config, s, taskManager, p, logger, ha)
 
 	logger.Emit(logging.INFO, "Starting API server")
 
@@ -117,8 +117,8 @@ func main() {
 	apiSrv := api.NewApiServer(config, m, logger)
 	go apiSrv.RunAPI(nil) // nil means to use default handlers.
 
-	// Run our event controller
-	// Runs an election for the leader
-	// and then subscribes to Mesos master to start listening for events.
-	e.Run()
+	// Run our event controller and kick off HA leader election.
+	// Then subscribe to Mesos and start listening for events.
+	e.Run(eventChan)
+	events.NewEvent(e, r).Listen(eventChan)
 }

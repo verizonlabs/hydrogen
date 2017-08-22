@@ -22,37 +22,36 @@ import (
 	"os"
 )
 
-//
-// Subscribe is a public method that handles subscription events from the master.
+// Subscribed is a public method that handles subscription events from the master.
 // We handle our subscription by writing the framework ID to storage.
 // Then we gather all of our launched non-terminal tasks and reconcile them explicitly.
-//
-func (s *SprintEventController) Subscribed(subEvent *mesos_v1_scheduler.Event_Subscribed) {
+func (e *Event) Subscribed(subEvent *mesos_v1_scheduler.Event_Subscribed) {
 	id := subEvent.GetFrameworkId()
 	idVal := id.GetValue()
-	s.scheduler.FrameworkInfo().Id = id
-	s.logger.Emit(logging.INFO, "Subscribed with an ID of %s", idVal)
+	e.controller.Scheduler.FrameworkInfo().Id = id
+	e.controller.Logger.Emit(logging.INFO, "Subscribed with an ID of %s", idVal)
 
-	err := s.createFrameworkIdLease(idVal)
+	err := e.controller.CreateFrameworkIdLease(idVal)
 	if err != nil {
-		s.logger.Emit(logging.ERROR, "Failed to persist leader information: %s", err.Error())
+		e.controller.Logger.Emit(logging.ERROR, "Failed to persist leader information: %s", err.Error())
 		os.Exit(3)
 	}
 
-	s.scheduler.Revive() // Reset to revive offers regardless if there are tasks or not.
+	e.controller.Scheduler.Revive() // Reset to revive offers regardless if there are tasks or not.
 	// We do this to force a check for any tasks that we might have missed during downtime.
 	// Reconcile after we subscribe in case we resubscribed due to a failure.
 
 	// Get all launched non-terminal tasks.
-	launched, err := s.taskmanager.AllByState(manager.RUNNING)
+	launched, err := e.controller.TaskManager.AllByState(manager.RUNNING)
 	if err != nil {
-		s.logger.Emit(logging.INFO, "Not reconciling: %s", err.Error())
+		e.controller.Logger.Emit(logging.INFO, "Not reconciling: %s", err.Error())
 		return
 	}
 
-	toReconcile := []*mesos_v1.TaskInfo{}
+	toReconcile := make([]*mesos_v1.TaskInfo, 0, len(launched))
 	for _, t := range launched {
 		toReconcile = append(toReconcile, t.Info)
 	}
-	s.scheduler.Reconcile(toReconcile)
+
+	e.controller.Scheduler.Reconcile(toReconcile)
 }

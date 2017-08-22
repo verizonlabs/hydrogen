@@ -83,3 +83,8 @@ func TestSprintEventController_OffersWithQueuedTasks(t *testing.T) {
 	})
 
 }
+
+func TestSprintEventController_declineOffers(t *testing.T) {
+	ctrl := workingEventController()
+	ctrl.declineOffers(make([]*mesos_v1.Offer, 0), 0.0)
+}

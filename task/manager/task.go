@@ -21,7 +21,6 @@ import (
 	"mesos-framework-sdk/structures"
 	"mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
-	"sprint/scheduler"
 	"sprint/task/persistence"
 	"strconv"
 	"sync"
@@ -45,7 +44,6 @@ type (
 		groups  map[string][]*mesos_v1.AgentID
 		storage persistence.Storage
 		retries structures.DistributedMap
-		config  *scheduler.Configuration
 		logger  logging.Logger
 	}
 )
@@ -54,14 +52,12 @@ type (
 func NewTaskManager(
 	cmap map[string]*manager.Task,
 	storage persistence.Storage,
-	config *scheduler.Configuration,
 	logger logging.Logger) manager.TaskManager {
 
 	handler := &SprintTaskHandler{
 		tasks:   cmap,
 		storage: storage,
 		retries: structures.NewConcurrentMap(),
-		config:  config,
 		groups:  make(map[string][]*mesos_v1.AgentID),
 		logger:  logger,
 	}

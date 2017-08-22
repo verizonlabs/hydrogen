@@ -20,7 +20,6 @@ import (
 	"mesos-framework-sdk/persistence"
 	"mesos-framework-sdk/task"
 	"mesos-framework-sdk/task/retry"
-	"sprint/scheduler"
 	"time"
 )
 
@@ -38,12 +37,12 @@ type Persistence struct {
 }
 
 // Returns the main persistence engine that's used across the framework.
-func NewPersistence(kv persistence.KeyValueStore, config *scheduler.Configuration) Storage {
+func NewPersistence(kv persistence.KeyValueStore, maxRetries int) Storage {
 	return &Persistence{
 		KeyValueStore: kv,
 		policy: retry.TaskRetry{
 			RetryTime:  time.Duration(2),
-			MaxRetries: config.Persistence.MaxRetries,
+			MaxRetries: maxRetries,
 			Backoff:    true,
 		},
 	}
