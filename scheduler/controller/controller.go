@@ -145,36 +145,6 @@ func (s *EventController) Run(events chan *mesos_v1_scheduler.Event) {
 			}
 		}
 	}()
-
-	e := <-events
-	id := e.GetSubscribed().GetFrameworkId()
-	idVal := id.GetValue()
-	s.Scheduler.FrameworkInfo().Id = id
-	s.Logger.Emit(logging.INFO, "Subscribed with an ID of %s", idVal)
-
-	err = s.CreateFrameworkIdLease(idVal)
-	if err != nil {
-		s.Logger.Emit(logging.ERROR, "Failed to persist leader information: %s", err.Error())
-		os.Exit(3)
-	}
-
-	s.Scheduler.Revive() // Reset to revive offers regardless if there are tasks or not.
-	// We do this to force a check for any tasks that we might have missed during downtime.
-	// Reconcile after we subscribe in case we resubscribed due to a failure.
-
-	// Get all launched non-terminal tasks.
-	launched, err := s.TaskManager.AllByState(sdkTaskManager.RUNNING)
-	if err != nil {
-		s.Logger.Emit(logging.INFO, "Not reconciling: %s", err.Error())
-		return
-	}
-
-	toReconcile := make([]*mesos_v1.TaskInfo, 0, len(launched))
-	for _, t := range launched {
-		toReconcile = append(toReconcile, t.Info)
-	}
-
-	s.Scheduler.Reconcile(toReconcile)
 }
 
 //
