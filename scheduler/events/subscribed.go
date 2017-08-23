@@ -71,16 +71,3 @@ func (h *Handler) createFrameworkIdLease(idVal string) error {
 		return nil
 	})
 }
-
-// Refreshes the lifetime of our persisted framework ID.
-func (h *Handler) refreshFrameworkIdLease() error {
-	policy := h.storage.CheckPolicy(nil)
-	return h.storage.RunPolicy(policy, func() error {
-		err := h.storage.RefreshLease(h.frameworkLease)
-		if err != nil {
-			h.logger.Emit(logging.ERROR, "Failed to refresh framework ID lease: %s", err.Error())
-		}
-
-		return err
-	})
-}

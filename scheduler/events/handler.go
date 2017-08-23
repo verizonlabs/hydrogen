@@ -98,4 +98,18 @@ func (h *Handler) Signals() {
 		h.logger.Emit(logging.ERROR, "Failed to refresh leader lease before exiting: %s", err.Error())
 		os.Exit(6)
 	}
+
+	os.Exit(0)
+}
+
+// Refreshes the lifetime of our persisted framework ID.
+func (h *Handler) refreshFrameworkIdLease() error {
+	policy := h.storage.CheckPolicy(nil)
+	return h.storage.RunPolicy(policy, func() error {
+		err := h.storage.RefreshLease(h.frameworkLease)
+		if err != nil {
+			h.logger.Emit(logging.ERROR, "Failed to refresh framework ID lease: %s", err.Error())
+		}
+		return err
+	})
 }
