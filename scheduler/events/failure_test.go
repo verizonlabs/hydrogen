@@ -22,15 +22,15 @@ import (
 	"testing"
 )
 
-func TestEvent_Failure(t *testing.T) {
-	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
+func TestHandler_Failure(t *testing.T) {
+	e := NewEvent(new(mockResourceManager.MockResourceManager))
 	e.Failure(&mesos_v1_scheduler.Event_Failure{
 		AgentId: &mesos_v1.AgentID{Value: utils.ProtoString("agent")},
 	})
 }
 
-func TestEvent_FailureWithNoAgentID(t *testing.T) {
-	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
+func TestHandler_FailureWithNoAgentID(t *testing.T) {
+	e := NewEvent(new(mockResourceManager.MockResourceManager))
 	e.Failure(&mesos_v1_scheduler.Event_Failure{
 		AgentId: &mesos_v1.AgentID{Value: nil},
 	})

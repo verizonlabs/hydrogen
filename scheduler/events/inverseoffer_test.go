@@ -22,7 +22,7 @@ import (
 	"testing"
 )
 
-func TestEvent_InverseOffer(t *testing.T) {
+func TestHandler_InverseOffer(t *testing.T) {
 	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
 	e.InverseOffer(&mesos_v1_scheduler.Event_InverseOffers{
 		InverseOffers: []*mesos_v1.InverseOffer{
@@ -35,7 +35,7 @@ func TestEvent_InverseOffer(t *testing.T) {
 	})
 }
 
-func TestEvent_InverseOfferWithNilOffer(t *testing.T) {
+func TestHandler_InverseOfferWithNilOffer(t *testing.T) {
 	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
 	e.InverseOffer(&mesos_v1_scheduler.Event_InverseOffers{
 		InverseOffers: nil,

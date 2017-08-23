@@ -19,6 +19,7 @@ import (
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
 	sdkScheduler "mesos-framework-sdk/scheduler"
+	"mesos-framework-sdk/scheduler/events"
 	sdkTaskManager "mesos-framework-sdk/task/manager"
 	"os"
 	"os/signal"
@@ -26,7 +27,6 @@ import (
 	"sprint/scheduler/ha"
 	sprintTaskManager "sprint/task/manager"
 	"sprint/task/persistence"
-	"sync"
 	"syscall"
 	"time"
 )
@@ -47,15 +47,12 @@ type (
 	// The controller is what is "run" to kick off our scheduler and subscribe to Mesos.
 	// Additionally, our framework's high availability is coordinated by this controller.
 	EventController struct {
-		Config         *sprintSched.Configuration
-		Scheduler      sdkScheduler.Scheduler
-		TaskManager    sdkTaskManager.TaskManager
-		Storage        persistence.Storage
-		Logger         logging.Logger
-		Ha             *ha.HA
-		FrameworkLease int64
-		lock           sync.RWMutex
-		Revive         chan *sdkTaskManager.Task
+		config      *sprintSched.Configuration
+		scheduler   sdkScheduler.Scheduler
+		taskManager sdkTaskManager.TaskManager
+		storage     persistence.Storage
+		logger      logging.Logger
+		ha          *ha.HA
 	}
 )
 
@@ -69,13 +66,12 @@ func NewEventController(
 	ha *ha.HA) *EventController {
 
 	return &EventController{
-		Config:      config,
-		Scheduler:   scheduler,
-		TaskManager: manager,
-		Storage:     storage,
-		Logger:      logger,
-		Ha:          ha,
-		Revive:      make(chan *sdkTaskManager.Task),
+		config:      config,
+		scheduler:   scheduler,
+		taskManager: manager,
+		storage:     storage,
+		logger:      logger,
+		ha:          ha,
 	}
 }
 
@@ -85,41 +81,40 @@ func NewEventController(
 // the mesos master in the cluster.
 // This method blocks forever, or until the scheduler is brought down.
 //
-func (s *EventController) Run(events chan *mesos_v1_scheduler.Event) {
-	s.registerShutdownHandlers()
+func (s *EventController) Run(events chan *mesos_v1_scheduler.Event, revives chan *sdkTaskManager.Task, handler events.SchedulerEvent) {
 
 	// Start the election.
-	s.Logger.Emit(logging.INFO, "Starting leader election socket server")
-	go s.Ha.Communicate()
+	s.logger.Emit(logging.INFO, "Starting leader election socket server")
+	go s.ha.Communicate()
 
 	// Block here until we either become a leader or a standby.
 	// If we are the leader we break out and continue to execute the rest of the scheduler.
 	// If we are a standby then we connect to the leader and wait for the process to start over again.
-	s.Ha.Election()
+	s.ha.Election()
 
 	// Get the frameworkId from etcd and set it to our frameworkID in our struct.
 	err := s.setFrameworkId()
 	if err != nil {
-		s.Logger.Emit(logging.ERROR, "Failed to get the framework ID from persistent storage: %s", err.Error())
+		s.logger.Emit(logging.ERROR, "Failed to get the framework ID from persistent storage: %s", err.Error())
 	}
 
 	// Recover our state (if any) in the event we (or the server) go down.
-	s.Logger.Emit(logging.INFO, "Restoring any persisted state from data store")
+	s.logger.Emit(logging.INFO, "Restoring any persisted state from data store")
 	err = s.restoreTasks()
 	if err != nil {
-		s.Logger.Emit(logging.INFO, "Failed to restore persisted state: %s", err.Error())
+		s.logger.Emit(logging.INFO, "Failed to restore persisted state: %s", err.Error())
 		os.Exit(2)
 	}
 
 	// Kick off our scheduled reconciling.
-	s.Logger.Emit(logging.INFO, "Starting periodic reconciler thread with a %g minute interval", s.Config.Scheduler.ReconcileInterval.Minutes())
+	s.logger.Emit(logging.INFO, "Starting periodic reconciler thread with a %g minute interval", s.config.Scheduler.ReconcileInterval.Minutes())
 	go s.periodicReconcile()
 
 	go func() {
 		for {
-			leader, err := s.Ha.GetLeader()
+			leader, err := s.ha.GetLeader()
 			if err != nil {
-				s.Logger.Emit(logging.ERROR, "Failed to get leader information: %s", err.Error())
+				s.logger.Emit(logging.ERROR, "Failed to get leader information: %s", err.Error())
 				os.Exit(5)
 			}
 
@@ -127,24 +122,45 @@ func (s *EventController) Run(events chan *mesos_v1_scheduler.Event) {
 			// If this happens we need to check if there really is another leader alive that we just can't reach.
 			// If we wrongly think we are the leader and try to subscribe when there's already a leader then we will disconnect the leader.
 			// Both the leader and the incorrectly determined new leader will continue to disconnect each other.
-			if leader != s.Config.Leader.IP {
-				s.Logger.Emit(logging.ERROR, "We are not the leader so we should not be subscribing. "+
+			if leader != s.config.Leader.IP {
+				s.logger.Emit(logging.ERROR, "We are not the leader so we should not be subscribing. "+
 					"This is most likely caused by a network partition between the leader and standbys")
 				os.Exit(1)
 			}
 
-			resp, err := s.Scheduler.Subscribe(events)
+			resp, err := s.scheduler.Subscribe(events)
 			if err != nil {
-				s.Logger.Emit(logging.ERROR, "Failed to subscribe: %s", err.Error())
+				s.logger.Emit(logging.ERROR, "Failed to subscribe: %s", err.Error())
 				if resp != nil && resp.StatusCode == 401 {
 					// TODO define constants and clean up all areas that currently exit with a hardcoded value.
 					os.Exit(8)
 				}
 
-				time.Sleep(time.Duration(s.Config.Scheduler.SubscribeRetry))
+				time.Sleep(time.Duration(s.config.Scheduler.SubscribeRetry))
 			}
 		}
 	}()
+
+	s.listen(events, revives, handler)
+}
+
+// Main event loop that listens on channels forever until framework terminates.
+// The Listen() function handles events coming in on the events channel.
+// This acts as a type of switch board to route events to their proper callback methods.
+func (s *EventController) listen(c chan *mesos_v1_scheduler.Event, r chan *sdkTaskManager.Task, h events.SchedulerEvent) {
+	sigs := make(chan os.Signal)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	for {
+		select {
+		case event := <-c:
+			h.Run(event)
+		case task := <-r:
+			h.Reschedule(task)
+		case <-sigs:
+			h.Signals()
+		}
+	}
 }
 
 //
@@ -152,7 +168,7 @@ func (s *EventController) Run(events chan *mesos_v1_scheduler.Event) {
 // If no tasks exist in the data store then we can consider this a fresh run and safely move on.
 //
 func (s *EventController) restoreTasks() error {
-	tasks, err := s.Storage.ReadAll(sprintTaskManager.TASK_DIRECTORY)
+	tasks, err := s.storage.ReadAll(sprintTaskManager.TASK_DIRECTORY)
 	if err != nil {
 		return err
 	}
@@ -163,7 +179,7 @@ func (s *EventController) restoreTasks() error {
 			return err
 		}
 
-		if err := s.TaskManager.Add(task); err != nil {
+		if err := s.taskManager.Add(task); err != nil {
 			return err
 		}
 	}
@@ -173,12 +189,12 @@ func (s *EventController) restoreTasks() error {
 
 // Keep our state in check by periodically reconciling.
 func (s *EventController) periodicReconcile() {
-	ticker := time.NewTicker(s.Config.Scheduler.ReconcileInterval)
+	ticker := time.NewTicker(s.config.Scheduler.ReconcileInterval)
 
 	for {
 		select {
 		case <-ticker.C:
-			recon, err := s.TaskManager.AllByState(sdkTaskManager.RUNNING)
+			recon, err := s.taskManager.AllByState(sdkTaskManager.RUNNING)
 			if err != nil {
 				continue
 			}
@@ -186,82 +202,26 @@ func (s *EventController) periodicReconcile() {
 			for _, t := range recon {
 				toReconcile = append(toReconcile, t.Info)
 			}
-			_, err = s.Scheduler.Reconcile(toReconcile)
+			_, err = s.scheduler.Reconcile(toReconcile)
 			if err != nil {
-				s.Logger.Emit(logging.ERROR, "Failed to reconcile all running tasks: %s", err.Error())
+				s.logger.Emit(logging.ERROR, "Failed to reconcile all running tasks: %s", err.Error())
 			}
 		}
 	}
 }
 
-// Handle appropriate signals for graceful shutdowns.
-func (s *EventController) registerShutdownHandlers() {
-	sigs := make(chan os.Signal)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigs
-
-		// Refresh our lease before we die so that we start an accurate countdown.
-		s.lock.RLock()
-		defer s.lock.RUnlock()
-		if s.FrameworkLease != 0 {
-			err := s.RefreshFrameworkIdLease()
-			if err != nil {
-				s.Logger.Emit(logging.ERROR, "Failed to refresh leader lease before exiting: %s", err.Error())
-				os.Exit(6)
-			}
-		}
-
-		os.Exit(0)
-	}()
-}
-
 // Set our framework ID in memory from what's currently persisted.
 // The framework ID is needed by the scheduler for almost any call to Mesos.
 func (s *EventController) setFrameworkId() error {
-	policy := s.Storage.CheckPolicy(nil)
-	return s.Storage.RunPolicy(policy, func() error {
-		id, err := s.Storage.Read("/frameworkId")
+	policy := s.storage.CheckPolicy(nil)
+	return s.storage.RunPolicy(policy, func() error {
+		id, err := s.storage.Read("/frameworkId")
 		if err != nil {
-			s.Logger.Emit(logging.ERROR, "Failed to set the framework ID: %s", err.Error())
+			s.logger.Emit(logging.ERROR, "Failed to set the framework ID: %s", err.Error())
 			return err
 		}
 
-		s.Scheduler.FrameworkInfo().Id = &mesos_v1.FrameworkID{Value: &id}
+		s.scheduler.FrameworkInfo().Id = &mesos_v1.FrameworkID{Value: &id}
 		return nil
-	})
-}
-
-// Create and persist our framework ID with an attached lifetime.
-func (s *EventController) CreateFrameworkIdLease(idVal string) error {
-	policy := s.Storage.CheckPolicy(nil)
-	return s.Storage.RunPolicy(policy, func() error {
-		lease, err := s.Storage.CreateWithLease("/frameworkId", idVal, int64(s.Scheduler.FrameworkInfo().GetFailoverTimeout()))
-		if err != nil {
-			s.Logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
-			return err
-		}
-
-		s.lock.Lock()
-		s.FrameworkLease = lease
-		s.lock.Unlock()
-
-		return nil
-	})
-}
-
-// Refreshes the lifetime of our persisted framework ID.
-func (s *EventController) RefreshFrameworkIdLease() error {
-	policy := s.Storage.CheckPolicy(nil)
-	return s.Storage.RunPolicy(policy, func() error {
-		s.lock.RLock()
-		err := s.Storage.RefreshLease(s.FrameworkLease)
-		if err != nil {
-			s.Logger.Emit(logging.ERROR, "Failed to refresh framework ID lease: %s", err.Error())
-		}
-
-		s.lock.RUnlock()
-
-		return err
 	})
 }

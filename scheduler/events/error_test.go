@@ -21,15 +21,15 @@ import (
 	"testing"
 )
 
-func TestEvent_Error(t *testing.T) {
-	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
+func TestHandler_Error(t *testing.T) {
+	e := NewEvent(new(mockResourceManager.MockResourceManager))
 	e.Error(&mesos_v1_scheduler.Event_Error{
 		Message: utils.ProtoString("message"),
 	})
 }
 
-func TestEvent_ErrorWithNoMessage(t *testing.T) {
-	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
+func TestHandler_ErrorWithNoMessage(t *testing.T) {
+	e := NewEvent(new(mockResourceManager.MockResourceManager))
 	e.Error(&mesos_v1_scheduler.Event_Error{
 		Message: nil,
 	})

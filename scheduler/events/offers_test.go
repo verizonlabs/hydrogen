@@ -22,7 +22,7 @@ import (
 	"testing"
 )
 
-func TestEvent_Offers(t *testing.T) {
+func TestHandler_Offers(t *testing.T) {
 	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
 
 	// Test empty offers.
@@ -55,7 +55,7 @@ func TestEvent_Offers(t *testing.T) {
 	})
 }
 
-func TestEvent_OffersWithQueuedTasks(t *testing.T) {
+func TestHandler_OffersWithQueuedTasks(t *testing.T) {
 	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
 
 	// Test empty offers.

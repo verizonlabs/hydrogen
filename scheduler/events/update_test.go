@@ -40,7 +40,7 @@ var states []*mesos_v1.TaskState = []*mesos_v1.TaskState{
 	mesos_v1.TaskState_TASK_LOST.Enum(),
 }
 
-func TestEvent_Update(t *testing.T) {
+func TestHandler_Update(t *testing.T) {
 	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
 
 	for _, state := range states {
@@ -52,7 +52,7 @@ func TestEvent_Update(t *testing.T) {
 	}
 }
 
-func TestEvent_UpdateWithNilTaskId(t *testing.T) {
+func TestHandler_UpdateWithNilTaskId(t *testing.T) {
 	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
 
 	for _, state := range states {
@@ -72,7 +72,7 @@ func TestEvent_UpdateWithNilTaskId(t *testing.T) {
 	e.Update(nil)
 }
 
-func TestEvent_UpdateWithInvalidState(t *testing.T) {
+func TestHandler_UpdateWithInvalidState(t *testing.T) {
 	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
 
 	e.Update(&mesos_v1_scheduler.Event_Update{
@@ -88,7 +88,7 @@ func TestEvent_UpdateWithInvalidState(t *testing.T) {
 		}})
 }
 
-func TestEvent_UpdateWith(t *testing.T) {
+func TestHandler_UpdateWith(t *testing.T) {
 	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
 
 	for _, state := range states {

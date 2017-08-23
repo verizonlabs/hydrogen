@@ -23,7 +23,7 @@ import (
 )
 
 // Test that we can pass a message.
-func TestEvent_Message(t *testing.T) {
+func TestHandler_Message(t *testing.T) {
 	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
 	e.Message(&mesos_v1_scheduler.Event_Message{
 		AgentId:    &mesos_v1.AgentID{Value: utils.ProtoString("agent")},
@@ -33,7 +33,7 @@ func TestEvent_Message(t *testing.T) {
 }
 
 // Test if we send an empty message
-func TestEvent_MessageNoData(t *testing.T) {
+func TestHandler_MessageNoData(t *testing.T) {
 	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
 	e.Message(&mesos_v1_scheduler.Event_Message{
 		AgentId:    &mesos_v1.AgentID{Value: utils.ProtoString("agent")},
@@ -42,13 +42,13 @@ func TestEvent_MessageNoData(t *testing.T) {
 }
 
 // Test what we do if we get a nil message
-func TestEvent_NilMessage(t *testing.T) {
+func TestHandler_NilMessage(t *testing.T) {
 	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
 	e.Message(nil)
 }
 
 // Test if we get a nil agent or nil value within the agent protobuf.
-func TestEvent_MessageWithNoAgent(t *testing.T) {
+func TestHandler_MessageWithNoAgent(t *testing.T) {
 	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
 	e.Message(&mesos_v1_scheduler.Event_Message{
 		AgentId:    &mesos_v1.AgentID{Value: nil},
@@ -63,7 +63,7 @@ func TestEvent_MessageWithNoAgent(t *testing.T) {
 }
 
 // Test if we get a nil executor or nil value inside the protobuf.
-func TestEvent_MessageWithNoExecutor(t *testing.T) {
+func TestHandler_MessageWithNoExecutor(t *testing.T) {
 	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
 	e.Message(&mesos_v1_scheduler.Event_Message{
 		AgentId:    &mesos_v1.AgentID{Value: utils.ProtoString("agent")},

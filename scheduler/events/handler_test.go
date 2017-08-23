@@ -61,8 +61,8 @@ func workingEventController() *controller.EventController {
 }
 
 // Tests creation of a new event.
-func TestEvent_NewEvent(t *testing.T) {
-	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
+func TestHandler_NewHandler(t *testing.T) {
+	e := NewHandler(new(mockResourceManager.MockResourceManager))
 	if e == nil {
 		t.FailNow()
 	}

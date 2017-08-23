@@ -26,6 +26,7 @@ import (
 	sched "mesos-framework-sdk/scheduler"
 	"mesos-framework-sdk/server"
 	"mesos-framework-sdk/server/file"
+	sdkTaskManager "mesos-framework-sdk/task/manager"
 	t "mesos-framework-sdk/task/manager"
 	"sprint/scheduler"
 	"sprint/scheduler/api"
@@ -100,6 +101,7 @@ func main() {
 
 	// Used to listen for events coming from mesos master to our scheduler.
 	eventChan := make(chan *mesos_v1_scheduler.Event)
+	reviveChan := make(chan *sdkTaskManager.Task)
 
 	// Event controller manages scheduler events and how they are handled.
 	e := controller.NewEventController(config, s, taskManager, p, logger, ha)
@@ -119,6 +121,6 @@ func main() {
 
 	// Run our event controller and kick off HA leader election.
 	// Then subscribe to Mesos and start listening for events.
-	e.Run(eventChan)
-	events.NewEvent(e, r).Listen(eventChan)
+	h := events.NewHandler(taskManager, r, config, s, p, reviveChan, logger)
+	e.Run(eventChan, reviveChan, h)
 }

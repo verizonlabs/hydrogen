@@ -22,12 +22,12 @@ import (
 	"testing"
 )
 
-func TestEvent_Subscribe(t *testing.T) {
+func TestHandler_Subscribe(t *testing.T) {
 	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
 	e.Subscribed(&mesos_v1_scheduler.Event_Subscribed{FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString("id")}})
 }
 
-func TestEvent_Subscribed(t *testing.T) {
+func TestHandler_Subscribed(t *testing.T) {
 	ch := make(chan *mesos_v1_scheduler.Event)
 	ctrl := workingEventController()
 	go ctrl.Run(ch)

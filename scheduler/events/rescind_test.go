@@ -22,7 +22,7 @@ import (
 	"testing"
 )
 
-func TestEvent_Rescind(t *testing.T) {
+func TestHandler_Rescind(t *testing.T) {
 	ch := make(chan *mesos_v1_scheduler.Event)
 	ctrl := workingEventController()
 	go ctrl.Run(ch)
@@ -43,7 +43,7 @@ func TestEvent_Rescind(t *testing.T) {
 	}
 }
 
-func TestEvent_RescindWithNil(t *testing.T) {
+func TestHandler_RescindWithNil(t *testing.T) {
 	ch := make(chan *mesos_v1_scheduler.Event)
 	ctrl := workingEventController()
 	go ctrl.Run(ch)

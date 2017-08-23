@@ -22,7 +22,7 @@ import (
 	"testing"
 )
 
-func TestEvent_RescindInverseOffer(t *testing.T) {
+func TestHandler_RescindInverseOffer(t *testing.T) {
 	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
 	e.RescindInverseOffer(&mesos_v1_scheduler.Event_RescindInverseOffer{
 		InverseOfferId: &mesos_v1.OfferID{Value: utils.ProtoString("id")},

@@ -15,12 +15,14 @@
 package controller
 
 import (
+	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
 	mockLogger "mesos-framework-sdk/logging/test"
 	sdkScheduler "mesos-framework-sdk/scheduler"
 	sched "mesos-framework-sdk/scheduler/test"
 	"mesos-framework-sdk/task/manager"
+	"mesos-framework-sdk/utils"
 	"os"
 	"sprint/scheduler"
 	"sprint/scheduler/ha"
@@ -120,4 +122,48 @@ func TestEventController_periodicReconcile(t *testing.T) {
 	go ctrl.periodicReconcile()
 	broken := brokenSchedulerEventController()
 	go broken.periodicReconcile()
+}
+
+func TestEventController_listen(t *testing.T) {
+	ch := make(chan *mesos_v1_scheduler.Event)
+	ctrl := workingEventController()
+	go ctrl.Run(ch)
+
+	ch <- &mesos_v1_scheduler.Event{
+		Type: mesos_v1_scheduler.Event_SUBSCRIBED.Enum(),
+		Subscribed: &mesos_v1_scheduler.Event_Subscribed{
+			FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString("Test")},
+		},
+	}
+
+	ctrl.Listen(ch, e events.Event)
+	// Test all event messages.
+	ch <- &mesos_v1_scheduler.Event{
+		Type:  mesos_v1_scheduler.Event_ERROR.Enum(),
+		Error: &mesos_v1_scheduler.Event_Error{},
+	}
+	ch <- &mesos_v1_scheduler.Event{
+		Type:    mesos_v1_scheduler.Event_FAILURE.Enum(),
+		Failure: &mesos_v1_scheduler.Event_Failure{},
+	}
+	ch <- &mesos_v1_scheduler.Event{
+		Type:          mesos_v1_scheduler.Event_INVERSE_OFFERS.Enum(),
+		InverseOffers: &mesos_v1_scheduler.Event_InverseOffers{},
+	}
+	ch <- &mesos_v1_scheduler.Event{
+		Type:    mesos_v1_scheduler.Event_MESSAGE.Enum(),
+		Message: &mesos_v1_scheduler.Event_Message{},
+	}
+	ch <- &mesos_v1_scheduler.Event{
+		Type:   mesos_v1_scheduler.Event_OFFERS.Enum(),
+		Offers: &mesos_v1_scheduler.Event_Offers{},
+	}
+	ch <- &mesos_v1_scheduler.Event{
+		Type:    mesos_v1_scheduler.Event_RESCIND.Enum(),
+		Rescind: &mesos_v1_scheduler.Event_Rescind{},
+	}
+	ch <- &mesos_v1_scheduler.Event{
+		Type:   mesos_v1_scheduler.Event_UPDATE.Enum(),
+		Update: &mesos_v1_scheduler.Event_Update{},
+	}
 }

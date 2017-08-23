@@ -25,26 +25,26 @@ import (
 // Subscribed is a public method that handles subscription events from the master.
 // We handle our subscription by writing the framework ID to storage.
 // Then we gather all of our launched non-terminal tasks and reconcile them explicitly.
-func (e *Event) Subscribed(subEvent *mesos_v1_scheduler.Event_Subscribed) {
+func (h *Handler) Subscribed(subEvent *mesos_v1_scheduler.Event_Subscribed) {
 	id := subEvent.GetFrameworkId()
 	idVal := id.GetValue()
-	e.controller.Scheduler.FrameworkInfo().Id = id
-	e.controller.Logger.Emit(logging.INFO, "Subscribed with an ID of %s", idVal)
+	h.scheduler.FrameworkInfo().Id = id
+	h.logger.Emit(logging.INFO, "Subscribed with an ID of %s", idVal)
 
-	err := e.controller.CreateFrameworkIdLease(idVal)
+	err := h.createFrameworkIdLease(idVal)
 	if err != nil {
-		e.controller.Logger.Emit(logging.ERROR, "Failed to persist leader information: %s", err.Error())
+		h.logger.Emit(logging.ERROR, "Failed to persist leader information: %s", err.Error())
 		os.Exit(3)
 	}
 
-	e.controller.Scheduler.Revive() // Reset to revive offers regardless if there are tasks or not.
+	h.scheduler.Revive() // Reset to revive offers regardless if there are tasks or not.
 	// We do this to force a check for any tasks that we might have missed during downtime.
 	// Reconcile after we subscribe in case we resubscribed due to a failure.
 
 	// Get all launched non-terminal tasks.
-	launched, err := e.controller.TaskManager.AllByState(manager.RUNNING)
+	launched, err := h.taskManager.AllByState(manager.RUNNING)
 	if err != nil {
-		e.controller.Logger.Emit(logging.INFO, "Not reconciling: %s", err.Error())
+		h.logger.Emit(logging.INFO, "Not reconciling: %s", err.Error())
 		return
 	}
 
@@ -53,5 +53,34 @@ func (e *Event) Subscribed(subEvent *mesos_v1_scheduler.Event_Subscribed) {
 		toReconcile = append(toReconcile, t.Info)
 	}
 
-	e.controller.Scheduler.Reconcile(toReconcile)
+	h.scheduler.Reconcile(toReconcile)
+}
+
+// Create and persist our framework ID with an attached lifetime.
+func (h *Handler) createFrameworkIdLease(idVal string) error {
+	policy := h.storage.CheckPolicy(nil)
+	return h.storage.RunPolicy(policy, func() error {
+		lease, err := h.storage.CreateWithLease("/frameworkId", idVal, int64(h.scheduler.FrameworkInfo().GetFailoverTimeout()))
+		if err != nil {
+			h.logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
+			return err
+		}
+
+		h.frameworkLease = lease
+
+		return nil
+	})
+}
+
+// Refreshes the lifetime of our persisted framework ID.
+func (h *Handler) refreshFrameworkIdLease() error {
+	policy := h.storage.CheckPolicy(nil)
+	return h.storage.RunPolicy(policy, func() error {
+		err := h.storage.RefreshLease(h.frameworkLease)
+		if err != nil {
+			h.logger.Emit(logging.ERROR, "Failed to refresh framework ID lease: %s", err.Error())
+		}
+
+		return err
+	})
 }
