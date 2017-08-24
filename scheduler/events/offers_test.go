@@ -17,16 +17,31 @@ package events
 import (
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
+	mockLogger "mesos-framework-sdk/logging/test"
+	mockResourceManager "mesos-framework-sdk/resources/manager/test"
+	sched "mesos-framework-sdk/scheduler/test"
+	"mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
+	"sprint/scheduler"
+	mockTaskManager "sprint/task/manager/test"
+	mockStorage "sprint/task/persistence/test"
 	"testing"
 )
 
-func TestSprintEventController_Offers(t *testing.T) {
-	ctrl := workingEventController()
+func TestHandler_Offers(t *testing.T) {
+	e := NewHandler(
+		mockTaskManager.MockTaskManager{},
+		mockResourceManager.MockResourceManager{},
+		new(scheduler.Configuration),
+		sched.MockScheduler{},
+		&mockStorage.MockStorage{},
+		make(chan *manager.Task),
+		&mockLogger.MockLogger{},
+	)
 
 	// Test empty offers.
 	offers := []*mesos_v1.Offer{}
-	ctrl.Offers(&mesos_v1_scheduler.Event_Offers{
+	e.Offers(&mesos_v1_scheduler.Event_Offers{
 		Offers: offers,
 	})
 
@@ -40,6 +55,7 @@ func TestSprintEventController_Offers(t *testing.T) {
 			Value: utils.ProtoFloat64(10.0),
 		},
 	})
+
 	offers = append(offers, &mesos_v1.Offer{
 		Id:          &mesos_v1.OfferID{Value: utils.ProtoString("id")},
 		FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString(utils.UuidAsString())},
@@ -47,17 +63,26 @@ func TestSprintEventController_Offers(t *testing.T) {
 		Hostname:    utils.ProtoString("Some host"),
 		Resources:   resources,
 	})
-	ctrl.Offers(&mesos_v1_scheduler.Event_Offers{
+
+	e.Offers(&mesos_v1_scheduler.Event_Offers{
 		Offers: offers,
 	})
-
 }
 
-func TestSprintEventController_OffersWithQueuedTasks(t *testing.T) {
-	ctrl := workingEventController()
+func TestHandler_OffersWithQueuedTasks(t *testing.T) {
+	e := NewHandler(
+		mockTaskManager.MockTaskManager{},
+		mockResourceManager.MockResourceManager{},
+		new(scheduler.Configuration),
+		sched.MockScheduler{},
+		&mockStorage.MockStorage{},
+		make(chan *manager.Task),
+		&mockLogger.MockLogger{},
+	)
+
 	// Test empty offers.
 	offers := []*mesos_v1.Offer{}
-	ctrl.Offers(&mesos_v1_scheduler.Event_Offers{
+	e.Offers(&mesos_v1_scheduler.Event_Offers{
 		Offers: offers,
 	})
 
@@ -71,6 +96,7 @@ func TestSprintEventController_OffersWithQueuedTasks(t *testing.T) {
 			Value: utils.ProtoFloat64(10.0),
 		},
 	})
+
 	offers = append(offers, &mesos_v1.Offer{
 		Id:          &mesos_v1.OfferID{Value: utils.ProtoString("id")},
 		FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString(utils.UuidAsString())},
@@ -78,8 +104,8 @@ func TestSprintEventController_OffersWithQueuedTasks(t *testing.T) {
 		Hostname:    utils.ProtoString("Some host"),
 		Resources:   resources,
 	})
-	ctrl.Offers(&mesos_v1_scheduler.Event_Offers{
+
+	e.Offers(&mesos_v1_scheduler.Event_Offers{
 		Offers: offers,
 	})
-
 }

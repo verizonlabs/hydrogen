@@ -12,48 +12,52 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package events
+package ha
 
 import (
-	"mesos-framework-sdk/ha"
 	"mesos-framework-sdk/logging"
 	"net"
 	"os"
+	"sprint/scheduler"
+	"sprint/task/persistence"
 	"strconv"
 	"time"
 )
 
-//
-// High Availability (HA) handles satisfying the interface for HA as defined by the SDK.
-//
+const (
+	leaderKey = "/leader"
+)
 
-// Getters
-func (s *SprintEventController) Name() (string, error) {
-	return s.name, nil
+type HA struct {
+	logger  logging.Logger
+	config  *scheduler.LeaderConfiguration
+	storage persistence.Storage
 }
 
-func (s *SprintEventController) Status() (ha.Status, error) {
-	return s.status, nil
+func NewHA(s persistence.Storage, l logging.Logger, c *scheduler.LeaderConfiguration) *HA {
+	return &HA{
+		logger:  l,
+		config:  c,
+		storage: s,
+	}
 }
 
-//
 // Communicate is a public method that defines how we communicate in our HA implementation.
 // Here we set up a listening mechanism on a TCP channel for other nodes to talk to us.
-//
-func (s *SprintEventController) Communicate() {
+func (h *HA) Communicate() {
 	// NOTE (tim): Using a generic Listener might be better so we don't have to assume TCP
 	// for all implementations in future.
-	addr, err := net.ResolveTCPAddr(s.config.Leader.AddressFamily, "["+s.config.Leader.IP+"]:"+
-		strconv.Itoa(s.config.Leader.ServerPort))
+	addr, err := net.ResolveTCPAddr(h.config.AddressFamily, "["+h.config.IP+"]:"+
+		strconv.Itoa(h.config.ServerPort))
 	if err != nil {
-		s.logger.Emit(logging.ERROR, "Leader server exiting: %s", err.Error())
+		h.logger.Emit(logging.ERROR, "Leader server exiting: %s", err.Error())
 		return
 	}
 
 	// We start listening for connections.
-	tcp, err := net.ListenTCP(s.config.Leader.AddressFamily, addr)
+	tcp, err := net.ListenTCP(h.config.AddressFamily, addr)
 	if err != nil {
-		s.logger.Emit(logging.ERROR, "Leader server exiting: %s", err.Error())
+		h.logger.Emit(logging.ERROR, "Leader server exiting: %s", err.Error())
 		return
 	}
 
@@ -62,14 +66,14 @@ func (s *SprintEventController) Communicate() {
 		// We don't want to do anything with the stream so move on without spawning a thread to handle the connection.
 		conn, err := tcp.AcceptTCP()
 		if err != nil {
-			s.logger.Emit(logging.ERROR, "Failed to accept client: %s", err.Error())
-			time.Sleep(s.config.Leader.ServerRetry)
+			h.logger.Emit(logging.ERROR, "Failed to accept client: %s", err.Error())
+			time.Sleep(h.config.ServerRetry)
 			continue
 		}
 
 		// TODO build out some config to use for setting the keep alive period here
 		if err := conn.SetKeepAlive(true); err != nil {
-			s.logger.Emit(logging.ERROR, "Failed to set keep alive: %s", err.Error())
+			h.logger.Emit(logging.ERROR, "Failed to set keep alive: %s", err.Error())
 		}
 	}
 
@@ -83,49 +87,46 @@ func (s *SprintEventController) Communicate() {
 // This is a simple approach in which who ever gets to write to etcd first becomes the leader.
 // Note that reads and writes are atomic operations.
 //
-func (s *SprintEventController) Election() {
+func (h *HA) Election() {
 	for {
 		// This will only set us as the leader if there isn't an already existing leader.
 		// If there's an already existing leader then this call is effectively a no-op.
-		err := s.CreateLeader()
+		err := h.CreateLeader()
 		if err != nil {
-			s.logger.Emit(logging.ERROR, "Failed to persist leader information: %s", err.Error())
+			h.logger.Emit(logging.ERROR, "Failed to persist leader information: %s", err.Error())
 			os.Exit(3)
 		}
 
-		leader, err := s.GetLeader()
+		leader, err := h.GetLeader()
 		if err != nil {
-			s.logger.Emit(logging.ERROR, "Failed to get leader information: %s", err.Error())
+			h.logger.Emit(logging.ERROR, "Failed to get leader information: %s", err.Error())
 			os.Exit(5)
 		}
 
 		// If the leader fetched from persistent storage does not match the IP provided to this instance
 		// then we should connect to the already existing leader.
-		if leader != s.config.Leader.IP {
-			s.status = ha.Listening
-			s.logger.Emit(logging.INFO, "Connecting to leader to determine when we need to wake up and perform leader election")
+		if leader != h.config.IP {
+			h.logger.Emit(logging.INFO, "Connecting to leader to determine when we need to wake up and perform leader election")
 
 			// Block here until we lose connection to the leader.
 			// Once the connection has been lost, elect a new leader.
-			err := s.leaderClient(leader)
+			err := h.leaderClient(leader)
 
 			// Only delete the key if we've lost the connection, not timed out.
 			// This conditional requires Go 1.6+
 			// NOTE (tim): Casting here is dangerous and could lead to a panic
 			if err, ok := err.(net.Error); ok && err.Timeout() {
-				s.logger.Emit(logging.ERROR, "Timed out connecting to leader")
+				h.logger.Emit(logging.ERROR, "Timed out connecting to leader")
 			} else {
-				s.status = ha.Election
-				s.logger.Emit(logging.ERROR, "Lost connection to leader")
-				err := s.deleteLeader()
+				h.logger.Emit(logging.ERROR, "Lost connection to leader")
+				err := h.deleteLeader()
 				if err != nil {
-					s.logger.Emit(logging.ERROR, "Failed to delete leader information: %s", err.Error())
+					h.logger.Emit(logging.ERROR, "Failed to delete leader information: %s", err.Error())
 					os.Exit(4)
 				}
 			}
 		} else {
-			s.status = ha.Leading
-			s.logger.Emit(logging.INFO, "We're leading.")
+			h.logger.Emit(logging.INFO, "We're leading.")
 			// We are the leader, exit the loop and start the scheduler/API.
 			break
 		}
@@ -135,22 +136,20 @@ func (s *SprintEventController) Election() {
 //
 // Connects to the leader and determines if and when we should start the leader election process.
 //
-func (s *SprintEventController) leaderClient(leader string) error {
-	conn, err := net.DialTimeout(s.config.Leader.AddressFamily, "["+leader+"]:"+
-		strconv.Itoa(s.config.Leader.ServerPort), 2*time.Second)
+func (h *HA) leaderClient(leader string) error {
+	conn, err := net.DialTimeout(h.config.AddressFamily, "["+leader+"]:"+
+		strconv.Itoa(h.config.ServerPort), 2*time.Second)
 	if err != nil {
 		return err
 	}
 
-	s.logger.Emit(logging.INFO, "Successfully connected to leader %s", leader)
+	h.logger.Emit(logging.INFO, "Successfully connected to leader %s", leader)
 
 	// NOTE (tim): This cast has the potential to panic.
 	tcp := conn.(*net.TCPConn)
 	if err := tcp.SetKeepAlive(true); err != nil {
 		return err
 	}
-
-	s.status = ha.Talking
 
 	// Currently the leader server does not send us anything as we rely on TCP keepalive.
 	// Allocate the smallest buffer we can and block on reading data.
@@ -162,4 +161,52 @@ func (s *SprintEventController) leaderClient(leader string) error {
 			return err
 		}
 	}
+}
+
+// Deletes the current leader information.
+func (h *HA) deleteLeader() error {
+	policy := h.storage.CheckPolicy(nil)
+	return h.storage.RunPolicy(policy, func() error {
+		err := h.storage.Delete(leaderKey)
+		if err != nil {
+			h.logger.Emit(logging.ERROR, "Failed to delete leader: %s", err.Error())
+		}
+
+		return err
+	})
+}
+
+// Atomically create leader information.
+func (h *HA) CreateLeader() error {
+	policy := h.storage.CheckPolicy(nil)
+	return h.storage.RunPolicy(policy, func() error {
+		err := h.storage.Create(leaderKey, h.config.IP)
+		if err != nil {
+			h.logger.Emit(logging.ERROR, "Failed to set leader: %s", err.Error())
+		}
+
+		return err
+	})
+}
+
+// Atomically get leader information.
+func (h *HA) GetLeader() (string, error) {
+	var leader string
+	policy := h.storage.CheckPolicy(nil)
+	err := h.storage.RunPolicy(policy, func() error {
+		l, err := h.storage.Read(leaderKey)
+		if err != nil {
+			h.logger.Emit(logging.ERROR, "Failed to get the leader: %s", err.Error())
+			return err
+		}
+
+		leader = l
+		return nil
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	return leader, nil
 }

@@ -24,10 +24,10 @@ import (
 // We simply print this message to the log, however in the future we may utilize
 // the message passing functionality to send custom logging errors.
 //
-func (s *SprintEventController) Message(msg *mesos_v1_scheduler.Event_Message) {
+func (e *Handler) Message(msg *mesos_v1_scheduler.Event_Message) {
 	if msg != nil {
-		s.logger.Emit(logging.INFO, "Message event recieved: %v", *msg)
+		e.logger.Emit(logging.INFO, "Message event recieved: %v", *msg)
 	} else {
-		s.logger.Emit(logging.ERROR, "Recieved a nil message!")
+		e.logger.Emit(logging.ERROR, "Recieved a nil message!")
 	}
 }
