@@ -15,20 +15,18 @@
 package events
 
 import (
-	"mesos-framework-sdk/include/mesos_v1"
-	"mesos-framework-sdk/include/mesos_v1_scheduler"
 	mockLogger "mesos-framework-sdk/logging/test"
 	mockResourceManager "mesos-framework-sdk/resources/manager/test"
 	sched "mesos-framework-sdk/scheduler/test"
 	"mesos-framework-sdk/task/manager"
-	"mesos-framework-sdk/utils"
 	"sprint/scheduler"
 	mockTaskManager "sprint/task/manager/test"
 	mockStorage "sprint/task/persistence/test"
 	"testing"
 )
 
-func TestHandler_InverseOffer(t *testing.T) {
+// Tests creation of a new handler.
+func TestHandler_NewHandler(t *testing.T) {
 	e := NewHandler(
 		mockTaskManager.MockTaskManager{},
 		mockResourceManager.MockResourceManager{},
@@ -38,18 +36,13 @@ func TestHandler_InverseOffer(t *testing.T) {
 		make(chan *manager.Task),
 		&mockLogger.MockLogger{},
 	)
-	e.InverseOffer(&mesos_v1_scheduler.Event_InverseOffers{
-		InverseOffers: []*mesos_v1.InverseOffer{
-			{
-				Id:             &mesos_v1.OfferID{Value: utils.ProtoString("id")},
-				FrameworkId:    &mesos_v1.FrameworkID{Value: utils.ProtoString("id")},
-				Unavailability: &mesos_v1.Unavailability{Start: &mesos_v1.TimeInfo{Nanoseconds: utils.ProtoInt64(0)}},
-			},
-		},
-	})
+	if e == nil {
+		t.FailNow()
+	}
 }
 
-func TestHandler_InverseOfferWithNilOffer(t *testing.T) {
+// Ensure our signal handlers are valid.
+func TestHandler_Signals(t *testing.T) {
 	e := NewHandler(
 		mockTaskManager.MockTaskManager{},
 		mockResourceManager.MockResourceManager{},
@@ -59,8 +52,5 @@ func TestHandler_InverseOfferWithNilOffer(t *testing.T) {
 		make(chan *manager.Task),
 		&mockLogger.MockLogger{},
 	)
-	e.InverseOffer(&mesos_v1_scheduler.Event_InverseOffers{
-		InverseOffers: nil,
-	})
-	e.InverseOffer(nil)
+	e.Signals()
 }
