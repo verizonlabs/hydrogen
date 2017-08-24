@@ -19,12 +19,14 @@ import (
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
 	mockLogger "mesos-framework-sdk/logging/test"
+	mockResourceManager "mesos-framework-sdk/resources/manager/test"
 	sdkScheduler "mesos-framework-sdk/scheduler"
 	sched "mesos-framework-sdk/scheduler/test"
 	"mesos-framework-sdk/task/manager"
+	sdkTaskManager "mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
-	"os"
 	"sprint/scheduler"
+	"sprint/scheduler/events"
 	"sprint/scheduler/ha"
 	mockTaskManager "sprint/task/manager/test"
 	"sprint/task/persistence"
@@ -103,17 +105,11 @@ func TestNewEventController(t *testing.T) {
 // Verify that we can successfully run our scheduler.
 func TestEventController_Run(t *testing.T) {
 	ctrl := workingEventController()
-
-	go ctrl.Run(make(chan *mesos_v1_scheduler.Event))
-}
-
-// Ensure our controller registers signal handlers and check that they work.
-func TestEventController_SignalHandler(t *testing.T) {
-	ctrl := workingEventController()
-	ctrl.registerShutdownHandlers()
-	p, _ := os.FindProcess(os.Getpid())
-	p.Signal(os.Interrupt)
-	p.Wait()
+	ch := make(chan *mesos_v1_scheduler.Event)
+	r := mockResourceManager.MockResourceManager{}
+	v := make(chan *sdkTaskManager.Task)
+	h := events.NewHandler(ctrl.taskManager, r, ctrl.config, ctrl.scheduler, ctrl.storage, v, ctrl.logger)
+	go ctrl.Run(ch, v, h)
 }
 
 // Test our periodic reconciling.
@@ -127,7 +123,10 @@ func TestEventController_periodicReconcile(t *testing.T) {
 func TestEventController_listen(t *testing.T) {
 	ch := make(chan *mesos_v1_scheduler.Event)
 	ctrl := workingEventController()
-	go ctrl.Run(ch)
+	r := mockResourceManager.MockResourceManager{}
+	v := make(chan *sdkTaskManager.Task)
+	h := events.NewHandler(ctrl.taskManager, r, ctrl.config, ctrl.scheduler, ctrl.storage, v, ctrl.logger)
+	go ctrl.Run(ch, v, h)
 
 	ch <- &mesos_v1_scheduler.Event{
 		Type: mesos_v1_scheduler.Event_SUBSCRIBED.Enum(),
@@ -136,7 +135,6 @@ func TestEventController_listen(t *testing.T) {
 		},
 	}
 
-	ctrl.Listen(ch, e events.Event)
 	// Test all event messages.
 	ch <- &mesos_v1_scheduler.Event{
 		Type:  mesos_v1_scheduler.Event_ERROR.Enum(),

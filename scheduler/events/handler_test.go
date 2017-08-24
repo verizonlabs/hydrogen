@@ -15,55 +15,42 @@
 package events
 
 import (
-	"mesos-framework-sdk/logging"
 	mockLogger "mesos-framework-sdk/logging/test"
 	mockResourceManager "mesos-framework-sdk/resources/manager/test"
-	sdkScheduler "mesos-framework-sdk/scheduler"
 	sched "mesos-framework-sdk/scheduler/test"
 	"mesos-framework-sdk/task/manager"
 	"sprint/scheduler"
-	"sprint/scheduler/controller"
-	"sprint/scheduler/ha"
 	mockTaskManager "sprint/task/manager/test"
-	"sprint/task/persistence"
 	mockStorage "sprint/task/persistence/test"
 	"testing"
-	"time"
 )
 
-// Creates as new working event controller.
-func workingEventController() *controller.EventController {
-	var (
-		cfg = &scheduler.Configuration{
-			Leader: &scheduler.LeaderConfiguration{
-				IP: "1", // Make sure we break out of our HA loop by matching on what mock storage gives us.
-			},
-			Executor:  &scheduler.ExecutorConfiguration{},
-			Scheduler: &scheduler.SchedulerConfiguration{ReconcileInterval: time.Nanosecond},
-			Persistence: &scheduler.PersistenceConfiguration{
-				MaxRetries: 0,
-			},
-		}
-		sh sdkScheduler.Scheduler = sched.MockScheduler{}
-		m  manager.TaskManager    = &mockTaskManager.MockTaskManager{}
-		s  persistence.Storage    = &mockStorage.MockStorage{}
-		l  logging.Logger         = &mockLogger.MockLogger{}
-		ha                        = ha.NewHA(s, l, cfg.Leader)
-	)
-	return controller.NewEventController(
-		cfg,
-		sh,
-		m,
-		s,
-		l,
-		ha,
-	)
-}
-
-// Tests creation of a new event.
+// Tests creation of a new handler.
 func TestHandler_NewHandler(t *testing.T) {
-	e := NewHandler(new(mockResourceManager.MockResourceManager))
+	e := NewHandler(
+		mockTaskManager.MockTaskManager{},
+		mockResourceManager.MockResourceManager{},
+		new(scheduler.Configuration),
+		sched.MockScheduler{},
+		&mockStorage.MockStorage{},
+		make(chan *manager.Task),
+		&mockLogger.MockLogger{},
+	)
 	if e == nil {
 		t.FailNow()
 	}
+}
+
+// Ensure our signal handlers are valid.
+func TestHandler_Signals(t *testing.T) {
+	e := NewHandler(
+		mockTaskManager.MockTaskManager{},
+		mockResourceManager.MockResourceManager{},
+		new(scheduler.Configuration),
+		sched.MockScheduler{},
+		&mockStorage.MockStorage{},
+		make(chan *manager.Task),
+		&mockLogger.MockLogger{},
+	)
+	e.Signals()
 }

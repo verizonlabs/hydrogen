@@ -17,13 +17,27 @@ package events
 import (
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
+	mockLogger "mesos-framework-sdk/logging/test"
 	mockResourceManager "mesos-framework-sdk/resources/manager/test"
+	sched "mesos-framework-sdk/scheduler/test"
+	"mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
+	"sprint/scheduler"
+	mockTaskManager "sprint/task/manager/test"
+	mockStorage "sprint/task/persistence/test"
 	"testing"
 )
 
 func TestHandler_Offers(t *testing.T) {
-	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
+	e := NewHandler(
+		mockTaskManager.MockTaskManager{},
+		mockResourceManager.MockResourceManager{},
+		new(scheduler.Configuration),
+		sched.MockScheduler{},
+		&mockStorage.MockStorage{},
+		make(chan *manager.Task),
+		&mockLogger.MockLogger{},
+	)
 
 	// Test empty offers.
 	offers := []*mesos_v1.Offer{}
@@ -56,7 +70,15 @@ func TestHandler_Offers(t *testing.T) {
 }
 
 func TestHandler_OffersWithQueuedTasks(t *testing.T) {
-	e := NewEvent(workingEventController(), new(mockResourceManager.MockResourceManager))
+	e := NewHandler(
+		mockTaskManager.MockTaskManager{},
+		mockResourceManager.MockResourceManager{},
+		new(scheduler.Configuration),
+		sched.MockScheduler{},
+		&mockStorage.MockStorage{},
+		make(chan *manager.Task),
+		&mockLogger.MockLogger{},
+	)
 
 	// Test empty offers.
 	offers := []*mesos_v1.Offer{}
