@@ -24,6 +24,7 @@ import (
 	"os"
 	sched "sprint/scheduler"
 	"sprint/task/persistence"
+	"sync"
 )
 
 // Event contains various event handlers and holds data that callbacks need to access/modify.
@@ -36,6 +37,7 @@ type Handler struct {
 	revive          chan *taskManager.Task
 	logger          logging.Logger
 	frameworkLease  int64
+	sync.RWMutex
 }
 
 // NewEvent returns a new Event type which adheres to the SchedulerEvent interface.
@@ -88,9 +90,11 @@ func (h *Handler) Run(event *mesos_v1_scheduler.Event) {
 }
 
 func (h *Handler) Signals() {
+	h.RLock()
 	if h.frameworkLease == 0 {
 		os.Exit(0)
 	}
+	h.RUnlock()
 
 	// Refresh our lease before we die so that we start an accurate countdown.
 	err := h.refreshFrameworkIdLease()
@@ -106,10 +110,13 @@ func (h *Handler) Signals() {
 func (h *Handler) refreshFrameworkIdLease() error {
 	policy := h.storage.CheckPolicy(nil)
 	return h.storage.RunPolicy(policy, func() error {
+		h.RLock()
 		err := h.storage.RefreshLease(h.frameworkLease)
 		if err != nil {
 			h.logger.Emit(logging.ERROR, "Failed to refresh framework ID lease: %s", err.Error())
 		}
+		h.RUnlock()
+
 		return err
 	})
 }

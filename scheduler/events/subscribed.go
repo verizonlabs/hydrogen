@@ -66,7 +66,9 @@ func (h *Handler) createFrameworkIdLease(idVal string) error {
 			return err
 		}
 
+		h.Lock()
 		h.frameworkLease = lease
+		h.Unlock()
 
 		return nil
 	})
