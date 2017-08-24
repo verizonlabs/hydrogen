@@ -31,6 +31,10 @@ import (
 	"time"
 )
 
+const (
+	frameworkIDKey = "/frameworkId"
+)
+
 // The event controller is responsible for coordinating:
 // High Availability (HA) between schedulers in a cluster.
 // Subscribing to the mesos master.
@@ -144,9 +148,7 @@ func (s *EventController) Run(events chan *mesos_v1_scheduler.Event, revives cha
 	s.listen(events, revives, handler)
 }
 
-// Main event loop that listens on channels forever until framework terminates.
-// The Listen() function handles events coming in on the events channel.
-// This acts as a type of switch board to route events to their proper callback methods.
+// Listens for Mesos events, tasks that need to be revived, and signals and routes to the appropriate handler.
 func (s *EventController) listen(c chan *mesos_v1_scheduler.Event, r chan *sdkTaskManager.Task, h events.SchedulerEvent) {
 	sigs := make(chan os.Signal)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -215,7 +217,7 @@ func (s *EventController) periodicReconcile() {
 func (s *EventController) setFrameworkId() error {
 	policy := s.storage.CheckPolicy(nil)
 	return s.storage.RunPolicy(policy, func() error {
-		id, err := s.storage.Read("/frameworkId")
+		id, err := s.storage.Read(frameworkIDKey)
 		if err != nil {
 			s.logger.Emit(logging.ERROR, "Failed to set the framework ID: %s", err.Error())
 			return err

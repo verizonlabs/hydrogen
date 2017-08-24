@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	LEADER_KEY = "/leader"
+	leaderKey = "/leader"
 )
 
 type HA struct {
@@ -167,7 +167,7 @@ func (h *HA) leaderClient(leader string) error {
 func (h *HA) deleteLeader() error {
 	policy := h.storage.CheckPolicy(nil)
 	return h.storage.RunPolicy(policy, func() error {
-		err := h.storage.Delete(LEADER_KEY)
+		err := h.storage.Delete(leaderKey)
 		if err != nil {
 			h.logger.Emit(logging.ERROR, "Failed to delete leader: %s", err.Error())
 		}
@@ -180,7 +180,7 @@ func (h *HA) deleteLeader() error {
 func (h *HA) CreateLeader() error {
 	policy := h.storage.CheckPolicy(nil)
 	return h.storage.RunPolicy(policy, func() error {
-		err := h.storage.Create(LEADER_KEY, h.config.IP)
+		err := h.storage.Create(leaderKey, h.config.IP)
 		if err != nil {
 			h.logger.Emit(logging.ERROR, "Failed to set leader: %s", err.Error())
 		}
@@ -194,7 +194,7 @@ func (h *HA) GetLeader() (string, error) {
 	var leader string
 	policy := h.storage.CheckPolicy(nil)
 	err := h.storage.RunPolicy(policy, func() error {
-		l, err := h.storage.Read(LEADER_KEY)
+		l, err := h.storage.Read(leaderKey)
 		if err != nil {
 			h.logger.Emit(logging.ERROR, "Failed to get the leader: %s", err.Error())
 			return err
