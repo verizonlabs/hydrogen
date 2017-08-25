@@ -128,6 +128,10 @@ func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
 	return nil
 }
 
+func (m *SprintTaskHandler) Restore(task *manager.Task) {
+	m.tasks[task.Info.GetName()] = task
+}
+
 // Delete a task from memory and etcd, and clears any associated policy.
 func (m *SprintTaskHandler) Delete(tasks ...*manager.Task) error {
 	m.mutex.Lock()
