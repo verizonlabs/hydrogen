@@ -15,48 +15,40 @@
 package events
 
 import (
-	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
-	"mesos-framework-sdk/utils"
+	mockLogger "mesos-framework-sdk/logging/test"
+	mockResourceManager "mesos-framework-sdk/resources/manager/test"
+	sched "mesos-framework-sdk/scheduler/test"
+	"mesos-framework-sdk/task/manager"
+	"sprint/scheduler"
+	mockTaskManager "sprint/task/manager/test"
+	mockStorage "sprint/task/persistence/test"
 	"testing"
 )
 
-func TestSprintEventController_Rescind(t *testing.T) {
-	ctrl := workingEventController()
-	go ctrl.Run()
-
-	// We need to subscribe first before receiving any other events.
-	ctrl.events <- &mesos_v1_scheduler.Event{
-		Type: mesos_v1_scheduler.Event_SUBSCRIBED.Enum(),
-		Subscribed: &mesos_v1_scheduler.Event_Subscribed{
-			FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString("Test")},
-		},
-	}
-
-	ctrl.events <- &mesos_v1_scheduler.Event{
-		Type:    mesos_v1_scheduler.Event_RESCIND.Enum(),
-		Rescind: &mesos_v1_scheduler.Event_Rescind{},
-	}
+func TestHandler_Rescind(t *testing.T) {
+	e := NewHandler(
+		mockTaskManager.MockTaskManager{},
+		mockResourceManager.MockResourceManager{},
+		new(scheduler.Configuration),
+		sched.MockScheduler{},
+		&mockStorage.MockStorage{},
+		make(chan *manager.Task),
+		&mockLogger.MockLogger{},
+	)
+	e.Rescind(&mesos_v1_scheduler.Event_Rescind{})
 }
 
-func TestSprintEventController_RescindWithNil(t *testing.T) {
-	ctrl := workingEventController()
-	go ctrl.Run()
-
-	// We need to subscribe first before receiving any other events.
-	ctrl.events <- &mesos_v1_scheduler.Event{
-		Type: mesos_v1_scheduler.Event_SUBSCRIBED.Enum(),
-		Subscribed: &mesos_v1_scheduler.Event_Subscribed{
-			FrameworkId: &mesos_v1.FrameworkID{Value: utils.ProtoString("Test")},
-		},
-	}
-
-	ctrl.events <- &mesos_v1_scheduler.Event{
-		Type:    mesos_v1_scheduler.Event_RESCIND.Enum(),
-		Rescind: &mesos_v1_scheduler.Event_Rescind{OfferId: nil},
-	}
-	ctrl.events <- &mesos_v1_scheduler.Event{
-		Type:    mesos_v1_scheduler.Event_RESCIND.Enum(),
-		Rescind: nil,
-	}
+func TestHandler_RescindWithNil(t *testing.T) {
+	e := NewHandler(
+		mockTaskManager.MockTaskManager{},
+		mockResourceManager.MockResourceManager{},
+		new(scheduler.Configuration),
+		sched.MockScheduler{},
+		&mockStorage.MockStorage{},
+		make(chan *manager.Task),
+		&mockLogger.MockLogger{},
+	)
+	e.Rescind(&mesos_v1_scheduler.Event_Rescind{OfferId: nil})
+	e.Rescind(nil)
 }

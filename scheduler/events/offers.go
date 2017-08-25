@@ -23,6 +23,10 @@ import (
 	"mesos-framework-sdk/utils"
 )
 
+const (
+	refuseSeconds = 1.0 // Setting this to 30 as a "reasonable default".
+)
+
 //
 // Offers is a public method that handles when resource offers are sent to our framework.
 // The logic here is based on if we want to accept or decline the offers accordingly.
@@ -30,38 +34,38 @@ import (
 // otherwise we tell the resource manager to match our tasks with offers sent by the
 // master.
 //
-func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offers) {
+func (e *Handler) Offers(offerEvent *mesos_v1_scheduler.Event_Offers) {
 	// Check if we have any in the task manager we want to launch
-	queued, err := s.taskmanager.AllByState(manager.UNKNOWN)
+	queued, err := e.taskManager.AllByState(manager.UNKNOWN)
 
 	if err != nil {
-		s.logger.Emit(logging.INFO, "No tasks to launch.")
-		s.scheduler.Suppress()
-		s.declineOffers(offerEvent.GetOffers(), refuseSeconds)
+		e.logger.Emit(logging.INFO, "No tasks to launch.")
+		e.scheduler.Suppress()
+		e.declineOffers(offerEvent.GetOffers(), refuseSeconds)
 		return
 	}
 
 	// Update our resources in the manager
-	s.resourcemanager.AddOffers(offerEvent.GetOffers())
+	e.resourceManager.AddOffers(offerEvent.GetOffers())
 	accepts := make(map[*mesos_v1.OfferID][]*mesos_v1.Offer_Operation)
 
 	for _, task := range queued {
 		// If we've hit max retries of a task, kill itself.
 		if task.IsKill {
-			s.taskmanager.Delete(task)
+			e.taskManager.Delete(task)
 			continue
 		}
 
-		if !s.resourcemanager.HasResources() {
+		if !e.resourceManager.HasResources() {
 			break
 		}
 
-		offer, err := s.resourcemanager.Assign(task)
+		offer, err := e.resourceManager.Assign(task)
 
 		if err != nil {
 			// It didn't match any offers.
-			s.logger.Emit(logging.ERROR, err.Error())
-			task.Reschedule(s.revive)
+			e.logger.Emit(logging.ERROR, err.Error())
+			task.Reschedule(e.revive)
 			continue
 		}
 
@@ -77,14 +81,14 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 			HealthCheck: mesosTask.GetHealthCheck(),
 		}
 
-		if s.config.Executor.CustomExecutor && t.Executor == nil {
-			s.setupExecutor(t)
+		if e.config.Executor.CustomExecutor && t.Executor == nil {
+			e.setupExecutor(t)
 		}
 
 		task.Info = t
 		task.State = manager.STAGING
 
-		s.TaskManager().Update(task)
+		e.taskManager.Update(task)
 
 		accepts[offer.Id] = append(accepts[offer.Id], resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
 	}
@@ -92,40 +96,40 @@ func (s *SprintEventController) Offers(offerEvent *mesos_v1_scheduler.Event_Offe
 	// Multiplex our tasks onto as few offers as possible and launch them all.
 	for id, launches := range accepts {
 		// TODO (tim) The offer operations will need to be parsed for volume mounting and etc.)
-		s.scheduler.Accept([]*mesos_v1.OfferID{id}, launches, nil)
+		e.scheduler.Accept([]*mesos_v1.OfferID{id}, launches, nil)
 	}
 
 	// Resource manager pops offers when they are accepted
 	// Offers() returns a list of what is left, therefore whatever is left is to be rejected.
-	s.declineOffers(s.ResourceManager().Offers(), refuseSeconds)
+	e.declineOffers(e.resourceManager.Offers(), refuseSeconds)
 }
 
-func (s *SprintEventController) setupExecutor(t *mesos_v1.TaskInfo) {
+func (e *Handler) setupExecutor(t *mesos_v1.TaskInfo) {
 	// If we're using our custom executor then make sure we remove the original CommandInfo.
 	// Set up our ExecutorInfo and pass the user's command as data to the executor.
 	// The executor is responsible for taking this data and acting as expected.
 	t.Executor = &mesos_v1.ExecutorInfo{
-		ExecutorId: &mesos_v1.ExecutorID{Value: &s.config.Executor.Name},
+		ExecutorId: &mesos_v1.ExecutorID{Value: &e.config.Executor.Name},
 		Type:       mesos_v1.ExecutorInfo_CUSTOM.Enum(),
 		Resources:  t.GetResources(),
 		Container:  t.GetContainer(),
 		Command:    t.GetCommand(),
 		Data:       []byte(t.GetCommand().GetValue()),
 	}
-	t.Executor.Command.Value = &s.config.Executor.Command
+	t.Executor.Command.Value = &e.config.Executor.Command
 	t.Executor.Command.Uris = []*mesos_v1.CommandInfo_URI{
 		{
-			Value:      &s.config.Executor.URI,
+			Value:      &e.config.Executor.URI,
 			Executable: utils.ProtoBool(true),
 			Extract:    utils.ProtoBool(false),
 			Cache:      utils.ProtoBool(false),
 		},
 	}
-	t.Executor.Command.Shell = &s.config.Executor.Shell
-	t.Executor.Command.Arguments = []string{s.config.Executor.Command}
+	t.Executor.Command.Shell = &e.config.Executor.Shell
+	t.Executor.Command.Arguments = []string{e.config.Executor.Command}
 
 	protocol := "http"
-	if s.config.Executor.TLS {
+	if e.config.Executor.TLS {
 		protocol = "https"
 	}
 
@@ -138,11 +142,19 @@ func (s *SprintEventController) setupExecutor(t *mesos_v1.TaskInfo) {
 	t.Command = nil
 }
 
-func (s *SprintEventController) isRedundantOffer(agentId string, agents []*mesos_v1.AgentID) bool {
-	for _, i := range agents {
-		if agentId == i.GetValue() {
-			return true
-		}
+// Decline offers is a private method to organize a list of offers that are to be declined by the
+// scheduler.
+func (e *Handler) declineOffers(offers []*mesos_v1.Offer, refuseSeconds float64) {
+	if len(offers) == 0 {
+		return
 	}
-	return false
+
+	declineIDs := make([]*mesos_v1.OfferID, 0, len(offers))
+
+	// Decline whatever offers are left over
+	for _, id := range offers {
+		declineIDs = append(declineIDs, id.GetId())
+	}
+
+	e.scheduler.Decline(declineIDs, &mesos_v1.Filters{RefuseSeconds: utils.ProtoFloat64(refuseSeconds)})
 }

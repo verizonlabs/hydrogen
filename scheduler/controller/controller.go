@@ -12,29 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package events
+package controller
 
 import (
-	"mesos-framework-sdk/ha"
 	"mesos-framework-sdk/include/mesos_v1"
-	sched "mesos-framework-sdk/include/mesos_v1_scheduler"
+	"mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
-	"mesos-framework-sdk/resources/manager"
-	"mesos-framework-sdk/scheduler"
+	sdkScheduler "mesos-framework-sdk/scheduler"
 	"mesos-framework-sdk/scheduler/events"
 	sdkTaskManager "mesos-framework-sdk/task/manager"
-	"mesos-framework-sdk/utils"
 	"os"
 	"os/signal"
 	sprintSched "sprint/scheduler"
+	"sprint/scheduler/ha"
+	sprintTaskManager "sprint/task/manager"
 	"sprint/task/persistence"
-	"sync"
 	"syscall"
 	"time"
 )
 
-//
-// The event controller is responsible for handling:
+const (
+	frameworkIDKey = "/frameworkId"
+)
+
+// The event controller is responsible for coordinating:
 // High Availability (HA) between schedulers in a cluster.
 // Subscribing to the mesos master.
 // Talking to the etcd cluster.
@@ -43,79 +44,39 @@ import (
 //
 // The event controller acts as a main switchboard for our events.
 // Scheduler calls are made by the scheduler class.
-//
-
-const (
-	refuseSeconds = 1.0 // Setting this to 30 as a "reasonable default".
-)
 
 type (
-	// Provides pluggable controllers that the scheduler can interface with.
-	// An event controller is the control plane for a scheduler.
-	// Events received from Mesos are routed by the controller.
-	// Also used extensively for testing with mocks.
-	EventController interface {
-		events.SchedulerEvent
-		ha.Node
-	}
 
-	// Primary controller that coordinates the calls from the scheduler with the events received from Mesos.
+	// EventController is the primary controller that coordinates the calls from the scheduler with the events received from Mesos.
 	// The controller is what is "run" to kick off our scheduler and subscribe to Mesos.
 	// Additionally, our framework's high availability is coordinated by this controller.
-	SprintEventController struct {
-		config          *sprintSched.Configuration
-		scheduler       scheduler.Scheduler
-		taskmanager     sdkTaskManager.TaskManager
-		resourcemanager manager.ResourceManager
-		events          chan *sched.Event
-		revive          chan *sdkTaskManager.Task
-		storage         persistence.Storage
-		logger          logging.Logger
-		frameworkLease  int64
-		status          ha.Status
-		name            string
-		lock            sync.RWMutex
+	EventController struct {
+		config      *sprintSched.Configuration
+		scheduler   sdkScheduler.Scheduler
+		taskManager sdkTaskManager.TaskManager
+		storage     persistence.Storage
+		logger      logging.Logger
+		ha          *ha.HA
 	}
 )
 
 // Returns the main controller that's used to coordinate the calls/events from/to the scheduler.
-func NewSprintEventController(
+func NewEventController(
 	config *sprintSched.Configuration,
-	scheduler scheduler.Scheduler,
+	scheduler sdkScheduler.Scheduler,
 	manager sdkTaskManager.TaskManager,
-	resourceManager manager.ResourceManager,
-	eventChan chan *sched.Event,
-	revive chan *sdkTaskManager.Task,
 	storage persistence.Storage,
-	logger logging.Logger) EventController {
+	logger logging.Logger,
+	ha *ha.HA) *EventController {
 
-	return &SprintEventController{
-		config:          config,
-		taskmanager:     manager,
-		scheduler:       scheduler,
-		events:          eventChan,
-		resourcemanager: resourceManager,
-		storage:         storage,
-		revive:          revive,
-		logger:          logger,
-		status:          ha.Election,
-		name:            utils.UuidAsString(),
+	return &EventController{
+		config:      config,
+		scheduler:   scheduler,
+		taskManager: manager,
+		storage:     storage,
+		logger:      logger,
+		ha:          ha,
 	}
-}
-
-// Returns the scheduler that makes calls to Mesos.
-func (s *SprintEventController) Scheduler() scheduler.Scheduler {
-	return s.scheduler
-}
-
-// Returns the task manager which handles task state and persistent storage.
-func (s *SprintEventController) TaskManager() sdkTaskManager.TaskManager {
-	return s.taskmanager
-}
-
-// Returns the resource manager that handles matching offers with tasks.
-func (s *SprintEventController) ResourceManager() manager.ResourceManager {
-	return s.resourcemanager
 }
 
 //
@@ -124,18 +85,16 @@ func (s *SprintEventController) ResourceManager() manager.ResourceManager {
 // the mesos master in the cluster.
 // This method blocks forever, or until the scheduler is brought down.
 //
-func (s *SprintEventController) Run() {
-	s.registerShutdownHandlers()
+func (s *EventController) Run(events chan *mesos_v1_scheduler.Event, revives chan *sdkTaskManager.Task, handler events.SchedulerEvent) {
 
 	// Start the election.
 	s.logger.Emit(logging.INFO, "Starting leader election socket server")
-	s.status = ha.Listening
-	go s.Communicate()
+	go s.ha.Communicate()
 
 	// Block here until we either become a leader or a standby.
 	// If we are the leader we break out and continue to execute the rest of the scheduler.
 	// If we are a standby then we connect to the leader and wait for the process to start over again.
-	s.Election()
+	s.ha.Election()
 
 	// Get the frameworkId from etcd and set it to our frameworkID in our struct.
 	err := s.setFrameworkId()
@@ -157,7 +116,7 @@ func (s *SprintEventController) Run() {
 
 	go func() {
 		for {
-			leader, err := s.GetLeader()
+			leader, err := s.ha.GetLeader()
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to get leader information: %s", err.Error())
 				os.Exit(5)
@@ -173,7 +132,7 @@ func (s *SprintEventController) Run() {
 				os.Exit(1)
 			}
 
-			resp, err := s.scheduler.Subscribe(s.events)
+			resp, err := s.scheduler.Subscribe(events)
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to subscribe: %s", err.Error())
 				if resp != nil && resp.StatusCode == 401 {
@@ -186,21 +145,58 @@ func (s *SprintEventController) Run() {
 		}
 	}()
 
-	select {
-	case e := <-s.events:
-		s.Subscribed(e.GetSubscribed())
+	s.listen(events, revives, handler)
+}
+
+// Listens for Mesos events, tasks that need to be revived, and signals and routes to the appropriate handler.
+func (s *EventController) listen(c chan *mesos_v1_scheduler.Event, r chan *sdkTaskManager.Task, h events.SchedulerEvent) {
+	sigs := make(chan os.Signal)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	for {
+		select {
+		case event := <-c:
+			h.Run(event)
+		case task := <-r:
+			h.Reschedule(task)
+		case <-sigs:
+			h.Signals()
+		}
 	}
-	s.Listen()
+}
+
+//
+// Get all of our persisted tasks, convert them back into TaskInfo's, and add them to our task manager.
+// If no tasks exist in the data store then we can consider this a fresh run and safely move on.
+//
+func (s *EventController) restoreTasks() error {
+	tasks, err := s.storage.ReadAll(sprintTaskManager.TASK_DIRECTORY)
+	if err != nil {
+		return err
+	}
+
+	for _, value := range tasks {
+		task, err := new(sdkTaskManager.Task).Decode([]byte(value))
+		if err != nil {
+			return err
+		}
+
+		if err := s.taskManager.Add(task); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Keep our state in check by periodically reconciling.
-func (s *SprintEventController) periodicReconcile() {
+func (s *EventController) periodicReconcile() {
 	ticker := time.NewTicker(s.config.Scheduler.ReconcileInterval)
 
 	for {
 		select {
 		case <-ticker.C:
-			recon, err := s.TaskManager().AllByState(sdkTaskManager.RUNNING)
+			recon, err := s.taskManager.AllByState(sdkTaskManager.RUNNING)
 			if err != nil {
 				continue
 			}
@@ -208,7 +204,7 @@ func (s *SprintEventController) periodicReconcile() {
 			for _, t := range recon {
 				toReconcile = append(toReconcile, t.Info)
 			}
-			_, err = s.Scheduler().Reconcile(toReconcile)
+			_, err = s.scheduler.Reconcile(toReconcile)
 			if err != nil {
 				s.logger.Emit(logging.ERROR, "Failed to reconcile all running tasks: %s", err.Error())
 			}
@@ -216,24 +212,18 @@ func (s *SprintEventController) periodicReconcile() {
 	}
 }
 
-// Handle appropriate signals for graceful shutdowns.
-func (s *SprintEventController) registerShutdownHandlers() {
-	sigs := make(chan os.Signal)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigs
-
-		// Refresh our lease before we die so that we start an accurate countdown.
-		s.lock.RLock()
-		defer s.lock.RUnlock()
-		if s.frameworkLease != 0 {
-			err := s.refreshFrameworkIdLease()
-			if err != nil {
-				s.logger.Emit(logging.ERROR, "Failed to refresh leader lease before exiting: %s", err.Error())
-				os.Exit(6)
-			}
+// Set our framework ID in memory from what's currently persisted.
+// The framework ID is needed by the scheduler for almost any call to Mesos.
+func (s *EventController) setFrameworkId() error {
+	policy := s.storage.CheckPolicy(nil)
+	return s.storage.RunPolicy(policy, func() error {
+		id, err := s.storage.Read(frameworkIDKey)
+		if err != nil {
+			s.logger.Emit(logging.ERROR, "Failed to set the framework ID: %s", err.Error())
+			return err
 		}
 
-		os.Exit(0)
-	}()
+		s.scheduler.FrameworkInfo().Id = &mesos_v1.FrameworkID{Value: &id}
+		return nil
+	})
 }
