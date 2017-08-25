@@ -94,34 +94,35 @@ func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
 				return err
 			}
 			m.tasks[t.Info.GetName()] = t
-		} else {
-			// Add a group
-			t.GroupInfo = manager.GroupInfo{GroupName: t.Info.GetName() + "/", InGroup: true}
+			continue
+		}
 
-			for i := 0; i < t.Instances; i++ {
-				// TODO(tim): t.Copy(Name, TaskId)
-				duplicate := *t
-				tmp := *t.Info // Make a copy
-				duplicate.Info = &tmp
-				duplicate.Info.Name = utils.ProtoString(originalName + "-" + strconv.Itoa(i+1))
-				duplicate.Info.TaskId = &mesos_v1.TaskID{Value: utils.ProtoString(taskId + "-" + strconv.Itoa(i+1))}
-				if _, ok := m.tasks[duplicate.Info.GetName()]; ok {
-					return errors.New("Task " + duplicate.Info.GetName() + " already exists")
-				}
+		// Add a group
+		t.GroupInfo = manager.GroupInfo{GroupName: t.Info.GetName() + "/", InGroup: true}
 
-				// Write forward.
-				data, err := duplicate.Encode()
-				if err != nil {
-					return err
-				}
-
-				err = m.storageWrite(t, data)
-				if err != nil {
-					m.logger.Emit(logging.ERROR, "Storage error: %v", err)
-					return err
-				}
-				m.tasks[duplicate.Info.GetName()] = &duplicate
+		for i := 0; i < t.Instances; i++ {
+			// TODO(tim): t.Copy(Name, TaskId)
+			duplicate := *t
+			tmp := *t.Info // Make a copy
+			duplicate.Info = &tmp
+			duplicate.Info.Name = utils.ProtoString(originalName + "-" + strconv.Itoa(i+1))
+			duplicate.Info.TaskId = &mesos_v1.TaskID{Value: utils.ProtoString(taskId + "-" + strconv.Itoa(i+1))}
+			if _, ok := m.tasks[duplicate.Info.GetName()]; ok {
+				return errors.New("Task " + duplicate.Info.GetName() + " already exists")
 			}
+
+			// Write forward.
+			data, err := duplicate.Encode()
+			if err != nil {
+				return err
+			}
+
+			err = m.storageWrite(t, data)
+			if err != nil {
+				m.logger.Emit(logging.ERROR, "Storage error: %v", err)
+				return err
+			}
+			m.tasks[duplicate.Info.GetName()] = &duplicate
 		}
 	}
 
