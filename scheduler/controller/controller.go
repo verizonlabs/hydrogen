@@ -181,9 +181,7 @@ func (s *EventController) restoreTasks() error {
 			return err
 		}
 
-		if err := s.taskManager.Add(task); err != nil {
-			return err
-		}
+		s.taskManager.Restore(task)
 	}
 
 	return nil
