@@ -23,15 +23,13 @@ import (
 	"mesos-framework-sdk/utils"
 	"sprint/task/persistence"
 	"strconv"
+	"strings"
 	"sync"
 )
 
 const (
 	// Root directory
 	TASK_DIRECTORY = "/tasks/"
-	// Groups are appended onto this
-	// /tasks/groupName/groupTask1
-	// /tasks/groupName/groupTask2...etc
 )
 
 type (
@@ -115,7 +113,7 @@ func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
 					return err
 				}
 
-				err = m.storageWrite(t, data)
+				err = m.storageWrite(&duplicate, data)
 				if err != nil {
 					m.logger.Emit(logging.ERROR, "Storage error: %v", err)
 					return err
@@ -153,6 +151,24 @@ func (m *SprintTaskHandler) Get(name *string) (*manager.Task, error) {
 		return response, nil
 	}
 	return nil, errors.New(*name + " not found.")
+}
+
+func (m *SprintTaskHandler) GetGroup(task *manager.Task) ([]*manager.Task, error) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	tasks := make([]*manager.Task, 0)
+	m.logger.Emit(logging.INFO, "LEN %v", len(tasks))
+	for i := 0; i < task.Instances; i++ {
+		nameSplit := strings.Split(task.Info.GetName(), "-")
+		// group name needs to be stripped of / OR task name needs to be stripped to OG name.
+		m.logger.Emit(logging.INFO, "Getting name %v", nameSplit[0]+"-"+strconv.Itoa(i+1))
+		if t, ok := m.tasks[nameSplit[0]+"-"+strconv.Itoa(i+1)]; ok {
+			tasks = append(tasks, t)
+		}
+		m.logger.Emit(logging.INFO, "task...%v", tasks)
+	}
+	m.logger.Emit(logging.INFO, "LEN %v", len(tasks))
+	return tasks, nil
 }
 
 // GetById : get a task by it's ID.
