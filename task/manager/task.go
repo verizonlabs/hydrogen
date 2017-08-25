@@ -165,14 +165,10 @@ func (m *SprintTaskHandler) GetGroup(task *manager.Task) ([]*manager.Task, error
 	m.logger.Emit(logging.INFO, "LEN %v", len(tasks))
 	for i := 0; i < task.Instances; i++ {
 		nameSplit := strings.Split(task.Info.GetName(), "-")
-		// group name needs to be stripped of / OR task name needs to be stripped to OG name.
-		m.logger.Emit(logging.INFO, "Getting name %v", nameSplit[0]+"-"+strconv.Itoa(i+1))
 		if t, ok := m.tasks[nameSplit[0]+"-"+strconv.Itoa(i+1)]; ok {
 			tasks = append(tasks, t)
 		}
-		m.logger.Emit(logging.INFO, "task...%v", tasks)
 	}
-	m.logger.Emit(logging.INFO, "LEN %v", len(tasks))
 	return tasks, nil
 }
 
