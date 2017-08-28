@@ -23,15 +23,13 @@ import (
 	"mesos-framework-sdk/utils"
 	"sprint/task/persistence"
 	"strconv"
+	"strings"
 	"sync"
 )
 
 const (
 	// Root directory
 	TASK_DIRECTORY = "/tasks/"
-	// Groups are appended onto this
-	// /tasks/groupName/groupTask1
-	// /tasks/groupName/groupTask2...etc
 )
 
 type (
@@ -94,38 +92,43 @@ func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
 				return err
 			}
 			m.tasks[t.Info.GetName()] = t
-		} else {
-			// Add a group
-			t.GroupInfo = manager.GroupInfo{GroupName: t.Info.GetName() + "/", InGroup: true}
+			continue
+		}
 
-			for i := 0; i < t.Instances; i++ {
-				// TODO(tim): t.Copy(Name, TaskId)
-				duplicate := *t
-				tmp := *t.Info // Make a copy
-				duplicate.Info = &tmp
-				duplicate.Info.Name = utils.ProtoString(originalName + "-" + strconv.Itoa(i+1))
-				duplicate.Info.TaskId = &mesos_v1.TaskID{Value: utils.ProtoString(taskId + "-" + strconv.Itoa(i+1))}
-				if _, ok := m.tasks[duplicate.Info.GetName()]; ok {
-					return errors.New("Task " + duplicate.Info.GetName() + " already exists")
-				}
+		// Add a group
+		t.GroupInfo = manager.GroupInfo{GroupName: t.Info.GetName() + "/", InGroup: true}
 
-				// Write forward.
-				data, err := duplicate.Encode()
-				if err != nil {
-					return err
-				}
-
-				err = m.storageWrite(t, data)
-				if err != nil {
-					m.logger.Emit(logging.ERROR, "Storage error: %v", err)
-					return err
-				}
-				m.tasks[duplicate.Info.GetName()] = &duplicate
+		for i := 0; i < t.Instances; i++ {
+			// TODO(tim): t.Copy(Name, TaskId)
+			duplicate := *t
+			tmp := *t.Info // Make a copy
+			duplicate.Info = &tmp
+			duplicate.Info.Name = utils.ProtoString(originalName + "-" + strconv.Itoa(i+1))
+			duplicate.Info.TaskId = &mesos_v1.TaskID{Value: utils.ProtoString(taskId + "-" + strconv.Itoa(i+1))}
+			if _, ok := m.tasks[duplicate.Info.GetName()]; ok {
+				return errors.New("Task " + duplicate.Info.GetName() + " already exists")
 			}
+
+			// Write forward.
+			data, err := duplicate.Encode()
+			if err != nil {
+				return err
+			}
+
+			err = m.storageWrite(&duplicate, data)
+			if err != nil {
+				m.logger.Emit(logging.ERROR, "Storage error: %v", err)
+				return err
+			}
+			m.tasks[duplicate.Info.GetName()] = &duplicate
 		}
 	}
 
 	return nil
+}
+
+func (m *SprintTaskHandler) Restore(task *manager.Task) {
+	m.tasks[task.Info.GetName()] = task
 }
 
 // Delete a task from memory and etcd, and clears any associated policy.
@@ -153,6 +156,22 @@ func (m *SprintTaskHandler) Get(name *string) (*manager.Task, error) {
 		return response, nil
 	}
 	return nil, errors.New(*name + " not found.")
+}
+
+func (m *SprintTaskHandler) GetGroup(task *manager.Task) ([]*manager.Task, error) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	if !task.GroupInfo.InGroup {
+		return nil, errors.New("Task " + task.Info.GetName() + " is not in a group.")
+	}
+	tasks := make([]*manager.Task, 0, task.Instances)
+	for i := 0; i < task.Instances; i++ {
+		nameSplit := strings.Split(task.Info.GetName(), "-")
+		if t, ok := m.tasks[nameSplit[0]+"-"+strconv.Itoa(i+1)]; ok {
+			tasks = append(tasks, t)
+		}
+	}
+	return tasks, nil
 }
 
 // GetById : get a task by it's ID.
