@@ -23,15 +23,13 @@ import (
 	"mesos-framework-sdk/utils"
 	"sprint/task/persistence"
 	"strconv"
+	"strings"
 	"sync"
 )
 
 const (
 	// Root directory
 	TASK_DIRECTORY = "/tasks/"
-	// Groups are appended onto this
-	// /tasks/groupName/groupTask1
-	// /tasks/groupName/groupTask2...etc
 )
 
 type (
@@ -117,7 +115,7 @@ func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
 				return err
 			}
 
-			err = m.storageWrite(t, data)
+			err = m.storageWrite(&duplicate, data)
 			if err != nil {
 				m.logger.Emit(logging.ERROR, "Storage error: %v", err)
 				return err
@@ -158,6 +156,22 @@ func (m *SprintTaskHandler) Get(name *string) (*manager.Task, error) {
 		return response, nil
 	}
 	return nil, errors.New(*name + " not found.")
+}
+
+func (m *SprintTaskHandler) GetGroup(task *manager.Task) ([]*manager.Task, error) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	if !task.GroupInfo.InGroup {
+		return nil, errors.New("Task " + task.Info.GetName() + " is not in a group.")
+	}
+	tasks := make([]*manager.Task, 0, task.Instances)
+	for i := 0; i < task.Instances; i++ {
+		nameSplit := strings.Split(task.Info.GetName(), "-")
+		if t, ok := m.tasks[nameSplit[0]+"-"+strconv.Itoa(i+1)]; ok {
+			tasks = append(tasks, t)
+		}
+	}
+	return tasks, nil
 }
 
 // GetById : get a task by it's ID.

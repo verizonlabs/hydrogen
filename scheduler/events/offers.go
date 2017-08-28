@@ -19,8 +19,10 @@ import (
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/resources"
+	"mesos-framework-sdk/scheduler/strategy"
 	"mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
+	"strings"
 )
 
 const (
@@ -69,6 +71,9 @@ func (e *Handler) Offers(offerEvent *mesos_v1_scheduler.Event_Offers) {
 			continue
 		}
 
+		if !e.applyStrategy(task, offer) {
+			continue
+		}
 		mesosTask := task.Info
 		t := &mesos_v1.TaskInfo{
 			Name:        mesosTask.Name,
@@ -157,4 +162,39 @@ func (e *Handler) declineOffers(offers []*mesos_v1.Offer, refuseSeconds float64)
 	}
 
 	e.scheduler.Decline(declineIDs, &mesos_v1.Filters{RefuseSeconds: utils.ProtoFloat64(refuseSeconds)})
+}
+
+// Tells us if the strategy the task has is applicable to this offer.
+func (e *Handler) applyStrategy(task *manager.Task, offer *mesos_v1.Offer) bool {
+	// Apply the strategy.
+	switch strings.ToLower(task.Strategy.Type) {
+	case strategy.COLOCATE:
+	case strategy.UNIQUE:
+		if task.GroupInfo.InGroup {
+			groupTasks, err := e.taskManager.GetGroup(task)
+			if err != nil {
+				e.logger.Emit(logging.ERROR, err.Error())
+				return false
+			}
+			for _, groupTask := range groupTasks {
+				// If we've already launched onto this agent.
+				if groupTask.Info != nil && groupTask.Info.AgentId != nil {
+					if groupTask.Info.AgentId.GetValue() == offer.AgentId.GetValue() {
+						return false
+					}
+				}
+			}
+		} else {
+			if t, err := e.taskManager.Get(task.Info.Name); err != nil {
+				if t.Info.AgentId != nil {
+					if t.Info.AgentId.GetValue() == offer.AgentId.GetValue() {
+						return false
+					}
+				}
+			}
+
+		}
+	default:
+	}
+	return true
 }
