@@ -16,7 +16,6 @@ package manager
 
 import (
 	"errors"
-	"github.com/gogo/protobuf/test/group"
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/structures"
@@ -165,7 +164,7 @@ func (m *SprintTaskHandler) GetGroup(task *manager.Task) ([]*manager.Task, error
 	if !task.GroupInfo.InGroup {
 		return nil, errors.New("Task " + task.Info.GetName() + " is not in a group.")
 	}
-	tasks := make([]*manager.Task, 0)
+	tasks := make([]*manager.Task, 0, task.Instances)
 	for i := 0; i < task.Instances; i++ {
 		nameSplit := strings.Split(task.Info.GetName(), "-")
 		if t, ok := m.tasks[nameSplit[0]+"-"+strconv.Itoa(i+1)]; ok {
