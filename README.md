@@ -10,24 +10,22 @@ Current feature set:
 - Configure and use any n number of CNI networks.
 - High availability of the framework by default.
 - Filter/Constraint support to launch on a set of defined nodes.
+- UNIQUE or MUX (colocate) tasks across a cluster.
 - Custom executor support.
 - Docker volume support (e.g. rexray, pxd...)
 
 Upcoming Features:
 (TBD)
 
-## Epics
-https://jira.verizon.com/browse/BLCS-138
-
 ### API Documentation ###
 Base endpoint:
 <pre><code>http://server:port/v1/api/</code></pre>
 
 #### Examples ####
-This is not valid JSON to launch but an example enumeration of all options available.
+This is _not_ valid JSON to launch but an example enumeration of all options available.
 
 <pre><code>
-{
+[{
   "name": "Example-app",                    # Application Name.
   "resources": {
     "cpu": 1.5,                             # CPU shares
@@ -40,16 +38,10 @@ This is not valid JSON to launch but an example enumeration of all options avail
         "value": [                          # Example here is filtering on a MAC
           "DEADBEEF00"
         ]
-      },
-      {
-        "type": "STRATEGY",
-        "value": ["mux"]                    # Multiplex many tasks onto a single offer
-      },
-      {
-        "type": "STRATEGY",
-        "value": ["single"]                 # Force a 1:1 task:offer mapping
       }
   ],
+  "instances": 1,                           # Number of instances to run.
+  "strategy": {"type": "unique"},           # Deployment strategy can be set to UNIQUE or MUX.
   "command": {
     "cmd": "/bin/echo hello world",         # Command to run.
     "environment": {
@@ -85,13 +77,13 @@ This is not valid JSON to launch but an example enumeration of all options avail
     "network": [{                           # Network specification.
       "ipaddress": [{                       # Static IPv4
         "group": ["prod"],                  # Specify a group to belong to.
-        "label": [{"some_label": "awesome"}],
+        "labels": [{"some_label": "awesome"}],
         "ip": "10.2.1.1",
         "protocol": "ipv4"
       },
       {                    
         "group": ["QA"],                    # This interface is also in group "prod".
-        "label": [{"some_label": "rad"}],   # And Add labels.
+        "labels": [{"some_label": "rad"}],   # And Add labels.
         "ip": "10.2.1.25",
         "protocol": "ipv4"
       },
@@ -103,7 +95,11 @@ This is not valid JSON to launch but an example enumeration of all options avail
         "name": "FE-CNI"                    # We can specifiy CNI networks by name.
       },
       {
-        "name": "BE-CNI"                    # We can have more than one CNI network...
+        "name": "BE-CNI"                    # We can have more than one CNI network.
+        "labels": [
+          {"testIP": "11.11.11.1"},         # Supports passing labels to CNI plugins.
+          {"testValue": "someString"}
+        ]
       }]
     }]
   },
@@ -111,11 +107,34 @@ This is not valid JSON to launch but an example enumeration of all options avail
     "endpoint": "localhost:8080"            # What endpoint to hit for healthchecks
   },
   "labels": {
-    "purpose": "Testing"                    # Labels are supported.
+    "purpose": "Testing"                    # Labels are supported at the task level as well.
   }
-}
+}]
 </code></pre>
 
+Example of a valid task that launches onto the CNI network "internal-network"
+ and sleeps for 500 seconds.  It uses 0.1 CPU's, 32MB of RAM and 1024MB of disk.
+ It will run 5 instances, and will launch on unique agentID's.
+<pre><code>
+[{
+  "name": "test-app",
+  "resources": {
+    "cpu": 0.1,
+    "mem": 32.0,
+    "disk": {"size": 1024.00}
+  },
+  "instances": 5,
+  "command": {
+    "cmd": "/bin/sleep 500"
+  },
+  "container": {
+    "network": [
+     {"name": "internal-network"}
+    ]
+  },
+  "strategy": {"type": "unique"}
+}]
+</code></pre>
 #### Deploy ####
 Deploy an application.
 <pre><code>Method: POST
