@@ -17,7 +17,6 @@ package manager
 import (
 	"encoding/json"
 	"errors"
-	"mesos-framework-sdk/include/mesos_v1"
 	r "mesos-framework-sdk/resources/manager"
 	"mesos-framework-sdk/scheduler"
 	"mesos-framework-sdk/task"
@@ -30,7 +29,7 @@ type (
 		Deploy([]byte) ([]*t.Task, error)
 		Kill([]byte) (string, error)
 		Update([]byte) ([]*t.Task, error)
-		Status(string) (mesos_v1.TaskState, error)
+		Status(string) (*t.Task, error)
 		AllTasks() ([]*t.Task, error)
 	}
 
@@ -137,13 +136,13 @@ func (m *Parser) Kill(decoded []byte) (string, error) {
 	return *appJSON.Name, nil
 }
 
-func (m *Parser) Status(name string) (mesos_v1.TaskState, error) {
+func (m *Parser) Status(name string) (*t.Task, error) {
 	tsk, err := m.taskManager.Get(&name)
 	if err != nil {
-		return t.UNKNOWN, err
+		return nil, err
 	}
 
-	return tsk.State, nil
+	return tsk, nil
 }
 
 func (m *Parser) AllTasks() ([]*t.Task, error) {
