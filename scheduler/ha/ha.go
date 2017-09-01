@@ -82,6 +82,8 @@ func (h *HA) Communicate() {
 		go func(conn *net.TCPConn) {
 			buff := make([]byte, 1)
 			_, err := conn.Read(buff)
+
+			// This cast requires Go 1.6+
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				h.logger.Emit(logging.ERROR, "Connection from "+host+" timed out")
 			} else {
@@ -131,7 +133,7 @@ func (h *HA) Election() {
 			err := h.leaderClient(leader)
 
 			// Only delete the key if we've lost the connection, not timed out.
-			// This conditional requires Go 1.6+
+			// This cast requires Go 1.6+
 			// NOTE (tim): Casting here is dangerous and could lead to a panic
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				h.logger.Emit(logging.ERROR, "Timed out connecting to leader")
@@ -170,7 +172,6 @@ func (h *HA) leaderClient(leader string) error {
 
 	// Currently the leader server does not send us anything as we rely on TCP keepalive.
 	// Allocate the smallest buffer we can and block on reading data.
-	// If we don't do this we'll spin like crazy in an empty loop.
 	buffer := make([]byte, 1)
 	_, err = tcp.Read(buffer)
 
