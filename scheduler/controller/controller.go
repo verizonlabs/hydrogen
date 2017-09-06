@@ -15,6 +15,10 @@
 package controller
 
 import (
+	scheduler "hydrogen/scheduler"
+	"hydrogen/scheduler/ha"
+	"hydrogen/task/manager"
+	"hydrogen/task/persistence"
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
@@ -23,10 +27,6 @@ import (
 	sdkTaskManager "mesos-framework-sdk/task/manager"
 	"os"
 	"os/signal"
-	sprintSched "sprint/scheduler"
-	"sprint/scheduler/ha"
-	sprintTaskManager "sprint/task/manager"
-	"sprint/task/persistence"
 	"syscall"
 	"time"
 )
@@ -51,7 +51,7 @@ type (
 	// The controller is what is "run" to kick off our scheduler and subscribe to Mesos.
 	// Additionally, our framework's high availability is coordinated by this controller.
 	EventController struct {
-		config      *sprintSched.Configuration
+		config      *scheduler.Configuration
 		scheduler   sdkScheduler.Scheduler
 		taskManager sdkTaskManager.TaskManager
 		storage     persistence.Storage
@@ -62,7 +62,7 @@ type (
 
 // Returns the main controller that's used to coordinate the calls/events from/to the scheduler.
 func NewEventController(
-	config *sprintSched.Configuration,
+	config *scheduler.Configuration,
 	scheduler sdkScheduler.Scheduler,
 	manager sdkTaskManager.TaskManager,
 	storage persistence.Storage,
@@ -170,7 +170,7 @@ func (s *EventController) listen(c chan *mesos_v1_scheduler.Event, r chan *sdkTa
 // If no tasks exist in the data store then we can consider this a fresh run and safely move on.
 //
 func (s *EventController) restoreTasks() error {
-	tasks, err := s.storage.ReadAll(sprintTaskManager.TASK_DIRECTORY)
+	tasks, err := s.storage.ReadAll(manager.TASK_DIRECTORY)
 	if err != nil {
 		return err
 	}

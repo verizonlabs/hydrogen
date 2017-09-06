@@ -26,21 +26,21 @@ const (
 	subscribeRetry = 2
 )
 
-type SprintExecutorController struct {
+type ExecutorController struct {
 	executor  e.Executor
 	logger    logging.Logger
 	eventChan chan *exec.Event
 }
 
-func NewSprintExecutorEventController(e e.Executor, l logging.Logger) events.ExecutorEvents {
-	return &SprintExecutorController{
+func NewExecutorEventController(e e.Executor, l logging.Logger) events.ExecutorEvents {
+	return &ExecutorController{
 		executor:  e,
 		eventChan: make(chan *exec.Event),
 		logger:    l,
 	}
 }
 
-func (d *SprintExecutorController) Run() {
+func (d *ExecutorController) Run() {
 	go func() {
 		for {
 			err := d.executor.Subscribe(d.eventChan)
@@ -59,7 +59,7 @@ func (d *SprintExecutorController) Run() {
 }
 
 // Default listening method on the
-func (d *SprintExecutorController) Listen() {
+func (d *ExecutorController) Listen() {
 	for {
 		switch t := <-d.eventChan; t.GetType() {
 		case exec.Event_SUBSCRIBED:

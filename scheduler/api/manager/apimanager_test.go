@@ -18,7 +18,7 @@ import (
 	"mesos-framework-sdk/include/mesos_v1"
 	k "mesos-framework-sdk/resources/manager/test"
 	s "mesos-framework-sdk/scheduler/test"
-	"sprint/task/manager/test"
+	"hydrogen/task/manager/test"
 	"testing"
 )
 

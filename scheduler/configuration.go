@@ -110,7 +110,7 @@ func (c *Configuration) Initialize() *Configuration {
 func (c *ExecutorConfiguration) initialize() *ExecutorConfiguration {
 	flag.BoolVar(&c.CustomExecutor, "executor.enable", false, "Enable/disable usage of the custom executor")
 	flag.StringVar(&c.URI, "executor.uri", "http://127.0.0.1:8081/executor", "URI for Mesos to fetch the custom executor")
-	flag.StringVar(&c.Name, "executor.name", "Sprinter", "The executor's name")
+	flag.StringVar(&c.Name, "executor.name", "Oxygen", "The executor's name")
 	flag.StringVar(&c.Command, "executor.command", "executor", "Command to run the executor")
 	flag.BoolVar(&c.Shell, "executor.shell", false, "Whether or not the executor should be launched under a shell")
 	flag.BoolVar(&c.TLS, "executor.tls", false, "Use TLS when connecting to Mesos")
@@ -177,11 +177,11 @@ func (c *SchedulerConfiguration) initialize() *SchedulerConfiguration {
 	}
 
 	flag.StringVar(&c.MesosEndpoint, "endpoint", "http://127.0.0.1:5050/api/v1/scheduler", "Mesos scheduler API endpoint")
-	flag.StringVar(&c.Name, "name", "Sprint", "Framework name")
+	flag.StringVar(&c.Name, "name", "Hydrogen", "Framework name")
 	flag.StringVar(&c.User, "user", u.Username, "User that the executor/task will be launched as")
 	flag.StringVar(&c.Role, "role", "*", "Framework role")
 	flag.BoolVar(&c.Checkpointing, "checkpointing", true, "Enable or disable checkpointing")
-	flag.StringVar(&c.Principal, "principal", "Sprint", "Framework principal")
+	flag.StringVar(&c.Principal, "principal", "Hydrogen", "Framework principal")
 	flag.StringVar(&c.Secret, "secret", "", "Used when Mesos requires authentication")
 	flag.Float64Var(&c.Failover, "failover", 168*time.Hour.Seconds(), "Framework failover timeout") // 1 week is recommended
 	flag.StringVar(&c.Hostname, "hostname", "", "The framework's hostname")

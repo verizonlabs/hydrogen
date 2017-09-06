@@ -22,8 +22,8 @@ import (
 	"mesos-framework-sdk/scheduler/events"
 	taskManager "mesos-framework-sdk/task/manager"
 	"os"
-	sched "sprint/scheduler"
-	"sprint/task/persistence"
+	sched "hydrogen/scheduler"
+	"hydrogen/task/persistence"
 	"sync"
 )
 

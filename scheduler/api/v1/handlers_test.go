@@ -20,9 +20,9 @@ import (
 	test3 "mesos-framework-sdk/scheduler/test"
 	"net/http"
 	"net/http/httptest"
-	"sprint/scheduler/api/manager"
-	mockApiManager "sprint/scheduler/api/manager/test"
-	test2 "sprint/task/manager/test"
+	"hydrogen/scheduler/api/manager"
+	mockApiManager "hydrogen/scheduler/api/manager/test"
+	test2 "hydrogen/task/manager/test"
 	"strings"
 	"testing"
 )

@@ -19,6 +19,6 @@ import (
 	"mesos-framework-sdk/logging"
 )
 
-func (d *SprintExecutorController) Error(error *exec.Event_Error) {
+func (d *ExecutorController) Error(error *exec.Event_Error) {
 	d.logger.Emit(logging.ERROR, error.GetMessage())
 }

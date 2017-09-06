@@ -19,6 +19,6 @@ import (
 	"mesos-framework-sdk/logging"
 )
 
-func (d *SprintExecutorController) Subscribed(sub *exec.Event_Subscribed) {
+func (d *ExecutorController) Subscribed(sub *exec.Event_Subscribed) {
 	d.logger.Emit(logging.INFO, "Executor successfully subscribed")
 }

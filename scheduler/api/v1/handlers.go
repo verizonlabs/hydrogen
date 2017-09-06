@@ -18,7 +18,7 @@ import (
 	"io/ioutil"
 	"mesos-framework-sdk/task/manager"
 	"net/http"
-	apiManager "sprint/scheduler/api/manager"
+	apiManager "hydrogen/scheduler/api/manager"
 )
 
 // API handlers communicate with the API manager to perform the appropriate actions.

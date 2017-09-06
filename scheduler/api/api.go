@@ -18,9 +18,9 @@ import (
 	"mesos-framework-sdk/logging"
 	"net/http"
 	"os"
-	sched "sprint/scheduler"
-	apiManager "sprint/scheduler/api/manager"
-	"sprint/scheduler/api/v1"
+	sched "hydrogen/scheduler"
+	apiManager "hydrogen/scheduler/api/manager"
+	"hydrogen/scheduler/api/v1"
 )
 
 // API server provides an interface for users to interact with the core scheduler.
