@@ -16,8 +16,9 @@ package v1
 
 import (
 	"io/ioutil"
+	"mesos-framework-sdk/task/manager"
 	"net/http"
-	apiManager "sprint/scheduler/api/manager"
+	apiManager "hydrogen/scheduler/api/manager"
 )
 
 // API handlers communicate with the API manager to perform the appropriate actions.
@@ -62,7 +63,12 @@ func (h *Handlers) deployApplication(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	Success(w, Response{TaskName: task[0].Info.GetName(), Message: "Task successfully queued."})
+	// TODO(tim): Multiple tasks here will require marshalling.
+	Success(w, Response{
+		TaskName: task[0].Info.GetName(),
+		Message:  "Task successfully queued.",
+		State:    task[0].State.String(),
+	})
 }
 
 // Update handler allows for updates to an existing/running task.
@@ -83,7 +89,12 @@ func (h *Handlers) updateApplication(w http.ResponseWriter, r *http.Request) {
 
 	name := newTask[0].Info.GetName()
 
-	Success(w, Response{Message: "Updating " + name + ".", TaskName: newTask[0].Info.GetName()})
+	// TODO(tim): Multiple tasks should be marshaled here.
+	Success(w, Response{
+		TaskName: newTask[0].Info.GetName(),
+		Message:  "Updating " + name + ".",
+		State:    newTask[0].State.String(),
+	})
 }
 
 // Kill handler allows users to stop their running task.
@@ -102,7 +113,11 @@ func (h *Handlers) killApplication(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	Success(w, Response{Message: "Successfully killed task task " + name})
+	Success(w, Response{
+		TaskName: name,
+		Message:  "Successfully killed task task " + name,
+		State:    manager.KILLED.String(),
+	})
 }
 
 // State handler provides the given task's current execution status.
@@ -113,13 +128,17 @@ func (h *Handlers) applicationState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	state, err := h.manager.Status(name)
+	task, err := h.manager.Status(name)
 	if err != nil {
 		InternalServerError(w, Response{Message: err.Error()})
 		return
 	}
 
-	Success(w, Response{Message: "Task is " + state.String()})
+	Success(w, Response{
+		TaskName: task.Info.GetName(),
+		Message:  task.Info.String(),
+		State:    task.State.String(),
+	})
 }
 
 // Tasks handler provides a list of all tasks known to the scheduler.
@@ -145,6 +164,7 @@ func (h *Handlers) getAllTasks(w http.ResponseWriter, r *http.Request) {
 	for _, t := range tasks {
 		data = append(data, Response{
 			State:    t.State.String(),
+			Message:  t.Info.String(),
 			TaskName: t.Info.GetName(),
 		})
 	}

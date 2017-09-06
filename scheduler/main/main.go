@@ -17,25 +17,25 @@ package main
 import (
 	"encoding/base64"
 	"flag"
+	"hydrogen/scheduler"
+	"hydrogen/scheduler/api"
+	apiManager "hydrogen/scheduler/api/manager"
+	"hydrogen/scheduler/controller"
+	"hydrogen/scheduler/events"
+	"hydrogen/scheduler/ha"
+	"hydrogen/task/manager"
+	"hydrogen/task/persistence"
 	"mesos-framework-sdk/client"
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/persistence/drivers/etcd"
-	"mesos-framework-sdk/resources/manager"
+	resourceManager "mesos-framework-sdk/resources/manager"
 	sched "mesos-framework-sdk/scheduler"
 	"mesos-framework-sdk/server"
 	"mesos-framework-sdk/server/file"
 	sdkTaskManager "mesos-framework-sdk/task/manager"
 	t "mesos-framework-sdk/task/manager"
-	"sprint/scheduler"
-	"sprint/scheduler/api"
-	apiManager "sprint/scheduler/api/manager"
-	"sprint/scheduler/controller"
-	"sprint/scheduler/events"
-	"sprint/scheduler/ha"
-	sprintTaskManager "sprint/task/manager"
-	"sprint/task/persistence"
 	"strings"
 )
 
@@ -80,7 +80,7 @@ func main() {
 	), config.Persistence.MaxRetries)
 
 	// Manages our tasks.
-	taskManager := sprintTaskManager.NewTaskManager(
+	taskManager := manager.NewTaskManager(
 		make(map[string]*t.Task),
 		p,
 		logger,
@@ -90,7 +90,7 @@ func main() {
 		[]byte(config.Scheduler.Principal+":"+config.Scheduler.Secret),
 	)
 
-	r := manager.NewDefaultResourceManager() // Manages resources from the cluster
+	r := resourceManager.NewDefaultResourceManager() // Manages resources from the cluster
 	c := client.NewClient(client.ClientData{
 		Endpoint: config.Scheduler.MesosEndpoint,
 		Auth:     auth,

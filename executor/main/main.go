@@ -21,7 +21,7 @@ import (
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/utils"
 	"os"
-	"sprint/executor/events"
+	"hydrogen/executor/events"
 )
 
 // Main function will wire up all other dependencies for the executor and setup top-level configuration.
@@ -40,6 +40,6 @@ func main() {
 		Auth:     auth,
 	}, logger)
 	ex := executor.NewDefaultExecutor(fwId, execId, c, logger)
-	e := events.NewSprintExecutorEventController(ex, logger)
+	e := events.NewExecutorEventController(ex, logger)
 	e.Run()
 }

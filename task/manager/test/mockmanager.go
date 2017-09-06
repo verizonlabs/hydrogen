@@ -31,8 +31,14 @@ func (m MockTaskManager) Add(...*manager.Task) error {
 	return nil
 }
 
+func (m MockTaskManager) Restore(*manager.Task) {}
+
 func (m MockTaskManager) Delete(...*manager.Task) error {
 	return nil
+}
+
+func (m MockTaskManager) GetGroup(*manager.Task) ([]*manager.Task, error) {
+	return nil, nil
 }
 
 func (m MockTaskManager) Get(*string) (*manager.Task, error) {
@@ -94,8 +100,14 @@ func (m MockBrokenTaskManager) Add(...*manager.Task) error {
 	return broken
 }
 
+func (m MockBrokenTaskManager) Restore(*manager.Task) {}
+
 func (m MockBrokenTaskManager) Delete(...*manager.Task) error {
 	return broken
+}
+
+func (m MockBrokenTaskManager) GetGroup(*manager.Task) ([]*manager.Task, error) {
+	return nil, nil
 }
 
 func (m MockBrokenTaskManager) Get(*string) (*manager.Task, error) {
@@ -140,8 +152,14 @@ func (m MockTaskManagerQueued) Add(*mesos_v1.TaskInfo) error {
 	return nil
 }
 
+func (m MockTaskManagerQueued) Restore(*manager.Task) {}
+
 func (m MockTaskManagerQueued) Delete(*mesos_v1.TaskInfo) error {
 	return nil
+}
+
+func (m MockTaskManagerQueued) GetGroup(*manager.Task) ([]*manager.Task, error) {
+	return []*manager.Task{}, nil
 }
 
 func (m MockTaskManagerQueued) Get(*string) (*mesos_v1.TaskInfo, error) {

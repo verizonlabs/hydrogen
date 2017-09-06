@@ -18,7 +18,7 @@ import (
 	"mesos-framework-sdk/include/mesos_v1"
 	k "mesos-framework-sdk/resources/manager/test"
 	s "mesos-framework-sdk/scheduler/test"
-	"sprint/task/manager/test"
+	"hydrogen/task/manager/test"
 	"testing"
 )
 
@@ -241,13 +241,13 @@ func TestParser_Update(t *testing.T) {
 
 func TestParser_Status(t *testing.T) {
 	api := NewApiParser(k.MockResourceManager{}, test.MockTaskManager{}, s.MockScheduler{})
-	state, err := api.Status("test")
+	task, err := api.Status("test")
 	if err != nil {
-		t.Logf("Failed on status update %v\n", state)
+		t.Logf("Failed on status update %v\n", task.State.String())
 		t.Fail()
 	}
-	if state.String() != mesos_v1.TaskState_TASK_STARTING.String() {
-		t.Logf("Expected task running, got %v", state.String())
+	if task.State.String() != mesos_v1.TaskState_TASK_STARTING.String() {
+		t.Logf("Expected task running, got %v", task.State.String())
 		t.Fail()
 	}
 }

@@ -116,6 +116,8 @@ func Application(tasks ...*task.ApplicationJSON) ([]*manager.Task, error) {
 
 		taskIntent.Instances = t.Instances
 
+		taskIntent.Strategy = t.Strategy
+
 		taskIntent.Info = resourcebuilder.CreateTaskInfo(
 			utils.ProtoString(name),
 			taskId,

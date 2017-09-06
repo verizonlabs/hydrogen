@@ -18,10 +18,10 @@ test:
 	@go test -timeout 1m -cover ./...
 
 test-scheduler:
-	@go test -timeout 1m -cover sprint/scheduler/...
+	@go test -timeout 1m -cover hydrogen/scheduler/...
 
 test-executor:
-	@go test -timeout 1m -cover sprint/executor/...
+	@go test -timeout 1m -cover hydrogen/executor/...
 
 test-race:
 	@go test -timeout 1m -race ./...
@@ -30,9 +30,9 @@ bench:
 	@go test -timeout 1m -bench . ./...
 
 scheduler: test-scheduler
-	@go build -o sched sprint/scheduler/main
+	@go build -o sched hydrogen/scheduler/main
 
 executor: test-executor
-	@go build -o exec sprint/executor/main
+	@go build -o exec hydrogen/executor/main
 
 build: scheduler executor

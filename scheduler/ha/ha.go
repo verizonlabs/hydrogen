@@ -18,8 +18,8 @@ import (
 	"mesos-framework-sdk/logging"
 	"net"
 	"os"
-	"sprint/scheduler"
-	"sprint/task/persistence"
+	"hydrogen/scheduler"
+	"hydrogen/task/persistence"
 	"strconv"
 	"time"
 )
@@ -62,14 +62,34 @@ func (h *HA) Communicate() {
 	}
 
 	for {
+
 		// Block here until we get a new connection.
-		// We don't want to do anything with the stream so move on without spawning a thread to handle the connection.
 		conn, err := tcp.AcceptTCP()
 		if err != nil {
 			h.logger.Emit(logging.ERROR, "Failed to accept client: %s", err.Error())
 			time.Sleep(h.config.ServerRetry)
 			continue
 		}
+
+		remote := conn.RemoteAddr().String()
+		host, _, err := net.SplitHostPort(remote)
+		if err != nil {
+			h.logger.Emit(logging.ERROR, "Failed to parse IP and port of incoming standby connection")
+			return
+		}
+
+		h.logger.Emit(logging.INFO, "Standby "+host+" connected")
+		go func(conn *net.TCPConn) {
+			buff := make([]byte, 1)
+			_, err := conn.Read(buff)
+
+			// This cast requires Go 1.6+
+			if err, ok := err.(net.Error); ok && err.Timeout() {
+				h.logger.Emit(logging.ERROR, "Connection from "+host+" timed out")
+			} else {
+				h.logger.Emit(logging.ERROR, "Lost connection to standby "+host)
+			}
+		}(conn)
 
 		// TODO build out some config to use for setting the keep alive period here
 		if err := conn.SetKeepAlive(true); err != nil {
@@ -106,14 +126,14 @@ func (h *HA) Election() {
 		// If the leader fetched from persistent storage does not match the IP provided to this instance
 		// then we should connect to the already existing leader.
 		if leader != h.config.IP {
-			h.logger.Emit(logging.INFO, "Connecting to leader to determine when we need to wake up and perform leader election")
+			h.logger.Emit(logging.INFO, "Connecting to existing leader")
 
 			// Block here until we lose connection to the leader.
 			// Once the connection has been lost, elect a new leader.
 			err := h.leaderClient(leader)
 
 			// Only delete the key if we've lost the connection, not timed out.
-			// This conditional requires Go 1.6+
+			// This cast requires Go 1.6+
 			// NOTE (tim): Casting here is dangerous and could lead to a panic
 			if err, ok := err.(net.Error); ok && err.Timeout() {
 				h.logger.Emit(logging.ERROR, "Timed out connecting to leader")
@@ -126,9 +146,8 @@ func (h *HA) Election() {
 				}
 			}
 		} else {
-			h.logger.Emit(logging.INFO, "We're leading.")
-			// We are the leader, exit the loop and start the scheduler/API.
-			break
+			h.logger.Emit(logging.INFO, "We're leading")
+			break // We are the leader, exit the loop and start the scheduler/API.
 		}
 	}
 }
@@ -153,14 +172,10 @@ func (h *HA) leaderClient(leader string) error {
 
 	// Currently the leader server does not send us anything as we rely on TCP keepalive.
 	// Allocate the smallest buffer we can and block on reading data.
-	// If we don't do this we'll spin like crazy in an empty loop.
 	buffer := make([]byte, 1)
-	for {
-		_, err := tcp.Read(buffer)
-		if err != nil {
-			return err
-		}
-	}
+	_, err = tcp.Read(buffer)
+
+	return err
 }
 
 // Deletes the current leader information.

@@ -21,24 +21,22 @@ import (
 	"mesos-framework-sdk/structures"
 	"mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
-	"sprint/task/persistence"
+	"hydrogen/task/persistence"
 	"strconv"
+	"strings"
 	"sync"
 )
 
 const (
 	// Root directory
 	TASK_DIRECTORY = "/tasks/"
-	// Groups are appended onto this
-	// /tasks/groupName/groupTask1
-	// /tasks/groupName/groupTask2...etc
 )
 
 type (
 	// Our primary task handler that implements the above interface.
 	// The task handler manages all tasks that are submitted, updated, or deleted.
 	// Offers from Mesos are matched up with user-submitted tasks, and those tasks are updated via event callbacks.
-	SprintTaskHandler struct {
+	TaskHandler struct {
 		mutex   sync.RWMutex
 		tasks   map[string]*manager.Task
 		groups  map[string][]*mesos_v1.AgentID
@@ -54,7 +52,7 @@ func NewTaskManager(
 	storage persistence.Storage,
 	logger logging.Logger) manager.TaskManager {
 
-	handler := &SprintTaskHandler{
+	handler := &TaskHandler{
 		tasks:   cmap,
 		storage: storage,
 		retries: structures.NewConcurrentMap(),
@@ -67,7 +65,7 @@ func NewTaskManager(
 
 // Add and persists a new task into the task manager.
 // Duplicate task names are not allowed by Mesos, thus they are not allowed here.
-func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
+func (m *TaskHandler) Add(tasks ...*manager.Task) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -94,42 +92,47 @@ func (m *SprintTaskHandler) Add(tasks ...*manager.Task) error {
 				return err
 			}
 			m.tasks[t.Info.GetName()] = t
-		} else {
-			// Add a group
-			t.GroupInfo = manager.GroupInfo{GroupName: t.Info.GetName() + "/", InGroup: true}
+			continue
+		}
 
-			for i := 0; i < t.Instances; i++ {
-				// TODO(tim): t.Copy(Name, TaskId)
-				duplicate := *t
-				tmp := *t.Info // Make a copy
-				duplicate.Info = &tmp
-				duplicate.Info.Name = utils.ProtoString(originalName + "-" + strconv.Itoa(i+1))
-				duplicate.Info.TaskId = &mesos_v1.TaskID{Value: utils.ProtoString(taskId + "-" + strconv.Itoa(i+1))}
-				if _, ok := m.tasks[duplicate.Info.GetName()]; ok {
-					return errors.New("Task " + duplicate.Info.GetName() + " already exists")
-				}
+		// Add a group
+		t.GroupInfo = manager.GroupInfo{GroupName: t.Info.GetName() + "/", InGroup: true}
 
-				// Write forward.
-				data, err := duplicate.Encode()
-				if err != nil {
-					return err
-				}
-
-				err = m.storageWrite(t, data)
-				if err != nil {
-					m.logger.Emit(logging.ERROR, "Storage error: %v", err)
-					return err
-				}
-				m.tasks[duplicate.Info.GetName()] = &duplicate
+		for i := 0; i < t.Instances; i++ {
+			// TODO(tim): t.Copy(Name, TaskId)
+			duplicate := *t
+			tmp := *t.Info // Make a copy
+			duplicate.Info = &tmp
+			duplicate.Info.Name = utils.ProtoString(originalName + "-" + strconv.Itoa(i+1))
+			duplicate.Info.TaskId = &mesos_v1.TaskID{Value: utils.ProtoString(taskId + "-" + strconv.Itoa(i+1))}
+			if _, ok := m.tasks[duplicate.Info.GetName()]; ok {
+				return errors.New("Task " + duplicate.Info.GetName() + " already exists")
 			}
+
+			// Write forward.
+			data, err := duplicate.Encode()
+			if err != nil {
+				return err
+			}
+
+			err = m.storageWrite(&duplicate, data)
+			if err != nil {
+				m.logger.Emit(logging.ERROR, "Storage error: %v", err)
+				return err
+			}
+			m.tasks[duplicate.Info.GetName()] = &duplicate
 		}
 	}
 
 	return nil
 }
 
+func (m *TaskHandler) Restore(task *manager.Task) {
+	m.tasks[task.Info.GetName()] = task
+}
+
 // Delete a task from memory and etcd, and clears any associated policy.
-func (m *SprintTaskHandler) Delete(tasks ...*manager.Task) error {
+func (m *TaskHandler) Delete(tasks ...*manager.Task) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -146,7 +149,7 @@ func (m *SprintTaskHandler) Delete(tasks ...*manager.Task) error {
 }
 
 // Get a task by its name.
-func (m *SprintTaskHandler) Get(name *string) (*manager.Task, error) {
+func (m *TaskHandler) Get(name *string) (*manager.Task, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	if response, ok := m.tasks[*name]; ok {
@@ -155,8 +158,24 @@ func (m *SprintTaskHandler) Get(name *string) (*manager.Task, error) {
 	return nil, errors.New(*name + " not found.")
 }
 
+func (m *TaskHandler) GetGroup(task *manager.Task) ([]*manager.Task, error) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	if !task.GroupInfo.InGroup {
+		return nil, errors.New("Task " + task.Info.GetName() + " is not in a group.")
+	}
+	tasks := make([]*manager.Task, 0, task.Instances)
+	for i := 0; i < task.Instances; i++ {
+		nameSplit := strings.Split(task.Info.GetName(), "-")
+		if t, ok := m.tasks[nameSplit[0]+"-"+strconv.Itoa(i+1)]; ok {
+			tasks = append(tasks, t)
+		}
+	}
+	return tasks, nil
+}
+
 // GetById : get a task by it's ID.
-func (m *SprintTaskHandler) GetById(id *mesos_v1.TaskID) (*manager.Task, error) {
+func (m *TaskHandler) GetById(id *mesos_v1.TaskID) (*manager.Task, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
@@ -173,7 +192,7 @@ func (m *SprintTaskHandler) GetById(id *mesos_v1.TaskID) (*manager.Task, error) 
 }
 
 // HasTask indicates whether or not the task manager holds the specified task.
-func (m *SprintTaskHandler) HasTask(task *mesos_v1.TaskInfo) bool {
+func (m *TaskHandler) HasTask(task *mesos_v1.TaskInfo) bool {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	if len(m.tasks) == 0 {
@@ -186,14 +205,14 @@ func (m *SprintTaskHandler) HasTask(task *mesos_v1.TaskInfo) bool {
 }
 
 // TotalTasks the total number of tasks that the task manager holds.
-func (m *SprintTaskHandler) TotalTasks() int {
+func (m *TaskHandler) TotalTasks() int {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	return len(m.tasks)
 }
 
 // Update the given task with the given state.
-func (m *SprintTaskHandler) Update(tasks ...*manager.Task) error {
+func (m *TaskHandler) Update(tasks ...*manager.Task) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -213,7 +232,7 @@ func (m *SprintTaskHandler) Update(tasks ...*manager.Task) error {
 }
 
 // AllByState gets all tasks that match the given state.
-func (m *SprintTaskHandler) AllByState(state mesos_v1.TaskState) ([]*manager.Task, error) {
+func (m *TaskHandler) AllByState(state mesos_v1.TaskState) ([]*manager.Task, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
@@ -236,7 +255,7 @@ func (m *SprintTaskHandler) AllByState(state mesos_v1.TaskState) ([]*manager.Tas
 }
 
 // All gets all tasks that are known to the task manager.
-func (m *SprintTaskHandler) All() ([]*manager.Task, error) {
+func (m *TaskHandler) All() ([]*manager.Task, error) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	if len(m.tasks) == 0 {
@@ -250,7 +269,7 @@ func (m *SprintTaskHandler) All() ([]*manager.Task, error) {
 }
 
 // Function that wraps writing to the storage backend.
-func (m *SprintTaskHandler) storageWrite(task *manager.Task, encoded []byte) error {
+func (m *TaskHandler) storageWrite(task *manager.Task, encoded []byte) error {
 	var writeKey string
 	var id string = task.Info.GetTaskId().GetValue()
 	var name string = task.Info.GetName()
@@ -271,7 +290,7 @@ func (m *SprintTaskHandler) storageWrite(task *manager.Task, encoded []byte) err
 }
 
 // Function that wraps deleting from the storage backend.
-func (m *SprintTaskHandler) storageDelete(task *manager.Task) error {
+func (m *TaskHandler) storageDelete(task *manager.Task) error {
 	var del string
 	var id string = task.Info.GetTaskId().GetValue()
 	if task.GroupInfo.InGroup {
