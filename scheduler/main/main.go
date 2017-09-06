@@ -34,7 +34,7 @@ import (
 	"hydrogen/scheduler/controller"
 	"hydrogen/scheduler/events"
 	"hydrogen/scheduler/ha"
-	sprintTaskManager "hydrogen/task/manager"
+	"hydrogen/task/manager"
 	"hydrogen/task/persistence"
 	"strings"
 )
@@ -80,7 +80,7 @@ func main() {
 	), config.Persistence.MaxRetries)
 
 	// Manages our tasks.
-	taskManager := sprintTaskManager.NewTaskManager(
+	taskManager := manager.NewTaskManager(
 		make(map[string]*t.Task),
 		p,
 		logger,

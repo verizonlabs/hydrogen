@@ -1,4 +1,4 @@
-# Sprint
+# Hydrogen
 
 ## Overview
 
@@ -141,7 +141,7 @@ Deploy an application.
 /app
 
 # Example
-curl -X POST sprint.marathon.mesos:8080/v1/api/app -d@my-app.json
+curl -X POST hydrogen.marathon.mesos:8080/v1/api/app -d@my-app.json
 </pre></code>
 
 #### Kill ####
@@ -150,7 +150,7 @@ Kill an application.
 /app
 
 # Example
-curl -X DELETE sprint.marathon.mesos:8080/v1/api/app -d'{"name": "test-app"}'
+curl -X DELETE hydrogen.marathon.mesos:8080/v1/api/app -d'{"name": "test-app"}'
 </pre></code>
 
 #### Update ####
@@ -159,7 +159,7 @@ Update an application.
 /app
 
 # Example
-curl -X PUT sprint.marathon.mesos:8080/v1/api/app -d@my-updated-app.json
+curl -X PUT hydrogen.marathon.mesos:8080/v1/api/app -d@my-updated-app.json
 </pre></code>
 
 #### State ####
@@ -168,7 +168,7 @@ Get the state of an application.
 /app
 
 # Example
-curl -X GET sprint.marathon.mesos:8080/v1/api/app?name=test-app
+curl -X GET hydrogen.marathon.mesos:8080/v1/api/app?name=test-app
 </pre></code>
 
 #### Get All Tasks ####
@@ -177,7 +177,7 @@ Get all tasks known to the scheduler
 /app/all
 
 # Example
-curl -X GET sprint.marathon.mesos:8080/v1/api/app/all
+curl -X GET hydrogen.marathon.mesos:8080/v1/api/app/all
 </pre></code>
 
 ### [License](LICENSE) ###
