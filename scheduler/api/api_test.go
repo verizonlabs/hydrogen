@@ -17,8 +17,8 @@ package api
 import (
 	"errors"
 	mockLogger "mesos-framework-sdk/logging/test"
-	"sprint/scheduler"
-	mockApiManager "sprint/scheduler/api/manager/test"
+	"hydrogen/scheduler"
+	mockApiManager "hydrogen/scheduler/api/manager/test"
 	"testing"
 )
 

@@ -19,7 +19,7 @@ import (
 	mockLogger "mesos-framework-sdk/logging/test"
 	"mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
-	mockStorage "sprint/task/persistence/test"
+	mockStorage "hydrogen/task/persistence/test"
 	"strconv"
 	"testing"
 )

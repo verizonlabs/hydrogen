@@ -21,7 +21,7 @@ import (
 	"mesos-framework-sdk/structures"
 	"mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
-	"sprint/task/persistence"
+	"hydrogen/task/persistence"
 	"strconv"
 	"strings"
 	"sync"

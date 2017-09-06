@@ -16,8 +16,8 @@ package ha
 
 import (
 	mockLogger "mesos-framework-sdk/logging/test"
-	"sprint/scheduler"
-	mockStorage "sprint/task/persistence/test"
+	"hydrogen/scheduler"
+	mockStorage "hydrogen/task/persistence/test"
 	"testing"
 )
 
