@@ -40,6 +40,6 @@ func main() {
 		Auth:     auth,
 	}, logger)
 	ex := executor.NewDefaultExecutor(fwId, execId, c, logger)
-	e := events.NewSprintExecutorEventController(ex, logger)
+	e := events.NewExecutorEventController(ex, logger)
 	e.Run()
 }

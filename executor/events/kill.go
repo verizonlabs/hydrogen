@@ -19,6 +19,6 @@ import (
 	"mesos-framework-sdk/logging"
 )
 
-func (d *SprintExecutorController) Kill(kill *exec.Event_Kill) {
+func (d *ExecutorController) Kill(kill *exec.Event_Kill) {
 	d.logger.Emit(logging.INFO, "Kill event received")
 }

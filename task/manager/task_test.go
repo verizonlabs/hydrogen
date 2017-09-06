@@ -336,7 +336,7 @@ func TestTaskManager_DoubleAdd(t *testing.T) {
 	}
 }
 
-func BenchmarkSprintTaskHandler_Add(b *testing.B) {
+func BenchmarkTaskHandler_Add(b *testing.B) {
 	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	logger := new(mockLogger.MockLogger)
@@ -349,7 +349,7 @@ func BenchmarkSprintTaskHandler_Add(b *testing.B) {
 	b.StopTimer()
 }
 
-func BenchmarkSprintTaskHandler_Delete(b *testing.B) {
+func BenchmarkTaskHandler_Delete(b *testing.B) {
 	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	logger := new(mockLogger.MockLogger)
@@ -363,7 +363,7 @@ func BenchmarkSprintTaskHandler_Delete(b *testing.B) {
 
 }
 
-func BenchmarkSprintTaskHandler_Get(b *testing.B) {
+func BenchmarkTaskHandler_Get(b *testing.B) {
 	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	logger := new(mockLogger.MockLogger)
@@ -377,7 +377,7 @@ func BenchmarkSprintTaskHandler_Get(b *testing.B) {
 	b.StopTimer()
 }
 
-func BenchmarkSprintTaskHandler_GetById(b *testing.B) {
+func BenchmarkTaskHandler_GetById(b *testing.B) {
 	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	logger := new(mockLogger.MockLogger)
@@ -391,7 +391,7 @@ func BenchmarkSprintTaskHandler_GetById(b *testing.B) {
 	b.StopTimer()
 }
 
-func BenchmarkSprintTaskHandler_HasTask(b *testing.B) {
+func BenchmarkTaskHandler_HasTask(b *testing.B) {
 	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	logger := new(mockLogger.MockLogger)
@@ -405,7 +405,7 @@ func BenchmarkSprintTaskHandler_HasTask(b *testing.B) {
 	b.StopTimer()
 }
 
-func BenchmarkSprintTaskHandler_All(b *testing.B) {
+func BenchmarkTaskHandler_All(b *testing.B) {
 	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	logger := new(mockLogger.MockLogger)
@@ -419,7 +419,7 @@ func BenchmarkSprintTaskHandler_All(b *testing.B) {
 	b.StopTimer()
 }
 
-func BenchmarkSprintTaskHandler_TotalTasks(b *testing.B) {
+func BenchmarkTaskHandler_TotalTasks(b *testing.B) {
 	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	logger := new(mockLogger.MockLogger)
@@ -433,7 +433,7 @@ func BenchmarkSprintTaskHandler_TotalTasks(b *testing.B) {
 	b.StopTimer()
 }
 
-func BenchmarkSprintTaskHandler_AllByState(b *testing.B) {
+func BenchmarkTaskHandler_AllByState(b *testing.B) {
 	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	logger := new(mockLogger.MockLogger)
@@ -447,7 +447,7 @@ func BenchmarkSprintTaskHandler_AllByState(b *testing.B) {
 	b.StopTimer()
 }
 
-func BenchmarkSprintTaskHandler_Update(b *testing.B) {
+func BenchmarkTaskHandler_Update(b *testing.B) {
 	cmap := make(map[string]*manager.Task)
 	storage := mockStorage.MockStorage{}
 	logger := new(mockLogger.MockLogger)

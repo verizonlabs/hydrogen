@@ -21,7 +21,7 @@ import (
 	"mesos-framework-sdk/utils"
 )
 
-func (d *SprintExecutorController) Launch(launch *exec.Event_Launch) {
+func (d *ExecutorController) Launch(launch *exec.Event_Launch) {
 	d.logger.Emit(logging.INFO, "Launch event received: ", *launch.Task)
 	err := d.executor.Update(&mesos_v1.TaskStatus{
 		TaskId: launch.Task.TaskId,
