@@ -15,6 +15,8 @@
 package events
 
 import (
+	sched "hydrogen/scheduler"
+	"hydrogen/task/persistence"
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"
 	resourceManager "mesos-framework-sdk/resources/manager"
@@ -22,12 +24,10 @@ import (
 	"mesos-framework-sdk/scheduler/events"
 	taskManager "mesos-framework-sdk/task/manager"
 	"os"
-	sched "hydrogen/scheduler"
-	"hydrogen/task/persistence"
 	"sync"
 )
 
-// Event contains various event handlers and holds data that callbacks need to access/modify.
+// Handler contains various event handlers and holds data that callbacks need to access/modify.
 type Handler struct {
 	taskManager     taskManager.TaskManager
 	resourceManager resourceManager.ResourceManager

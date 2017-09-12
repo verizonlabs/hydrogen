@@ -19,6 +19,6 @@ import (
 	"mesos-framework-sdk/logging"
 )
 
-func (d *ExecutorController) Message(message *exec.Event_Message) {
+func (d *Handler) Message(message *exec.Event_Message) {
 	d.logger.Emit(logging.INFO, "%s", message.GetData())
 }

@@ -15,10 +15,20 @@
 package events
 
 import (
-	exec "mesos-framework-sdk/include/mesos_v1_executor"
+	"mesos-framework-sdk/executor"
+	"mesos-framework-sdk/executor/events"
 	"mesos-framework-sdk/logging"
 )
 
-func (d *Handler) Subscribed(sub *exec.Event_Subscribed) {
-	d.logger.Emit(logging.INFO, "Executor successfully subscribed")
+type Handler struct {
+	executor executor.Executor
+	logger   logging.Logger
+}
+
+// NewEvent returns a new Event type which adheres to the SchedulerEvent interface.
+func NewHandler(e executor.Executor, l logging.Logger) events.ExecutorEvents {
+	return &Handler{
+		executor: e,
+		logger:   l,
+	}
 }
