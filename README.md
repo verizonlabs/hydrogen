@@ -187,4 +187,8 @@ Go 1.6 and up.
   - A recursive clone will ensure that you bring in the submodules that are used
 - Run `make build` in the root of this project
 
+#### Testing ####
+
+Tests can be run with `make test`. Similarly, you can run benchmarks with `make bench`.
+
 ### [License](LICENSE) ###
