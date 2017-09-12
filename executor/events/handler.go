@@ -17,6 +17,7 @@ package events
 import (
 	"mesos-framework-sdk/executor"
 	"mesos-framework-sdk/executor/events"
+	"mesos-framework-sdk/include/mesos_v1_executor"
 	"mesos-framework-sdk/logging"
 )
 
@@ -30,5 +31,29 @@ func NewHandler(e executor.Executor, l logging.Logger) events.ExecutorEvents {
 	return &Handler{
 		executor: e,
 		logger:   l,
+	}
+}
+
+// Run executes the appropriate callback based on the event type.
+func (h *Handler) Run(event *mesos_v1_executor.Event) {
+	switch event.GetType() {
+	case mesos_v1_executor.Event_SUBSCRIBED:
+		h.Subscribed(event.GetSubscribed())
+	case mesos_v1_executor.Event_ACKNOWLEDGED:
+		h.Acknowledged(event.GetAcknowledged())
+	case mesos_v1_executor.Event_MESSAGE:
+		h.Message(event.GetMessage())
+	case mesos_v1_executor.Event_KILL:
+		h.Kill(event.GetKill())
+	case mesos_v1_executor.Event_LAUNCH:
+		h.Launch(event.GetLaunch())
+	case mesos_v1_executor.Event_LAUNCH_GROUP:
+		h.LaunchGroup(event.GetLaunchGroup())
+	case mesos_v1_executor.Event_SHUTDOWN:
+		h.Shutdown()
+	case mesos_v1_executor.Event_ERROR:
+		h.Error(event.GetError())
+	case mesos_v1_executor.Event_UNKNOWN:
+		h.logger.Emit(logging.ALARM, "Unknown event received")
 	}
 }

@@ -58,25 +58,7 @@ func (d *ExecutorController) Run(e events.ExecutorEvents) {
 // Listens for Mesos events and routes to the appropriate handler.
 func (d *ExecutorController) listen(e events.ExecutorEvents) {
 	for {
-		switch t := <-d.eventChan; t.GetType() {
-		case exec.Event_SUBSCRIBED:
-			e.Subscribed(t.GetSubscribed())
-		case exec.Event_ACKNOWLEDGED:
-			e.Acknowledged(t.GetAcknowledged())
-		case exec.Event_MESSAGE:
-			e.Message(t.GetMessage())
-		case exec.Event_KILL:
-			e.Kill(t.GetKill())
-		case exec.Event_LAUNCH:
-			e.Launch(t.GetLaunch())
-		case exec.Event_LAUNCH_GROUP:
-			e.LaunchGroup(t.GetLaunchGroup())
-		case exec.Event_SHUTDOWN:
-			e.Shutdown()
-		case exec.Event_ERROR:
-			e.Error(t.GetError())
-		case exec.Event_UNKNOWN:
-			d.logger.Emit(logging.ALARM, "Unknown event received")
-		}
+		event := <-d.eventChan
+		e.Run(event)
 	}
 }
