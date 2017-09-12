@@ -2,27 +2,24 @@
 
 ## Overview
 
-High performance Mesos framework based on the v1 streaming API.
+High performance, fault tolerant Mesos framework based on the v1 streaming API.
 
 Current feature set:
-- Launch, Destroy, Update, and gather state of a container.
-- UCR by default.
-- Configure and use any n number of CNI networks.
-- High availability of the framework by default.
-- Filter/Constraint support to launch on a set of defined nodes.
-- UNIQUE or MUX (colocate) tasks across a cluster.
-- Custom executor support.
+- Launch, destroy, update, and gather state of containers
+- Utilizes the universal container runtime instead of Docker
+- Configure and use any N number of CNI networks
+- High availability of the framework when launching more than one instance
+- Filter/constraint support to launch on a set of defined nodes
+- UNIQUE or MUX (colocate) deployment strategies
+- Custom executor support
 - Docker volume support (e.g. rexray, pxd...)
-
-Upcoming Features:
-(TBD)
 
 ### API Documentation ###
 Base endpoint:
 <pre><code>http://server:port/v1/api/</code></pre>
 
 #### Examples ####
-This is _not_ valid JSON to launch but an example enumeration of all options available.
+This is _not_ valid JSON to launch a task but is an example enumeration of all options available.
 
 <pre><code>
 [{
@@ -114,7 +111,7 @@ This is _not_ valid JSON to launch but an example enumeration of all options ava
 
 Example of a valid task that launches onto the CNI network "internal-network"
  and sleeps for 500 seconds.  It uses 0.1 CPU's, 32MB of RAM and 1024MB of disk.
- It will run 5 instances, and will launch on unique agentID's.
+ It will run 5 instances and will launch on unique agents.
 <pre><code>
 [{
   "name": "test-app",
@@ -135,13 +132,14 @@ Example of a valid task that launches onto the CNI network "internal-network"
   "strategy": {"type": "unique"}
 }]
 </code></pre>
+
 #### Deploy ####
 Deploy an application.
 <pre><code>Method: POST
 /app
 
 # Example
-curl -X POST hydrogen.marathon.mesos:8080/v1/api/app -d@my-app.json
+curl -X POST hydrogen.mesos:8080/v1/api/app -d@my-app.json
 </pre></code>
 
 #### Kill ####
@@ -150,7 +148,7 @@ Kill an application.
 /app
 
 # Example
-curl -X DELETE hydrogen.marathon.mesos:8080/v1/api/app -d'{"name": "test-app"}'
+curl -X DELETE hydrogen.mesos:8080/v1/api/app -d'{"name": "test-app"}'
 </pre></code>
 
 #### Update ####
@@ -159,7 +157,7 @@ Update an application.
 /app
 
 # Example
-curl -X PUT hydrogen.marathon.mesos:8080/v1/api/app -d@my-updated-app.json
+curl -X PUT hydrogen.mesos:8080/v1/api/app -d@my-updated-app.json
 </pre></code>
 
 #### State ####
@@ -168,7 +166,7 @@ Get the state of an application.
 /app
 
 # Example
-curl -X GET hydrogen.marathon.mesos:8080/v1/api/app?name=test-app
+curl -X GET hydrogen.mesos:8080/v1/api/app?name=test-app
 </pre></code>
 
 #### Get All Tasks ####
@@ -177,7 +175,16 @@ Get all tasks known to the scheduler
 /app/all
 
 # Example
-curl -X GET hydrogen.marathon.mesos:8080/v1/api/app/all
+curl -X GET hydrogen.mesos:8080/v1/api/app/all
 </pre></code>
+
+### Building ###
+
+#### Requirements ####
+Go 1.6 and up.
+
+- Recursively clone the [SDK](https://github.com/verizonlabs/mesos-framework-sdk) and this project into your `GOPATH`
+  - A recursive clone will ensure that you bring in the submodules that are used
+- Run `make build` in the root of this project
 
 ### [License](LICENSE) ###
