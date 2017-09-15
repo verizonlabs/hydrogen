@@ -15,13 +15,14 @@
 package main
 
 import (
+	"hydrogen/executor/controller"
+	"hydrogen/executor/events"
 	"mesos-framework-sdk/client"
 	"mesos-framework-sdk/executor"
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/utils"
 	"os"
-	"hydrogen/executor/events"
 )
 
 // Main function will wire up all other dependencies for the executor and setup top-level configuration.
@@ -40,6 +41,7 @@ func main() {
 		Auth:     auth,
 	}, logger)
 	ex := executor.NewDefaultExecutor(fwId, execId, c, logger)
-	e := events.NewExecutorEventController(ex, logger)
-	e.Run()
+	handler := events.NewHandler(ex, logger)
+
+	controller.NewEventController(ex, logger).Run(handler)
 }

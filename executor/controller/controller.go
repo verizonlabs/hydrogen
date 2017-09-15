@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package events
+package controller
 
 import (
 	e "mesos-framework-sdk/executor"
@@ -32,7 +32,7 @@ type ExecutorController struct {
 	eventChan chan *exec.Event
 }
 
-func NewExecutorEventController(e e.Executor, l logging.Logger) events.ExecutorEvents {
+func NewEventController(e e.Executor, l logging.Logger) *ExecutorController {
 	return &ExecutorController{
 		executor:  e,
 		eventChan: make(chan *exec.Event),
@@ -40,7 +40,8 @@ func NewExecutorEventController(e e.Executor, l logging.Logger) events.ExecutorE
 	}
 }
 
-func (d *ExecutorController) Run() {
+// Run subscribes and starts listening for executor events.
+func (d *ExecutorController) Run(e events.ExecutorEvents) {
 	go func() {
 		for {
 			err := d.executor.Subscribe(d.eventChan)
@@ -51,35 +52,13 @@ func (d *ExecutorController) Run() {
 		}
 	}()
 
-	select {
-	case e := <-d.eventChan:
-		d.Subscribed(e.GetSubscribed())
-	}
-	d.Listen()
+	d.listen(e)
 }
 
-// Default listening method on the
-func (d *ExecutorController) Listen() {
+// Listens for Mesos events and routes to the appropriate handler.
+func (d *ExecutorController) listen(e events.ExecutorEvents) {
 	for {
-		switch t := <-d.eventChan; t.GetType() {
-		case exec.Event_SUBSCRIBED:
-			d.Subscribed(t.GetSubscribed())
-		case exec.Event_ACKNOWLEDGED:
-			d.Acknowledged(t.GetAcknowledged())
-		case exec.Event_MESSAGE:
-			d.Message(t.GetMessage())
-		case exec.Event_KILL:
-			d.Kill(t.GetKill())
-		case exec.Event_LAUNCH:
-			d.Launch(t.GetLaunch())
-		case exec.Event_LAUNCH_GROUP:
-			d.LaunchGroup(t.GetLaunchGroup())
-		case exec.Event_SHUTDOWN:
-			d.Shutdown()
-		case exec.Event_ERROR:
-			d.Error(t.GetError())
-		case exec.Event_UNKNOWN:
-			d.logger.Emit(logging.ALARM, "Unknown event received")
-		}
+		event := <-d.eventChan
+		e.Run(event)
 	}
 }

@@ -19,6 +19,6 @@ import (
 	"mesos-framework-sdk/logging"
 )
 
-func (d *ExecutorController) LaunchGroup(launchGroup *exec.Event_LaunchGroup) {
+func (d *Handler) LaunchGroup(launchGroup *exec.Event_LaunchGroup) {
 	d.logger.Emit(logging.INFO, "Launch_group event received")
 }
