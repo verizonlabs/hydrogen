@@ -38,7 +38,7 @@ func (m MockApiManager) Update([]byte) ([]*manager.Task, error) {
 }
 
 func (m MockApiManager) Status(string) (*manager.Task, error) {
-	return &manager.Task{}, nil
+	return &manager.Task{Info: &mesos_v1.TaskInfo{}}, nil
 }
 func (m MockApiManager) AllTasks() ([]*manager.Task, error) {
 	return []*manager.Task{manager.NewTask(
