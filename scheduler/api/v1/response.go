@@ -19,7 +19,7 @@ import (
 	"net/http"
 )
 
-// v1 API response format.
+// Basic response which the V1 API uses to pass messages back to the user.
 type MessageResponse struct {
 	Message string `json:"message"`
 }

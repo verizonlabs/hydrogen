@@ -31,7 +31,7 @@ func NewHandlers(mgr apiManager.ApiParser) *Handlers {
 	return &Handlers{manager: mgr}
 }
 
-// Deploy handler launches a given application from parsed JSON.
+// Calls the appropriate handler based on the HTTP method.
 func (h *Handlers) Application(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
@@ -120,7 +120,7 @@ func (h *Handlers) killApplication(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// State handler provides the given task's current execution status.
+// State handler provides general information on the given task.
 func (h *Handlers) applicationState(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Query().Get("name")
 	if name == "" {
@@ -155,7 +155,7 @@ func (h *Handlers) applicationState(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Tasks handler provides a list of all tasks known to the scheduler.
+// Calls the appropriate handler based on the HTTP method.
 func (h *Handlers) Tasks(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
