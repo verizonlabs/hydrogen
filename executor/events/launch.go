@@ -15,10 +15,10 @@
 package events
 
 import (
-	"mesos-framework-sdk/include/mesos_v1"
-	exec "mesos-framework-sdk/include/mesos_v1_executor"
-	"mesos-framework-sdk/logging"
-	"mesos-framework-sdk/utils"
+	"github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1"
+	exec "github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1_executor"
+	"github.com/verizonlabs/mesos-framework-sdk/logging"
+	"github.com/verizonlabs/mesos-framework-sdk/utils"
 )
 
 func (d *Handler) Launch(launch *exec.Event_Launch) {

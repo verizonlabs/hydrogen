@@ -15,9 +15,9 @@
 package ha
 
 import (
-	mockLogger "mesos-framework-sdk/logging/test"
-	"hydrogen/scheduler"
-	mockStorage "hydrogen/task/persistence/test"
+	mockLogger "github.com/verizonlabs/mesos-framework-sdk/logging/test"
+	"github.com/verizonlabs/hydrogen/scheduler"
+	mockStorage "github.com/verizonlabs/hydrogen/task/persistence/test"
 	"testing"
 )
 

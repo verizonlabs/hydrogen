@@ -15,8 +15,8 @@
 package events
 
 import (
-	exec "mesos-framework-sdk/include/mesos_v1_executor"
-	"mesos-framework-sdk/logging"
+	exec "github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1_executor"
+	"github.com/verizonlabs/mesos-framework-sdk/logging"
 )
 
 func (d *Handler) Error(error *exec.Event_Error) {

@@ -16,10 +16,10 @@ package persistence
 
 import (
 	"errors"
-	"mesos-framework-sdk/include/mesos_v1"
-	"mesos-framework-sdk/persistence"
-	"mesos-framework-sdk/task"
-	"mesos-framework-sdk/task/retry"
+	"github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1"
+	"github.com/verizonlabs/mesos-framework-sdk/persistence"
+	"github.com/verizonlabs/mesos-framework-sdk/task"
+	"github.com/verizonlabs/mesos-framework-sdk/task/retry"
 	"time"
 )
 

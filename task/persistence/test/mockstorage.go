@@ -15,8 +15,8 @@
 package test
 
 import (
-	mockKv "mesos-framework-sdk/persistence/drivers/etcd/test"
-	mockRetry "mesos-framework-sdk/task/retry/test"
+	mockKv "github.com/verizonlabs/mesos-framework-sdk/persistence/drivers/etcd/test"
+	mockRetry "github.com/verizonlabs/mesos-framework-sdk/task/retry/test"
 )
 
 type MockStorage struct {

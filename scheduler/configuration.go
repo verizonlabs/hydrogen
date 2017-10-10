@@ -16,7 +16,7 @@ package scheduler
 
 import (
 	"flag"
-	"mesos-framework-sdk/server"
+	"github.com/verizonlabs/mesos-framework-sdk/server"
 	"os/user"
 	"time"
 )

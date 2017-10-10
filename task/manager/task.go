@@ -16,12 +16,12 @@ package manager
 
 import (
 	"errors"
-	"mesos-framework-sdk/include/mesos_v1"
-	"mesos-framework-sdk/logging"
-	"mesos-framework-sdk/structures"
-	"mesos-framework-sdk/task/manager"
-	"mesos-framework-sdk/utils"
-	"hydrogen/task/persistence"
+	"github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1"
+	"github.com/verizonlabs/mesos-framework-sdk/logging"
+	"github.com/verizonlabs/mesos-framework-sdk/structures"
+	"github.com/verizonlabs/mesos-framework-sdk/task/manager"
+	"github.com/verizonlabs/mesos-framework-sdk/utils"
+	"github.com/verizonlabs/hydrogen/task/persistence"
 	"strconv"
 	"strings"
 	"sync"
