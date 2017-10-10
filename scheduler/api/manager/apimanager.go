@@ -21,7 +21,7 @@ import (
 	"mesos-framework-sdk/scheduler"
 	"mesos-framework-sdk/task"
 	t "mesos-framework-sdk/task/manager"
-	"hydrogen/task/builder"
+	"github.com/verizonlabs/hydrogen/task/builder"
 )
 
 type (

@@ -15,10 +15,10 @@
 package controller
 
 import (
-	scheduler "hydrogen/scheduler"
-	"hydrogen/scheduler/ha"
-	"hydrogen/task/manager"
-	"hydrogen/task/persistence"
+	scheduler "github.com/verizonlabs/hydrogen/scheduler"
+	"github.com/verizonlabs/hydrogen/scheduler/ha"
+	"github.com/verizonlabs/hydrogen/task/manager"
+	"github.com/verizonlabs/hydrogen/task/persistence"
 	"mesos-framework-sdk/include/mesos_v1"
 	"mesos-framework-sdk/include/mesos_v1_scheduler"
 	"mesos-framework-sdk/logging"

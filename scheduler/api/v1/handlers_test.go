@@ -20,9 +20,9 @@ import (
 	test3 "mesos-framework-sdk/scheduler/test"
 	"net/http"
 	"net/http/httptest"
-	"hydrogen/scheduler/api/manager"
-	mockApiManager "hydrogen/scheduler/api/manager/test"
-	test2 "hydrogen/task/manager/test"
+	"github.com/verizonlabs/hydrogen/scheduler/api/manager"
+	mockApiManager "github.com/verizonlabs/hydrogen/scheduler/api/manager/test"
+	test2 "github.com/verizonlabs/hydrogen/task/manager/test"
 	"strings"
 	"testing"
 )

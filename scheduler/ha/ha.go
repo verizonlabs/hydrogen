@@ -18,8 +18,8 @@ import (
 	"mesos-framework-sdk/logging"
 	"net"
 	"os"
-	"hydrogen/scheduler"
-	"hydrogen/task/persistence"
+	"github.com/verizonlabs/hydrogen/scheduler"
+	"github.com/verizonlabs/hydrogen/task/persistence"
 	"strconv"
 	"time"
 )

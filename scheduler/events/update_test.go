@@ -22,9 +22,9 @@ import (
 	sched "mesos-framework-sdk/scheduler/test"
 	"mesos-framework-sdk/task/manager"
 	"mesos-framework-sdk/utils"
-	"hydrogen/scheduler"
-	mockTaskManager "hydrogen/task/manager/test"
-	mockStorage "hydrogen/task/persistence/test"
+	"github.com/verizonlabs/hydrogen/scheduler"
+	mockTaskManager "github.com/verizonlabs/hydrogen/task/manager/test"
+	mockStorage "github.com/verizonlabs/hydrogen/task/persistence/test"
 	"testing"
 )
 
