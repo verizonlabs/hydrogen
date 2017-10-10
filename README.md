@@ -183,9 +183,8 @@ curl -X GET hydrogen.mesos:8080/v1/api/app/all
 #### Requirements ####
 Go 1.6 and up.
 
-- Recursively clone the [SDK](https://github.com/verizonlabs/mesos-framework-sdk) and this project into your `GOPATH`
-  - A recursive clone will ensure that you bring in the submodules that are used
-- Run `make build` in the root of this project
+- `go get -d github.com/verizonlabs/hydrogen/...`
+- `cd $GOPATH/src/github.com/verizonlabs/hydrogen && make build`
 
 #### Testing ####
 
