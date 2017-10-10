@@ -18,10 +18,10 @@ test:
 	@go test -timeout 1m -cover ./...
 
 test-scheduler:
-	@go test -timeout 1m -cover hydrogen/scheduler/...
+	@go test -timeout 1m -cover github.com/verizonlabs/hydrogen/scheduler/...
 
 test-executor:
-	@go test -timeout 1m -cover hydrogen/executor/...
+	@go test -timeout 1m -cover github.com/verizonlabs/hydrogen/executor/...
 
 test-race:
 	@go test -timeout 1m -race ./...
@@ -30,9 +30,9 @@ bench:
 	@go test -timeout 1m -bench . ./...
 
 scheduler: test-scheduler
-	@go build -o sched hydrogen/scheduler/main
+	@go build -o sched github.com/verizonlabs/hydrogen/scheduler/main
 
 executor: test-executor
-	@go build -o exec hydrogen/executor/main
+	@go build -o exec github.com/verizonlabs/hydrogen/executor/main
 
 build: scheduler executor

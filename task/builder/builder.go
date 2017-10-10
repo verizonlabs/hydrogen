@@ -16,17 +16,17 @@ package builder
 
 import (
 	"errors"
-	"mesos-framework-sdk/include/mesos_v1"
-	resourcebuilder "mesos-framework-sdk/resources"
-	"mesos-framework-sdk/task"
-	"mesos-framework-sdk/task/command"
-	"mesos-framework-sdk/task/container"
-	"mesos-framework-sdk/task/healthcheck"
-	"mesos-framework-sdk/task/labels"
-	"mesos-framework-sdk/task/manager"
-	"mesos-framework-sdk/task/resources"
-	"mesos-framework-sdk/task/retry"
-	"mesos-framework-sdk/utils"
+	"github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1"
+	resourcebuilder "github.com/verizonlabs/mesos-framework-sdk/resources"
+	"github.com/verizonlabs/mesos-framework-sdk/task"
+	"github.com/verizonlabs/mesos-framework-sdk/task/command"
+	"github.com/verizonlabs/mesos-framework-sdk/task/container"
+	"github.com/verizonlabs/mesos-framework-sdk/task/healthcheck"
+	"github.com/verizonlabs/mesos-framework-sdk/task/labels"
+	"github.com/verizonlabs/mesos-framework-sdk/task/manager"
+	"github.com/verizonlabs/mesos-framework-sdk/task/resources"
+	"github.com/verizonlabs/mesos-framework-sdk/task/retry"
+	"github.com/verizonlabs/mesos-framework-sdk/utils"
 	"time"
 )
 

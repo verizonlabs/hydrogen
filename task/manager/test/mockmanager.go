@@ -16,12 +16,12 @@ package test
 
 import (
 	"errors"
-	"mesos-framework-sdk/include/mesos_v1"
-	"mesos-framework-sdk/structures"
-	"mesos-framework-sdk/structures/test"
-	"mesos-framework-sdk/task"
-	"mesos-framework-sdk/task/manager"
-	"mesos-framework-sdk/task/retry"
+	"github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1"
+	"github.com/verizonlabs/mesos-framework-sdk/structures"
+	"github.com/verizonlabs/mesos-framework-sdk/structures/test"
+	"github.com/verizonlabs/mesos-framework-sdk/task"
+	"github.com/verizonlabs/mesos-framework-sdk/task/manager"
+	"github.com/verizonlabs/mesos-framework-sdk/task/retry"
 	"time"
 )
 

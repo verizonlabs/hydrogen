@@ -15,14 +15,14 @@
 package events
 
 import (
-	sched "hydrogen/scheduler"
-	"hydrogen/task/persistence"
-	"mesos-framework-sdk/include/mesos_v1_scheduler"
-	"mesos-framework-sdk/logging"
-	resourceManager "mesos-framework-sdk/resources/manager"
-	"mesos-framework-sdk/scheduler"
-	"mesos-framework-sdk/scheduler/events"
-	taskManager "mesos-framework-sdk/task/manager"
+	sched "github.com/verizonlabs/hydrogen/scheduler"
+	"github.com/verizonlabs/hydrogen/task/persistence"
+	"github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1_scheduler"
+	"github.com/verizonlabs/mesos-framework-sdk/logging"
+	resourceManager "github.com/verizonlabs/mesos-framework-sdk/resources/manager"
+	"github.com/verizonlabs/mesos-framework-sdk/scheduler"
+	"github.com/verizonlabs/mesos-framework-sdk/scheduler/events"
+	taskManager "github.com/verizonlabs/mesos-framework-sdk/task/manager"
 	"os"
 	"sync"
 )

@@ -15,13 +15,13 @@
 package main
 
 import (
-	"hydrogen/executor/controller"
-	"hydrogen/executor/events"
-	"mesos-framework-sdk/client"
-	"mesos-framework-sdk/executor"
-	"mesos-framework-sdk/include/mesos_v1"
-	"mesos-framework-sdk/logging"
-	"mesos-framework-sdk/utils"
+	"github.com/verizonlabs/hydrogen/executor/controller"
+	"github.com/verizonlabs/hydrogen/executor/events"
+	"github.com/verizonlabs/mesos-framework-sdk/client"
+	"github.com/verizonlabs/mesos-framework-sdk/executor"
+	"github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1"
+	"github.com/verizonlabs/mesos-framework-sdk/logging"
+	"github.com/verizonlabs/mesos-framework-sdk/utils"
 	"os"
 )
 

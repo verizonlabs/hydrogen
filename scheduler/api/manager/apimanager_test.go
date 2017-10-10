@@ -15,10 +15,10 @@
 package manager
 
 import (
-	"mesos-framework-sdk/include/mesos_v1"
-	k "mesos-framework-sdk/resources/manager/test"
-	s "mesos-framework-sdk/scheduler/test"
-	"hydrogen/task/manager/test"
+	"github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1"
+	k "github.com/verizonlabs/mesos-framework-sdk/resources/manager/test"
+	s "github.com/verizonlabs/mesos-framework-sdk/scheduler/test"
+	"github.com/verizonlabs/hydrogen/task/manager/test"
 	"testing"
 )
 

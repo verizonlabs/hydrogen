@@ -15,10 +15,10 @@
 package controller
 
 import (
-	e "mesos-framework-sdk/executor"
-	"mesos-framework-sdk/executor/events"
-	exec "mesos-framework-sdk/include/mesos_v1_executor"
-	"mesos-framework-sdk/logging"
+	e "github.com/verizonlabs/mesos-framework-sdk/executor"
+	"github.com/verizonlabs/mesos-framework-sdk/executor/events"
+	exec "github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1_executor"
+	"github.com/verizonlabs/mesos-framework-sdk/logging"
 	"time"
 )
 

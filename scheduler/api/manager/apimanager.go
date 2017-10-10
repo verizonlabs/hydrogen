@@ -17,11 +17,11 @@ package manager
 import (
 	"encoding/json"
 	"errors"
-	r "mesos-framework-sdk/resources/manager"
-	"mesos-framework-sdk/scheduler"
-	"mesos-framework-sdk/task"
-	t "mesos-framework-sdk/task/manager"
-	"hydrogen/task/builder"
+	r "github.com/verizonlabs/mesos-framework-sdk/resources/manager"
+	"github.com/verizonlabs/mesos-framework-sdk/scheduler"
+	"github.com/verizonlabs/mesos-framework-sdk/task"
+	t "github.com/verizonlabs/mesos-framework-sdk/task/manager"
+	"github.com/verizonlabs/hydrogen/task/builder"
 )
 
 type (
