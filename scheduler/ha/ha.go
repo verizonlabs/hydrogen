@@ -15,7 +15,7 @@
 package ha
 
 import (
-	"mesos-framework-sdk/logging"
+	"github.com/verizonlabs/mesos-framework-sdk/logging"
 	"net"
 	"os"
 	"github.com/verizonlabs/hydrogen/scheduler"

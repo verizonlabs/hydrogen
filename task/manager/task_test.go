@@ -15,10 +15,10 @@
 package manager
 
 import (
-	"mesos-framework-sdk/include/mesos_v1"
-	mockLogger "mesos-framework-sdk/logging/test"
-	"mesos-framework-sdk/task/manager"
-	"mesos-framework-sdk/utils"
+	"github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1"
+	mockLogger "github.com/verizonlabs/mesos-framework-sdk/logging/test"
+	"github.com/verizonlabs/mesos-framework-sdk/task/manager"
+	"github.com/verizonlabs/mesos-framework-sdk/utils"
 	mockStorage "github.com/verizonlabs/hydrogen/task/persistence/test"
 	"strconv"
 	"testing"

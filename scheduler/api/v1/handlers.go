@@ -17,7 +17,7 @@ package v1
 import (
 	apiManager "github.com/verizonlabs/hydrogen/scheduler/api/manager"
 	"io/ioutil"
-	"mesos-framework-sdk/include/mesos_v1"
+	"github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1"
 	"net/http"
 )
 

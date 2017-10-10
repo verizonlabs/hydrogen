@@ -15,7 +15,7 @@
 package api
 
 import (
-	"mesos-framework-sdk/logging"
+	"github.com/verizonlabs/mesos-framework-sdk/logging"
 	"net/http"
 	"os"
 	sched "github.com/verizonlabs/hydrogen/scheduler"

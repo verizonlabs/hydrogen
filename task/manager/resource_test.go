@@ -15,11 +15,11 @@
 package manager
 
 import (
-	"mesos-framework-sdk/include/mesos_v1"
-	"mesos-framework-sdk/resources/manager"
-	"mesos-framework-sdk/task"
-	manager2 "mesos-framework-sdk/task/manager"
-	"mesos-framework-sdk/utils"
+	"github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1"
+	"github.com/verizonlabs/mesos-framework-sdk/resources/manager"
+	"github.com/verizonlabs/mesos-framework-sdk/task"
+	manager2 "github.com/verizonlabs/mesos-framework-sdk/task/manager"
+	"github.com/verizonlabs/mesos-framework-sdk/utils"
 	"testing"
 )
 

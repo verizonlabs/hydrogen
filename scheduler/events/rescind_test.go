@@ -15,11 +15,11 @@
 package events
 
 import (
-	"mesos-framework-sdk/include/mesos_v1_scheduler"
-	mockLogger "mesos-framework-sdk/logging/test"
-	mockResourceManager "mesos-framework-sdk/resources/manager/test"
-	sched "mesos-framework-sdk/scheduler/test"
-	"mesos-framework-sdk/task/manager"
+	"github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1_scheduler"
+	mockLogger "github.com/verizonlabs/mesos-framework-sdk/logging/test"
+	mockResourceManager "github.com/verizonlabs/mesos-framework-sdk/resources/manager/test"
+	sched "github.com/verizonlabs/mesos-framework-sdk/scheduler/test"
+	"github.com/verizonlabs/mesos-framework-sdk/task/manager"
 	"github.com/verizonlabs/hydrogen/scheduler"
 	mockTaskManager "github.com/verizonlabs/hydrogen/task/manager/test"
 	mockStorage "github.com/verizonlabs/hydrogen/task/persistence/test"

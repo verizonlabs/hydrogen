@@ -14,7 +14,7 @@
 
 package events
 
-import "mesos-framework-sdk/logging"
+import "github.com/verizonlabs/mesos-framework-sdk/logging"
 
 func (d *Handler) Shutdown() {
 	d.logger.Emit(logging.INFO, "Executor is shutting down...")

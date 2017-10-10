@@ -15,8 +15,8 @@
 package builder
 
 import (
-	"mesos-framework-sdk/task"
-	"mesos-framework-sdk/utils"
+	"github.com/verizonlabs/mesos-framework-sdk/task"
+	"github.com/verizonlabs/mesos-framework-sdk/utils"
 	"testing"
 )
 

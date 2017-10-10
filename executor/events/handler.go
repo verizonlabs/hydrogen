@@ -15,10 +15,10 @@
 package events
 
 import (
-	"mesos-framework-sdk/executor"
-	"mesos-framework-sdk/executor/events"
-	"mesos-framework-sdk/include/mesos_v1_executor"
-	"mesos-framework-sdk/logging"
+	"github.com/verizonlabs/mesos-framework-sdk/executor"
+	"github.com/verizonlabs/mesos-framework-sdk/executor/events"
+	"github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1_executor"
+	"github.com/verizonlabs/mesos-framework-sdk/logging"
 )
 
 type Handler struct {

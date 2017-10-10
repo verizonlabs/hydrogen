@@ -15,13 +15,13 @@
 package events
 
 import (
-	"mesos-framework-sdk/include/mesos_v1"
-	"mesos-framework-sdk/include/mesos_v1_scheduler"
-	"mesos-framework-sdk/logging"
-	"mesos-framework-sdk/resources"
-	"mesos-framework-sdk/scheduler/strategy"
-	"mesos-framework-sdk/task/manager"
-	"mesos-framework-sdk/utils"
+	"github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1"
+	"github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1_scheduler"
+	"github.com/verizonlabs/mesos-framework-sdk/logging"
+	"github.com/verizonlabs/mesos-framework-sdk/resources"
+	"github.com/verizonlabs/mesos-framework-sdk/scheduler/strategy"
+	"github.com/verizonlabs/mesos-framework-sdk/task/manager"
+	"github.com/verizonlabs/mesos-framework-sdk/utils"
 	"strings"
 )
 
