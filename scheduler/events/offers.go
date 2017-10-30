@@ -42,10 +42,10 @@ func (e *Handler) Offers(offerEvent *mesos_v1_scheduler.Event_Offers) {
 	queued, err := e.taskManager.AllByState(manager.UNKNOWN)
 
 	if err != nil {
-		e.logger.Emit(logging.INFO, "No tasks to launch.")
+		e.logger.Emit(logging.INFO, "No tasks to launch")
 		_, err := e.scheduler.Suppress()
 		if err != nil {
-			e.logger.Emit(logging.ERROR, "Failed to supress offers: %s", err.Error())
+			e.logger.Emit(logging.ERROR, "Failed to suppress offers: %s", err.Error())
 		}
 
 		err = e.declineOffers(offerEvent.GetOffers(), refuseSeconds)
