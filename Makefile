@@ -30,9 +30,9 @@ bench:
 	@go test -timeout 1m -bench . ./...
 
 scheduler: test-scheduler
-	@go build -o sched github.com/verizonlabs/hydrogen/scheduler/main
+	@go build -o bin/h2sched github.com/verizonlabs/hydrogen/scheduler/main
 
 executor: test-executor
-	@go build -o exec github.com/verizonlabs/hydrogen/executor/main
+	@go build -o bin/h2exec github.com/verizonlabs/hydrogen/executor/main
 
 build: scheduler executor
