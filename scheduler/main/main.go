@@ -116,6 +116,14 @@ func main() {
 		config.APIServer.Port,
 	)
 
+	// API server handles requests from users.
+	// When a proper request is made a plan is made.
+	// The plan then gets executed.
+	//
+	// Plan has to be able to orchestrate how the
+	// task manager and event updates are handled.
+	//
+
 	apiSrv := api.NewApiServer(config, m, logger)
 	go apiSrv.RunAPI(nil) // nil means to use default handlers.
 

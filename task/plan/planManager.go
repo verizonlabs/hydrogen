@@ -3,6 +3,13 @@ package plan
 type (
 	PlanType uint8
 
+	// Any plan needs to be able to control the lifecycle of a task.
+	Plan interface {
+		Execute() error // Execute the current plan.
+		Update() error  // Update the current plan status.
+		Status() error  // Current status of the plan.
+	}
+
 	PlanQueue interface {
 		Push(PlanType)
 		Pop() PlanType
