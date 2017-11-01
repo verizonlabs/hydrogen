@@ -15,16 +15,14 @@
 package controller
 
 import (
-	scheduler "github.com/verizonlabs/hydrogen/scheduler"
 	"github.com/verizonlabs/hydrogen/scheduler/ha"
 	"github.com/verizonlabs/hydrogen/task/manager"
-	"github.com/verizonlabs/hydrogen/task/persistence"
 	"github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1"
 	"github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1_scheduler"
 	"github.com/verizonlabs/mesos-framework-sdk/logging"
-	sdkScheduler "github.com/verizonlabs/mesos-framework-sdk/scheduler"
 	"github.com/verizonlabs/mesos-framework-sdk/scheduler/events"
 	sdkTaskManager "github.com/verizonlabs/mesos-framework-sdk/task/manager"
+	"hydrogen/task/plan"
 	"os"
 	"os/signal"
 	"syscall"
@@ -51,33 +49,25 @@ type (
 	// The controller is what is "run" to kick off our scheduler and subscribe to Mesos.
 	// Additionally, our framework's high availability is coordinated by this controller.
 	EventController struct {
-		config      *scheduler.Configuration
-		scheduler   sdkScheduler.Scheduler
-		taskManager sdkTaskManager.TaskManager
-		storage     persistence.Storage
-		logger      logging.Logger
-		ha          *ha.HA
+		planner plan.PlanQueue
+		logger  logging.Logger
+		ha      *ha.HA
 	}
 )
 
 // Returns the main controller that's used to coordinate the calls/events from/to the scheduler.
-func NewEventController(
-	config *scheduler.Configuration,
-	scheduler sdkScheduler.Scheduler,
-	manager sdkTaskManager.TaskManager,
-	storage persistence.Storage,
-	logger logging.Logger,
-	ha *ha.HA) *EventController {
+func NewEventController(planner plan.PlanQueue, logger logging.Logger, ha *ha.HA) *EventController {
 
 	return &EventController{
-		config:      config,
-		scheduler:   scheduler,
-		taskManager: manager,
-		storage:     storage,
-		logger:      logger,
-		ha:          ha,
+		planner: planner,
+		logger:  logger,
+		ha:      ha,
 	}
 }
+
+// TODO (tim): This can be refactored into a "Subscribe" plan.
+// Subscribe is a special plan since it blocks forever during the listening stage.
+//
 
 //
 // Main Run() function serves to run all the necessary logic
@@ -85,67 +75,40 @@ func NewEventController(
 // the mesos master in the cluster.
 // This method blocks forever, or until the scheduler is brought down.
 //
-func (s *EventController) Run(events chan *mesos_v1_scheduler.Event, revives chan *sdkTaskManager.Task, handler events.SchedulerEvent) {
+func (s *EventController) Run() {
+	var currentPlan plan.Plan
 
-	// Start the election.
-	s.logger.Emit(logging.INFO, "Starting leader election socket server")
-	go s.ha.Communicate()
+	// LOOP START
+	for {
+		// See if we have a plan to run
+		currentPlan = s.planner.Peek()
 
-	// Block here until we either become a leader or a standby.
-	// If we are the leader we break out and continue to execute the rest of the scheduler.
-	// If we are a standby then we connect to the leader and wait for the process to start over again.
-	s.ha.Election()
-
-	// Get the frameworkId from etcd and set it to our frameworkID in our struct.
-	err := s.setFrameworkId()
-	if err != nil {
-		s.logger.Emit(logging.ERROR, "Failed to get the framework ID from persistent storage: %s", err.Error())
-	}
-
-	// Recover our state (if any) in the event we (or the server) go down.
-	s.logger.Emit(logging.INFO, "Restoring any persisted state from data store")
-	err = s.restoreTasks()
-	if err != nil {
-		s.logger.Emit(logging.INFO, "Failed to restore persisted state: %s", err.Error())
-		os.Exit(2)
-	}
-
-	// Kick off our scheduled reconciling.
-	s.logger.Emit(logging.INFO, "Starting periodic reconciler thread with a %g minute interval", s.config.Scheduler.ReconcileInterval.Minutes())
-	go s.periodicReconcile()
-
-	go func() {
-		for {
-			leader, err := s.ha.GetLeader()
-			if err != nil {
-				s.logger.Emit(logging.ERROR, "Failed to get leader information: %s", err.Error())
-				os.Exit(5)
-			}
-
-			// We should only ever reach here if we hit a network partition and the standbys lose connection to the leader.
-			// If this happens we need to check if there really is another leader alive that we just can't reach.
-			// If we wrongly think we are the leader and try to subscribe when there's already a leader then we will disconnect the leader.
-			// Both the leader and the incorrectly determined new leader will continue to disconnect each other.
-			if leader != s.config.Leader.IP {
-				s.logger.Emit(logging.ERROR, "We are not the leader so we should not be subscribing. "+
-					"This is most likely caused by a network partition between the leader and standbys")
-				os.Exit(1)
-			}
-
-			resp, err := s.scheduler.Subscribe(events)
-			if err != nil {
-				s.logger.Emit(logging.ERROR, "Failed to subscribe: %s", err.Error())
-				if resp != nil && resp.StatusCode == 401 {
-					// TODO define constants and clean up all areas that currently exit with a hardcoded value.
-					os.Exit(8)
-				}
-
-				time.Sleep(time.Duration(s.config.Scheduler.SubscribeRetry))
-			}
+		// If not, just block and wait for a new plan to be put on the stack.
+		if currentPlan.Type() == plan.Idle {
+			// block until we have something to run.
+			currentPlan = <-s.planner.Wait()
 		}
-	}()
 
-	s.listen(events, revives, handler)
+		// Check if the plan is already running
+		if currentPlan.Status() != plan.RUNNING {
+			// If not, run the plan.
+			// Run the current plan once we have one to run that's not idle.
+			// The plan gets updated in Execute automatically
+			currentPlan.Execute()
+		} else {
+
+		}
+
+		// Check status and make sure it returns successful, if not,
+		// treat the failure as necessary by updating the plan.
+		if currentPlan.Status() == plan.FINISHED {
+			s.planner.Pop()
+		}
+	}
+	// LOOP END
+
+	// TODO (tim): Refactor this into the subscribe plan.
+	//s.listen(events, revives, handler)
 }
 
 // Listens for Mesos events, tasks that need to be revived, and signals and routes to the appropriate handler.

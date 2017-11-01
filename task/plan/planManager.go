@@ -1,46 +1,34 @@
 package plan
 
 type (
-	PlanType uint8
-
-	// Any plan needs to be able to control the lifecycle of a task.
-	Plan interface {
-		Execute() error // Execute the current plan.
-		Update() error  // Update the current plan status.
-		Status() error  // Current status of the plan.
-	}
-
 	PlanQueue interface {
-		Push(PlanType)
-		Pop() PlanType
-		Peek() PlanType
+		Push(Plan)
+		Pop() Plan
+		Peek() Plan
+		Wait() chan Plan
 	}
 
 	PlanManager struct {
-		current []PlanType
+		current []Plan
+		idle    Plan
+		isReady chan Plan
 	}
-)
-
-const (
-	Idle      PlanType = 0
-	Launch    PlanType = 1
-	Update    PlanType = 2
-	Kill      PlanType = 3
-	Reconcile PlanType = 4
 )
 
 func NewPlanManager() *PlanManager {
 	return &PlanManager{
-		current: make([]PlanType, 0),
+		current: make([]Plan, 0),
+		idle:    NewIdlePlan(),
 	}
 }
 
-func (p *PlanManager) Push(planType PlanType) {
-	p.current = append(p.current, planType)
+func (p *PlanManager) Push(plan Plan) {
+	p.current = append(p.current, plan)
+	p.isReady <- p.current[0]
 }
 
-func (p *PlanManager) Pop() PlanType {
-	curr := Idle
+func (p *PlanManager) Pop() Plan {
+	curr := p.idle
 	if len(p.current) > 0 {
 		curr = p.current[0]
 		p.current = p.current[1:len(p.current)]
@@ -48,10 +36,14 @@ func (p *PlanManager) Pop() PlanType {
 	return curr
 }
 
-func (p *PlanManager) Peek() PlanType {
-	curr := Idle
+func (p *PlanManager) Peek() Plan {
+	curr := p.idle
 	if len(p.current) > 0 {
 		curr = p.current[0]
 	}
 	return curr
+}
+
+func (p *PlanManager) Wait() chan Plan {
+	return p.isReady
 }

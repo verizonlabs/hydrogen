@@ -20,7 +20,6 @@ import (
 	"github.com/verizonlabs/hydrogen/scheduler"
 	"github.com/verizonlabs/hydrogen/scheduler/api"
 	apiManager "github.com/verizonlabs/hydrogen/scheduler/api/manager"
-	"github.com/verizonlabs/hydrogen/scheduler/controller"
 	"github.com/verizonlabs/hydrogen/scheduler/events"
 	"github.com/verizonlabs/hydrogen/scheduler/ha"
 	"github.com/verizonlabs/hydrogen/task/manager"
@@ -36,6 +35,8 @@ import (
 	"github.com/verizonlabs/mesos-framework-sdk/server/file"
 	sdkTaskManager "github.com/verizonlabs/mesos-framework-sdk/task/manager"
 	t "github.com/verizonlabs/mesos-framework-sdk/task/manager"
+	"hydrogen/scheduler/controller"
+	"hydrogen/task/plan"
 	"strings"
 )
 
@@ -104,7 +105,7 @@ func main() {
 	reviveChan := make(chan *sdkTaskManager.Task)
 
 	// Event controller manages scheduler events and how they are handled.
-	e := controller.NewEventController(config, s, taskManager, p, logger, ha)
+	e := controller.NewEventController(plan.NewPlanManager(), logger, ha)
 
 	logger.Emit(logging.INFO, "Starting API server")
 
@@ -130,5 +131,5 @@ func main() {
 	// Run our event controller and kick off HA leader election.
 	// Then subscribe to Mesos and start listening for events.
 	h := events.NewHandler(taskManager, r, config, s, p, reviveChan, logger)
-	e.Run(eventChan, reviveChan, h)
+	e.Run()
 }
