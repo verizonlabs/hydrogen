@@ -181,7 +181,7 @@ curl -X GET hydrogen.mesos:8080/v1/api/app/all
 ### Building ###
 
 #### Requirements ####
-Go 1.6 and up.
+Go 1.7 and up.
 
 - `go get -d github.com/verizonlabs/hydrogen/...`
 - `cd $GOPATH/src/github.com/verizonlabs/hydrogen && make build`
