@@ -3,4 +3,4 @@ go:
   - 1.7
   - 1.8
   - 1.9
-script: make test-race
+script: go get -t ./... && make test-race
