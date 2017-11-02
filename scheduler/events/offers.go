@@ -37,13 +37,22 @@ const (
 // master.
 //
 func (e *Handler) Offers(offerEvent *mesos_v1_scheduler.Event_Offers) {
+
 	// Check if we have any in the task manager we want to launch
 	queued, err := e.taskManager.AllByState(manager.UNKNOWN)
 
 	if err != nil {
-		e.logger.Emit(logging.INFO, "No tasks to launch.")
-		e.scheduler.Suppress()
-		e.declineOffers(offerEvent.GetOffers(), refuseSeconds)
+		e.logger.Emit(logging.INFO, "No tasks to launch")
+		_, err := e.scheduler.Suppress()
+		if err != nil {
+			e.logger.Emit(logging.ERROR, "Failed to suppress offers: %s", err.Error())
+		}
+
+		err = e.declineOffers(offerEvent.GetOffers(), refuseSeconds)
+		if err != nil {
+			e.logger.Emit(logging.ERROR, "Failed to decline offers: %s", err.Error())
+		}
+
 		return
 	}
 
@@ -93,7 +102,10 @@ func (e *Handler) Offers(offerEvent *mesos_v1_scheduler.Event_Offers) {
 		task.Info = t
 		task.State = manager.STAGING
 
-		e.taskManager.Update(task)
+		err = e.taskManager.Update(task)
+		if err != nil {
+			e.logger.Emit(logging.ERROR, "Failed to update task: %s", err.Error())
+		}
 
 		accepts[offer.Id] = append(accepts[offer.Id], resources.LaunchOfferOperation([]*mesos_v1.TaskInfo{t}))
 	}
@@ -101,12 +113,18 @@ func (e *Handler) Offers(offerEvent *mesos_v1_scheduler.Event_Offers) {
 	// Multiplex our tasks onto as few offers as possible and launch them all.
 	for id, launches := range accepts {
 		// TODO (tim) The offer operations will need to be parsed for volume mounting and etc.)
-		e.scheduler.Accept([]*mesos_v1.OfferID{id}, launches, nil)
+		_, err := e.scheduler.Accept([]*mesos_v1.OfferID{id}, launches, nil)
+		if err != nil {
+			e.logger.Emit(logging.ERROR, "Failed to accept offers: %s", err.Error())
+		}
 	}
 
 	// Resource manager pops offers when they are accepted
 	// Offers() returns a list of what is left, therefore whatever is left is to be rejected.
-	e.declineOffers(e.resourceManager.Offers(), refuseSeconds)
+	err = e.declineOffers(e.resourceManager.Offers(), refuseSeconds)
+	if err != nil {
+		e.logger.Emit(logging.ERROR, "Failed to decline offers: %s", err.Error())
+	}
 }
 
 func (e *Handler) setupExecutor(t *mesos_v1.TaskInfo) {
@@ -149,9 +167,9 @@ func (e *Handler) setupExecutor(t *mesos_v1.TaskInfo) {
 
 // Decline offers is a private method to organize a list of offers that are to be declined by the
 // scheduler.
-func (e *Handler) declineOffers(offers []*mesos_v1.Offer, refuseSeconds float64) {
+func (e *Handler) declineOffers(offers []*mesos_v1.Offer, refuseSeconds float64) error {
 	if len(offers) == 0 {
-		return
+		return nil
 	}
 
 	declineIDs := make([]*mesos_v1.OfferID, 0, len(offers))
@@ -161,7 +179,9 @@ func (e *Handler) declineOffers(offers []*mesos_v1.Offer, refuseSeconds float64)
 		declineIDs = append(declineIDs, id.GetId())
 	}
 
-	e.scheduler.Decline(declineIDs, &mesos_v1.Filters{RefuseSeconds: utils.ProtoFloat64(refuseSeconds)})
+	_, err := e.scheduler.Decline(declineIDs, &mesos_v1.Filters{RefuseSeconds: utils.ProtoFloat64(refuseSeconds)})
+
+	return err
 }
 
 // Tells us if the strategy the task has is applicable to this offer.
