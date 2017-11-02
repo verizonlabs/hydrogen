@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/verizonlabs/hydrogen.svg?branch=development)](https://travis-ci.org/verizonlabs/hydrogen)
+
 # Hydrogen
 
 ## Overview
