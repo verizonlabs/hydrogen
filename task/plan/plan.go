@@ -1,8 +1,13 @@
 package plan
 
 import (
+	schedulerConfig "github.com/verizonlabs/hydrogen/scheduler"
+	"github.com/verizonlabs/hydrogen/scheduler/ha"
+	"github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1_scheduler"
 	resource "github.com/verizonlabs/mesos-framework-sdk/resources/manager"
 	"github.com/verizonlabs/mesos-framework-sdk/task/manager"
+	"hydrogen/task/persistence"
+	"mesos-framework-sdk/logging"
 	"mesos-framework-sdk/scheduler"
 )
 
@@ -12,8 +17,9 @@ const (
 	Update    PlanType = 2
 	Kill      PlanType = 3
 	Reconcile PlanType = 4
+	Subscribe PlanType = 5
 
-	IDLE     PlanState = 0
+	QUEUED   PlanState = 0
 	RUNNING  PlanState = 1
 	FINISHED PlanState = 2
 	ERROR    PlanState = 3
@@ -36,20 +42,27 @@ type (
 func NewPlanFactory(
 	taskMgr manager.TaskManager,
 	resourceMgr resource.ResourceManager,
-	scheduler scheduler.Scheduler) func([]*manager.Task, PlanType) Plan {
+	scheduler scheduler.Scheduler,
+	storage persistence.Storage,
+	ha ha.HighAvailablity,
+	configuration schedulerConfig.Configuration,
+	logger logging.Logger,
+	events chan *mesos_v1_scheduler.Event) func([]*manager.Task, PlanType) Plan {
 
 	return func(tasks []*manager.Task, planType PlanType) Plan {
 		switch planType {
 		case Idle:
 			return NewIdlePlan()
 		case Launch:
-			return NewLaunchPlan(tasks, taskMgr, resourceMgr, scheduler)
+			return NewLaunchPlan(tasks, taskMgr, resourceMgr, scheduler, storage)
 		case Update:
-			return NewUpdatePlan(tasks, taskMgr, resourceMgr, scheduler)
+			return NewUpdatePlan(tasks, taskMgr, resourceMgr, scheduler, storage)
 		case Kill:
-			return NewKillPlan(tasks, taskMgr, resourceMgr, scheduler)
+			return NewKillPlan(tasks, taskMgr, resourceMgr, scheduler, storage)
 		case Reconcile:
-			return NewReconcilePlan(tasks, taskMgr, resourceMgr, scheduler)
+			return NewReconcilePlan(tasks, taskMgr, resourceMgr, scheduler, storage, configuration, logger)
+		case Subscribe:
+			return NewSubscribePlan(tasks, taskMgr, resourceMgr, scheduler, storage, ha, logger, configuration, events)
 		}
 	}
 }

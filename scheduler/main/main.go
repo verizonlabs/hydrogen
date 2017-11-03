@@ -26,17 +26,16 @@ import (
 	"github.com/verizonlabs/hydrogen/task/persistence"
 	"github.com/verizonlabs/mesos-framework-sdk/client"
 	"github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1"
-	"github.com/verizonlabs/mesos-framework-sdk/include/mesos_v1_scheduler"
 	"github.com/verizonlabs/mesos-framework-sdk/logging"
 	"github.com/verizonlabs/mesos-framework-sdk/persistence/drivers/etcd"
 	resourceManager "github.com/verizonlabs/mesos-framework-sdk/resources/manager"
 	sched "github.com/verizonlabs/mesos-framework-sdk/scheduler"
 	"github.com/verizonlabs/mesos-framework-sdk/server"
 	"github.com/verizonlabs/mesos-framework-sdk/server/file"
-	sdkTaskManager "github.com/verizonlabs/mesos-framework-sdk/task/manager"
 	t "github.com/verizonlabs/mesos-framework-sdk/task/manager"
 	"hydrogen/scheduler/controller"
 	"hydrogen/task/plan"
+	"mesos-framework-sdk/include/mesos_v1_scheduler"
 	"strings"
 )
 
@@ -96,19 +95,33 @@ func main() {
 		Endpoint: config.Scheduler.MesosEndpoint,
 		Auth:     auth,
 	}, logger) // Manages scheduler/executor HTTP calls, authorization, and new master detection.
+
 	s := sched.NewDefaultScheduler(c, frameworkInfo, logger) // Manages how to route and schedule tasks.
-	m := apiManager.NewApiParser(r, taskManager, s)          // Middleware for our API.
+
 	ha := ha.NewHA(p, logger, config.Leader)
 
-	// Used to listen for events coming from mesos master to our scheduler.
+	// Plan manager handles which current plan is running.
+	planQueue := plan.NewPlanQueue()
+
 	eventChan := make(chan *mesos_v1_scheduler.Event)
-	reviveChan := make(chan *sdkTaskManager.Task)
 
-	// Event controller manages scheduler events and how they are handled.
-	e := controller.NewEventController(plan.NewPlanManager(), logger, ha)
+	// Plan factory produces a new plan.
+	planFactory := plan.NewPlanFactory(taskManager,
+		r,
+		s,
+		p,
+		ha,
+		*config,
+		logger,
+		eventChan,
+	)
 
+	// Create a subscribe plan and push it onto the plan queue.
+	subscribePlan := planFactory([]*t.Task{}, plan.Subscribe)
+	planQueue.Push(subscribePlan)
+
+	// API SECTION
 	logger.Emit(logging.INFO, "Starting API server")
-
 	// Run our API in a go routine to listen for user requests.
 	config.APIServer.Server = server.NewConfiguration(
 		config.APIServer.Cert,
@@ -117,19 +130,17 @@ func main() {
 		config.APIServer.Port,
 	)
 
-	// API server handles requests from users.
-	// When a proper request is made a plan is made.
-	// The plan then gets executed.
-	//
-	// Plan has to be able to orchestrate how the
-	// task manager and event updates are handled.
-	//
-
-	apiSrv := api.NewApiServer(config, m, logger)
+	// API server configuration.
+	// The API handles adding plans to our Plan Queue.
+	parser := apiManager.NewApiParser(planQueue, planFactory)
+	apiSrv := api.NewApiServer(config, parser, logger)
 	go apiSrv.RunAPI(nil) // nil means to use default handlers.
 
 	// Run our event controller and kick off HA leader election.
 	// Then subscribe to Mesos and start listening for events.
-	h := events.NewHandler(taskManager, r, config, s, p, reviveChan, logger)
+	h := events.NewEventRouter(planQueue, logger)
+
+	// This just runs the loop to watch the queue.
+	e := controller.NewSprintExecutor(planQueue, logger)
 	e.Run()
 }
