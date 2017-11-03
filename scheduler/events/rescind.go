@@ -24,7 +24,7 @@ import (
 // Rescind events only occur if an offer isn't declined properly within the offer
 // timeout period.
 //
-func (e *Handler) Rescind(rescindEvent *mesos_v1_scheduler.Event_Rescind) {
+func (e *Router) Rescind(rescindEvent *mesos_v1_scheduler.Event_Rescind) {
 	if rescindEvent != nil {
 		e.logger.Emit(logging.INFO, "Rescind event recieved: %v", *rescindEvent)
 	} else {

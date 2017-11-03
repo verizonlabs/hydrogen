@@ -25,7 +25,10 @@ import (
 // Subscribed is a public method that handles subscription events from the master.
 // We handle our subscription by writing the framework ID to storage.
 // Then we gather all of our launched non-terminal tasks and reconcile them explicitly.
-func (h *Handler) Subscribed(subEvent *mesos_v1_scheduler.Event_Subscribed) {
+func (h *Router) Subscribed(subEvent *mesos_v1_scheduler.Event_Subscribed) {
+
+	// Update our plan with our subscribe Event.
+
 	id := subEvent.GetFrameworkId()
 	idVal := id.GetValue()
 	h.scheduler.FrameworkInfo().Id = id
@@ -57,7 +60,7 @@ func (h *Handler) Subscribed(subEvent *mesos_v1_scheduler.Event_Subscribed) {
 }
 
 // Create and persist our framework ID with an attached lifetime.
-func (h *Handler) createFrameworkIdLease(idVal string) error {
+func (h *Router) createFrameworkIdLease(idVal string) error {
 	policy := h.storage.CheckPolicy(nil)
 	return h.storage.RunPolicy(policy, func() error {
 		lease, err := h.storage.CreateWithLease("/frameworkId", idVal, int64(h.scheduler.FrameworkInfo().GetFailoverTimeout()))

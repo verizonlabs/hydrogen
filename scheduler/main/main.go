@@ -121,6 +121,6 @@ func main() {
 
 	// Run our event controller and kick off HA leader election.
 	// Then subscribe to Mesos and start listening for events.
-	h := events.NewHandler(taskManager, r, config, s, p, reviveChan, logger)
+	h := events.NewEventRouter(taskManager, r, config, s, p, reviveChan, logger)
 	e.Run(eventChan, reviveChan, h)
 }

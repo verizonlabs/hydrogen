@@ -29,7 +29,7 @@ import (
 )
 
 func TestHandler_InverseOffer(t *testing.T) {
-	e := NewHandler(
+	e := NewEventRouter(
 		mockTaskManager.MockTaskManager{},
 		mockResourceManager.MockResourceManager{},
 		new(scheduler.Configuration),
@@ -50,7 +50,7 @@ func TestHandler_InverseOffer(t *testing.T) {
 }
 
 func TestHandler_InverseOfferWithNilOffer(t *testing.T) {
-	e := NewHandler(
+	e := NewEventRouter(
 		mockTaskManager.MockTaskManager{},
 		mockResourceManager.MockResourceManager{},
 		new(scheduler.Configuration),

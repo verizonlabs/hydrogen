@@ -27,7 +27,7 @@ import (
 )
 
 func TestHandler_Rescind(t *testing.T) {
-	e := NewHandler(
+	e := NewEventRouter(
 		mockTaskManager.MockTaskManager{},
 		mockResourceManager.MockResourceManager{},
 		new(scheduler.Configuration),
@@ -40,7 +40,7 @@ func TestHandler_Rescind(t *testing.T) {
 }
 
 func TestHandler_RescindWithNil(t *testing.T) {
-	e := NewHandler(
+	e := NewEventRouter(
 		mockTaskManager.MockTaskManager{},
 		mockResourceManager.MockResourceManager{},
 		new(scheduler.Configuration),

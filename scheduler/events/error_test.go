@@ -28,7 +28,7 @@ import (
 )
 
 func TestHandler_Error(t *testing.T) {
-	e := NewHandler(
+	e := NewEventRouter(
 		mockTaskManager.MockTaskManager{},
 		mockResourceManager.MockResourceManager{},
 		new(scheduler.Configuration),
@@ -43,7 +43,7 @@ func TestHandler_Error(t *testing.T) {
 }
 
 func TestHandler_ErrorWithNoMessage(t *testing.T) {
-	e := NewHandler(
+	e := NewEventRouter(
 		mockTaskManager.MockTaskManager{},
 		mockResourceManager.MockResourceManager{},
 		new(scheduler.Configuration),

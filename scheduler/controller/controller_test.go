@@ -108,7 +108,7 @@ func TestEventController_Run(t *testing.T) {
 	ch := make(chan *mesos_v1_scheduler.Event)
 	r := mockResourceManager.MockResourceManager{}
 	v := make(chan *sdkTaskManager.Task)
-	h := events.NewHandler(ctrl.taskManager, r, ctrl.config, ctrl.scheduler, ctrl.storage, v, ctrl.logger)
+	h := events.NewEventRouter(ctrl.taskManager, r, ctrl.config, ctrl.scheduler, ctrl.storage, v, ctrl.logger)
 	go ctrl.Run(ch, v, h)
 }
 
@@ -125,7 +125,7 @@ func TestEventController_listen(t *testing.T) {
 	ctrl := workingEventController()
 	r := mockResourceManager.MockResourceManager{}
 	v := make(chan *sdkTaskManager.Task)
-	h := events.NewHandler(ctrl.taskManager, r, ctrl.config, ctrl.scheduler, ctrl.storage, v, ctrl.logger)
+	h := events.NewEventRouter(ctrl.taskManager, r, ctrl.config, ctrl.scheduler, ctrl.storage, v, ctrl.logger)
 	go ctrl.Run(ch, v, h)
 
 	ch <- &mesos_v1_scheduler.Event{

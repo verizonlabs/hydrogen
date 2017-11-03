@@ -15,11 +15,11 @@
 package ha
 
 import (
+	"github.com/verizonlabs/hydrogen/scheduler"
+	"github.com/verizonlabs/hydrogen/task/persistence"
 	"github.com/verizonlabs/mesos-framework-sdk/logging"
 	"net"
 	"os"
-	"github.com/verizonlabs/hydrogen/scheduler"
-	"github.com/verizonlabs/hydrogen/task/persistence"
 	"strconv"
 	"time"
 )
@@ -28,13 +28,21 @@ const (
 	leaderKey = "/leader"
 )
 
-type HA struct {
-	logger  logging.Logger
-	config  *scheduler.LeaderConfiguration
-	storage persistence.Storage
-}
+type (
+	HighAvailablity interface {
+		Communicate()
+		Election()
+		CreateLeader() error
+		GetLeader() (string, error)
+	}
+	HA struct {
+		logger  logging.Logger
+		config  *scheduler.LeaderConfiguration
+		storage persistence.Storage
+	}
+)
 
-func NewHA(s persistence.Storage, l logging.Logger, c *scheduler.LeaderConfiguration) *HA {
+func NewHA(s persistence.Storage, l logging.Logger, c *scheduler.LeaderConfiguration) HighAvailablity {
 	return &HA{
 		logger:  l,
 		config:  c,

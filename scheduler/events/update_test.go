@@ -47,7 +47,7 @@ var states []*mesos_v1.TaskState = []*mesos_v1.TaskState{
 }
 
 func TestHandler_Update(t *testing.T) {
-	e := NewHandler(
+	e := NewEventRouter(
 		mockTaskManager.MockTaskManager{},
 		mockResourceManager.MockResourceManager{},
 		new(scheduler.Configuration),
@@ -67,7 +67,7 @@ func TestHandler_Update(t *testing.T) {
 }
 
 func TestHandler_UpdateWithNilTaskId(t *testing.T) {
-	e := NewHandler(
+	e := NewEventRouter(
 		mockTaskManager.MockTaskManager{},
 		mockResourceManager.MockResourceManager{},
 		new(scheduler.Configuration),
@@ -95,7 +95,7 @@ func TestHandler_UpdateWithNilTaskId(t *testing.T) {
 }
 
 func TestHandler_UpdateWithInvalidState(t *testing.T) {
-	e := NewHandler(
+	e := NewEventRouter(
 		mockTaskManager.MockTaskManager{},
 		mockResourceManager.MockResourceManager{},
 		new(scheduler.Configuration),
@@ -119,7 +119,7 @@ func TestHandler_UpdateWithInvalidState(t *testing.T) {
 }
 
 func TestHandler_UpdateWith(t *testing.T) {
-	e := NewHandler(
+	e := NewEventRouter(
 		mockTaskManager.MockTaskManager{},
 		mockResourceManager.MockResourceManager{},
 		new(scheduler.Configuration),

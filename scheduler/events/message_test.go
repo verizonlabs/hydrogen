@@ -30,7 +30,7 @@ import (
 
 // Test that we can pass a message.
 func TestHandler_Message(t *testing.T) {
-	e := NewHandler(
+	e := NewEventRouter(
 		mockTaskManager.MockTaskManager{},
 		mockResourceManager.MockResourceManager{},
 		new(scheduler.Configuration),
@@ -48,7 +48,7 @@ func TestHandler_Message(t *testing.T) {
 
 // Test if we send an empty message
 func TestHandler_MessageNoData(t *testing.T) {
-	e := NewHandler(
+	e := NewEventRouter(
 		mockTaskManager.MockTaskManager{},
 		mockResourceManager.MockResourceManager{},
 		new(scheduler.Configuration),
@@ -65,7 +65,7 @@ func TestHandler_MessageNoData(t *testing.T) {
 
 // Test what we do if we get a nil message
 func TestHandler_NilMessage(t *testing.T) {
-	e := NewHandler(
+	e := NewEventRouter(
 		mockTaskManager.MockTaskManager{},
 		mockResourceManager.MockResourceManager{},
 		new(scheduler.Configuration),
@@ -79,7 +79,7 @@ func TestHandler_NilMessage(t *testing.T) {
 
 // Test if we get a nil agent or nil value within the agent protobuf.
 func TestHandler_MessageWithNoAgent(t *testing.T) {
-	e := NewHandler(
+	e := NewEventRouter(
 		mockTaskManager.MockTaskManager{},
 		mockResourceManager.MockResourceManager{},
 		new(scheduler.Configuration),
@@ -102,7 +102,7 @@ func TestHandler_MessageWithNoAgent(t *testing.T) {
 
 // Test if we get a nil executor or nil value inside the protobuf.
 func TestHandler_MessageWithNoExecutor(t *testing.T) {
-	e := NewHandler(
+	e := NewEventRouter(
 		mockTaskManager.MockTaskManager{},
 		mockResourceManager.MockResourceManager{},
 		new(scheduler.Configuration),

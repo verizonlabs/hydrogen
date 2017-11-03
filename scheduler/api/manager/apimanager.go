@@ -17,11 +17,14 @@ package manager
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"github.com/verizonlabs/hydrogen/task/builder"
 	r "github.com/verizonlabs/mesos-framework-sdk/resources/manager"
 	"github.com/verizonlabs/mesos-framework-sdk/scheduler"
 	"github.com/verizonlabs/mesos-framework-sdk/task"
 	t "github.com/verizonlabs/mesos-framework-sdk/task/manager"
-	"github.com/verizonlabs/hydrogen/task/builder"
+	"hydrogen/task/plan"
+	"os"
 )
 
 type (
@@ -33,20 +36,19 @@ type (
 		AllTasks() ([]*t.Task, error)
 	}
 
+	factory func(tasks []*manager.Task, planType PlanType) Plan
+
 	Parser struct {
-		//		ctrlPlane       control.ControlPlane
-		resourceManager r.ResourceManager
-		taskManager     t.TaskManager
-		scheduler       scheduler.Scheduler
+		planFactory factory
+		planner     plan.PlanQueue
 	}
 )
 
 // NewApiParser returns an object that marshalls JSON and handles the input from the API endpoints.
-func NewApiParser(r r.ResourceManager, t t.TaskManager, s scheduler.Scheduler) *Parser {
+func NewApiParser(planner plan.PlanQueue, planFactory factory) *Parser {
 	return &Parser{
-		resourceManager: r,
-		taskManager:     t,
-		scheduler:       s,
+		planner:     planner,
+		planFactory: planFactory,
 	}
 }
 
@@ -67,73 +69,50 @@ func (m *Parser) Deploy(decoded []byte) ([]*t.Task, error) {
 		return nil, err
 	}
 
-	err = m.taskManager.Add(mesosTasks...)
-	if err != nil {
-		return nil, err
-	}
+	// Create a Launch plan.
+	m.planner.Push(m.planFactory(mesosTasks, plan.Launch))
 
-	m.scheduler.Revive()
 	return mesosTasks, nil
 }
 
 // Update takes a slice of bytes and marshalls them into an ApplicationJSON struct.
 func (m *Parser) Update(decoded []byte) ([]*t.Task, error) {
-	var appJSON task.ApplicationJSON
+	var appJSON []*task.ApplicationJSON
+
 	err := json.Unmarshal(decoded, &appJSON)
 	if err != nil {
 		return nil, err
 	}
 
-	taskToKill, err := m.taskManager.Get(&appJSON.Name)
+	if len(appJSON) == 0 {
+		return nil, errors.New("No valid application passed in.")
+	}
+
+	mesosTask, err = builder.Application(appJSON...)
 	if err != nil {
 		return nil, err
 	}
 
-	mesosTask, err := builder.Application(&appJSON)
-	if err != nil {
-		return nil, err
-	}
-
-	m.scheduler.Kill(taskToKill.Info.GetTaskId(), taskToKill.Info.GetAgentId())
-	m.taskManager.Add(mesosTask...)
-	m.scheduler.Revive()
+	m.planner.Push(m.planFactory(mesosTask, plan.Update))
 
 	return mesosTask, nil
 }
 
 // Kill takes a slice of bytes and marshalls them into a kill json struct.
 func (m *Parser) Kill(decoded []byte) (string, error) {
-	var appJSON task.KillJson
+	var appJSON []*task.KillJson
 	err := json.Unmarshal(decoded, &appJSON)
 	if err != nil {
 		return "", err
 	}
 
-	// Make sure we have a name to look up
-	if appJSON.Name == nil {
-		return "", errors.New("Task name is nil")
+	if len(appJSON) == 0 {
+		return "", errors.New("No valid tasks passed in.")
 	}
 
-	// Look up task in task manager
-	tsk, err := m.taskManager.Get(appJSON.Name)
-	if err != nil {
-		return "", err
-	}
+	// We only have task names instaed of tasks., create a kill plan with those names.
 
-	err = m.taskManager.Delete(tsk)
-	if err != nil {
-		return "", err
-	}
-
-	// If we are "unknown" that means the master doesn't know about the task, no need to make an HTTP call.
-	if tsk.State != t.UNKNOWN {
-		_, err := m.scheduler.Kill(tsk.Info.GetTaskId(), tsk.Info.GetAgentId())
-		if err != nil {
-			return "", err
-		}
-	}
-
-	return *appJSON.Name, nil
+	return *appJSON[0].Name, nil
 }
 
 func (m *Parser) Status(name string) (*t.Task, error) {

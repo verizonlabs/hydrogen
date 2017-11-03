@@ -20,6 +20,6 @@ import (
 )
 
 // Inverse offers
-func (e *Handler) InverseOffer(ioffers *mesos_v1_scheduler.Event_InverseOffers) {
+func (e *Router) InverseOffer(ioffers *mesos_v1_scheduler.Event_InverseOffers) {
 	e.logger.Emit(logging.INFO, "Inverse Offer event recieved: %v", ioffers)
 }

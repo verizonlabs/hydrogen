@@ -23,6 +23,6 @@ import (
 // Rescind Inverse Offers is a public method that handles the event
 // when an inverse offer isn't declined or accepted within the time out period set.
 //
-func (e *Handler) RescindInverseOffer(rioffers *mesos_v1_scheduler.Event_RescindInverseOffer) {
+func (e *Router) RescindInverseOffer(rioffers *mesos_v1_scheduler.Event_RescindInverseOffer) {
 	e.logger.Emit(logging.INFO, "Rescind Inverse Offer event recieved: %v", rioffers)
 }

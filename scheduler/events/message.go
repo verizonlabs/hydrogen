@@ -24,7 +24,7 @@ import (
 // We simply print this message to the log, however in the future we may utilize
 // the message passing functionality to send custom logging errors.
 //
-func (e *Handler) Message(msg *mesos_v1_scheduler.Event_Message) {
+func (e *Router) Message(msg *mesos_v1_scheduler.Event_Message) {
 	if msg != nil {
 		e.logger.Emit(logging.INFO, "Message event recieved: %v", *msg)
 	} else {

@@ -27,7 +27,7 @@ import (
 
 // Tests creation of a new handler.
 func TestHandler_NewHandler(t *testing.T) {
-	e := NewHandler(
+	e := NewEventRouter(
 		mockTaskManager.MockTaskManager{},
 		mockResourceManager.MockResourceManager{},
 		new(scheduler.Configuration),
@@ -43,7 +43,7 @@ func TestHandler_NewHandler(t *testing.T) {
 
 // Ensure our signal handlers are valid.
 func TestHandler_Signals(t *testing.T) {
-	e := NewHandler(
+	e := NewEventRouter(
 		mockTaskManager.MockTaskManager{},
 		mockResourceManager.MockResourceManager{},
 		new(scheduler.Configuration),

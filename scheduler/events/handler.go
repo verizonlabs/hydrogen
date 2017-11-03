@@ -23,45 +23,29 @@ import (
 	"github.com/verizonlabs/mesos-framework-sdk/scheduler"
 	"github.com/verizonlabs/mesos-framework-sdk/scheduler/events"
 	taskManager "github.com/verizonlabs/mesos-framework-sdk/task/manager"
+	"hydrogen/task/plan"
 	"os"
 	"sync"
 )
 
-// Handler contains various event handlers and holds data that callbacks need to access/modify.
-type Handler struct {
-	taskManager     taskManager.TaskManager
-	resourceManager resourceManager.ResourceManager
-	config          *sched.Configuration
-	scheduler       scheduler.Scheduler
-	storage         persistence.Storage
-	revive          chan *taskManager.Task
-	logger          logging.Logger
-	frameworkLease  int64
-	sync.RWMutex
+// Router updates and routes messages from mesos.
+type Router struct {
+	planner plan.PlanQueue
+	logger  logging.Logger
 }
 
 // NewEvent returns a new Event type which adheres to the SchedulerEvent interface.
-func NewHandler(t taskManager.TaskManager,
-	r resourceManager.ResourceManager,
-	c *sched.Configuration,
-	s scheduler.Scheduler,
-	o persistence.Storage,
-	v chan *taskManager.Task,
-	l logging.Logger) events.SchedulerEvent {
-
-	return &Handler{
-		taskManager:     t,
-		resourceManager: r,
-		config:          c,
-		scheduler:       s,
-		storage:         o,
-		revive:          v,
-		logger:          l,
+func NewEventRouter(planner plan.PlanQueue, l logging.Logger) events.SchedulerEvent {
+	return &Router{
+		logger:  l,
+		planner: planner,
 	}
 }
 
 // Run executes the appropriate callback based on the event type.
-func (h *Handler) Run(event *mesos_v1_scheduler.Event) {
+func (r *Router) Run(event *mesos_v1_scheduler.Event) {
+	// Update the current plan.
+
 	switch event.GetType() {
 	case mesos_v1_scheduler.Event_SUBSCRIBED:
 		h.Subscribed(event.GetSubscribed())
@@ -86,10 +70,9 @@ func (h *Handler) Run(event *mesos_v1_scheduler.Event) {
 	case mesos_v1_scheduler.Event_UNKNOWN:
 		h.logger.Emit(logging.ALARM, "Unknown event received")
 	}
-
 }
 
-func (h *Handler) Signals() {
+func (h *Router) Signals() {
 	h.RLock()
 	if h.frameworkLease == 0 {
 		os.Exit(0)
@@ -104,19 +87,4 @@ func (h *Handler) Signals() {
 	}
 
 	os.Exit(0)
-}
-
-// Refreshes the lifetime of our persisted framework ID.
-func (h *Handler) refreshFrameworkIdLease() error {
-	policy := h.storage.CheckPolicy(nil)
-	return h.storage.RunPolicy(policy, func() error {
-		h.RLock()
-		err := h.storage.RefreshLease(h.frameworkLease)
-		if err != nil {
-			h.logger.Emit(logging.ERROR, "Failed to refresh framework ID lease: %s", err.Error())
-		}
-		h.RUnlock()
-
-		return err
-	})
 }

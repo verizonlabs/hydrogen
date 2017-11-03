@@ -36,7 +36,7 @@ const (
 // otherwise we tell the resource manager to match our tasks with offers sent by the
 // master.
 //
-func (e *Handler) Offers(offerEvent *mesos_v1_scheduler.Event_Offers) {
+func (e *Router) Offers(offerEvent *mesos_v1_scheduler.Event_Offers) {
 	// Check if we have any in the task manager we want to launch
 	queued, err := e.taskManager.AllByState(manager.UNKNOWN)
 
@@ -109,7 +109,7 @@ func (e *Handler) Offers(offerEvent *mesos_v1_scheduler.Event_Offers) {
 	e.declineOffers(e.resourceManager.Offers(), refuseSeconds)
 }
 
-func (e *Handler) setupExecutor(t *mesos_v1.TaskInfo) {
+func (e *Router) setupExecutor(t *mesos_v1.TaskInfo) {
 	// If we're using our custom executor then make sure we remove the original CommandInfo.
 	// Set up our ExecutorInfo and pass the user's command as data to the executor.
 	// The executor is responsible for taking this data and acting as expected.
@@ -149,7 +149,7 @@ func (e *Handler) setupExecutor(t *mesos_v1.TaskInfo) {
 
 // Decline offers is a private method to organize a list of offers that are to be declined by the
 // scheduler.
-func (e *Handler) declineOffers(offers []*mesos_v1.Offer, refuseSeconds float64) {
+func (e *Router) declineOffers(offers []*mesos_v1.Offer, refuseSeconds float64) {
 	if len(offers) == 0 {
 		return
 	}
@@ -165,7 +165,7 @@ func (e *Handler) declineOffers(offers []*mesos_v1.Offer, refuseSeconds float64)
 }
 
 // Tells us if the strategy the task has is applicable to this offer.
-func (e *Handler) applyStrategy(task *manager.Task, offer *mesos_v1.Offer) bool {
+func (e *Router) applyStrategy(task *manager.Task, offer *mesos_v1.Offer) bool {
 	// Apply the strategy.
 	switch strings.ToLower(task.Strategy.Type) {
 	case strategy.COLOCATE:

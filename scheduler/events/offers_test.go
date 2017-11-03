@@ -29,7 +29,7 @@ import (
 )
 
 func TestHandler_Offers(t *testing.T) {
-	e := NewHandler(
+	e := NewEventRouter(
 		mockTaskManager.MockTaskManager{},
 		mockResourceManager.MockResourceManager{},
 		new(scheduler.Configuration),
@@ -70,7 +70,7 @@ func TestHandler_Offers(t *testing.T) {
 }
 
 func TestHandler_OffersWithQueuedTasks(t *testing.T) {
-	e := NewHandler(
+	e := NewEventRouter(
 		mockTaskManager.MockTaskManager{},
 		mockResourceManager.MockResourceManager{},
 		new(scheduler.Configuration),

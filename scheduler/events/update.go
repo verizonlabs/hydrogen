@@ -23,7 +23,7 @@ import (
 
 // Update is a public method that handles an update event from the mesos master.
 // Depending on the update event, we handle the event as is appropriate.
-func (e *Handler) Update(updateEvent *mesos_v1_scheduler.Event_Update) {
+func (e *Router) Update(updateEvent *mesos_v1_scheduler.Event_Update) {
 	status := updateEvent.GetStatus()
 	agentID := status.GetAgentId()
 	taskID := status.GetTaskId()
@@ -143,7 +143,7 @@ func (e *Handler) Update(updateEvent *mesos_v1_scheduler.Event_Update) {
 
 // Sets a task to be rescheduled.
 // Rescheduling can be done when there are various failures such as network errors.
-func (e *Handler) Reschedule(task *manager.Task) {
+func (e *Router) Reschedule(task *manager.Task) {
 	// Does the task manager still have a reference to this task?
 	_, err := e.taskManager.GetById(task.Info.GetTaskId())
 	if err != nil || task.IsKill {
