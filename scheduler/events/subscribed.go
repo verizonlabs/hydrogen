@@ -58,21 +58,3 @@ func (h *Router) Subscribed(subEvent *mesos_v1_scheduler.Event_Subscribed) {
 
 	h.scheduler.Reconcile(toReconcile)
 }
-
-// Create and persist our framework ID with an attached lifetime.
-func (h *Router) createFrameworkIdLease(idVal string) error {
-	policy := h.storage.CheckPolicy(nil)
-	return h.storage.RunPolicy(policy, func() error {
-		lease, err := h.storage.CreateWithLease("/frameworkId", idVal, int64(h.scheduler.FrameworkInfo().GetFailoverTimeout()))
-		if err != nil {
-			h.logger.Emit(logging.ERROR, "Failed to save framework ID of %s to persistent data store", idVal)
-			return err
-		}
-
-		h.Lock()
-		h.frameworkLease = lease
-		h.Unlock()
-
-		return nil
-	})
-}

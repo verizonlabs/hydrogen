@@ -39,7 +39,7 @@ import (
 // generates an event controller with those items broken.
 
 // Creates a new working event controller.
-func workingEventController() *EventController {
+func workingEventController() *SprintExecutor {
 	var (
 		cfg *scheduler.Configuration = &scheduler.Configuration{
 			Leader: &scheduler.LeaderConfiguration{
@@ -57,7 +57,7 @@ func workingEventController() *EventController {
 		l  logging.Logger         = &mockLogger.MockLogger{}
 		ha                        = ha.NewHA(s, l, cfg.Leader)
 	)
-	return NewEventController(
+	return NewSprintExecutor(
 		cfg,
 		sh,
 		m,
@@ -67,7 +67,7 @@ func workingEventController() *EventController {
 	)
 }
 
-func brokenSchedulerEventController() *EventController {
+func brokenSchedulerEventController() *SprintExecutor {
 	var (
 		cfg *scheduler.Configuration = &scheduler.Configuration{
 			Leader:    &scheduler.LeaderConfiguration{},
@@ -83,7 +83,7 @@ func brokenSchedulerEventController() *EventController {
 		l  logging.Logger         = &mockLogger.MockLogger{}
 		ha                        = ha.NewHA(s, l, cfg.Leader)
 	)
-	return NewEventController(
+	return NewSprintExecutor(
 		cfg,
 		sh,
 		m,
