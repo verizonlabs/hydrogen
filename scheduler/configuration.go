@@ -17,6 +17,7 @@ package scheduler
 import (
 	"flag"
 	"github.com/verizonlabs/mesos-framework-sdk/server"
+	"os"
 	"os/user"
 	"time"
 )
@@ -176,6 +177,8 @@ func (c *SchedulerConfiguration) initialize() *SchedulerConfiguration {
 		panic("Unable to detect current user: " + err.Error())
 	}
 
+	h, _ := os.Hostname() // If we can't determine the hostname just use the empty string.
+
 	flag.StringVar(&c.MesosEndpoint, "endpoint", "http://127.0.0.1:5050/api/v1/scheduler", "Mesos scheduler API endpoint")
 	flag.StringVar(&c.Name, "name", "Hydrogen", "Framework name")
 	flag.StringVar(&c.User, "user", u.Username, "User that the executor/task will be launched as")
@@ -184,7 +187,7 @@ func (c *SchedulerConfiguration) initialize() *SchedulerConfiguration {
 	flag.StringVar(&c.Principal, "principal", "Hydrogen", "Framework principal")
 	flag.StringVar(&c.Secret, "secret", "", "Used when Mesos requires authentication")
 	flag.Float64Var(&c.Failover, "failover", 168*time.Hour.Seconds(), "Framework failover timeout") // 1 week is recommended
-	flag.StringVar(&c.Hostname, "hostname", "", "The framework's hostname")
+	flag.StringVar(&c.Hostname, "hostname", h, "The framework's hostname")
 	flag.DurationVar(&c.SubscribeRetry, "subscribe.retry", 2*time.Second, "Controls the interval at which subscribe "+
 		"calls will be retried")
 	flag.DurationVar(&c.ReconcileInterval, "reconcile.interval", 15*time.Minute, "How often periodic reconciling happens")
